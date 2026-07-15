@@ -1048,6 +1048,67 @@ async def api_fork_sync(request: web.Request) -> web.Response:
     return _json_response({"ok": False, "error": str(e)}, status=500)
 
 
+async def api_fork_run_stream(request: web.Request) -> web.Response:
+  """SSE stream: scan → analyze → draft with phase/reasoning/content events."""
+  try:
+    from ai.fork.fork_sync import run_fork_pipeline
+
+    try:
+      body = await request.json()
+    except (json.JSONDecodeError, ValueError, aiohttp.ClientPayloadError):
+      body = {}
+    if not body.get("confirm"):
+      return _json_response({
+        "ok": False,
+        "needs_confirmation": True,
+        "error": "POST confirm=true to start fork analysis pipeline.",
+      }, status=400)
+
+    root = Path(__file__).resolve().parent.parent
+    force = bool(body.get("force"))
+    skip_draft = bool(body.get("skip_draft"))
+
+    async def stream_response():
+      response = web.StreamResponse(
+        status=200,
+        reason="OK",
+        headers={"Content-Type": "text/event-stream; charset=utf-8", "Cache-Control": "no-cache"},
+      )
+      await response.prepare(request)
+
+      async def emit(event: dict[str, Any]) -> None:
+        await response.write(_sse(event))
+
+      result: dict[str, Any] = {"ok": False}
+      try:
+        result = await run_fork_pipeline(
+          _PARAMS,
+          root,
+          force=force,
+          skip_draft=skip_draft,
+          emit=emit,
+        )
+        if result.get("ok") and result.get("fork_id"):
+          _PARAMS.put("ai_fork_id", str(result["fork_id"]))
+          _PARAMS.put("ai_fork_profile_applied", datetime.now(timezone.utc).isoformat())
+        elif result.get("ok") and result.get("analysis"):
+          fid = (result.get("analysis") or {}).get("fork_identity") or result.get("identity", {}).get("fork_id")
+          if fid:
+            _PARAMS.put("ai_fork_id", str(fid))
+            _PARAMS.put("ai_fork_profile_applied", datetime.now(timezone.utc).isoformat())
+      except Exception as e:
+        cloudlog.error(f"aid: api_fork_run_stream pipeline error: {e}")
+        await emit({"type": "error", "error": str(e)})
+        await emit({"type": "done", "ok": False, "error": str(e)})
+      await response.write_eof()
+      return response
+
+    return await stream_response()
+  except Exception as e:
+    cloudlog.error(f"aid: api_fork_run_stream error: {e}")
+    return _json_response({"ok": False, "error": str(e)}, status=500)
+
+
 async def api_onboarding_complete(request: web.Request) -> web.Response:
   try:
     _PARAMS.put_bool("ai_first_run_done", True)
@@ -1175,6 +1236,7 @@ def create_app() -> web.Application:
   app.router.add_get("/api/ai/fork/detect", api_fork_detect)
   app.router.add_post("/api/ai/fork/analyze", api_fork_analyze)
   app.router.add_post("/api/ai/fork/sync", api_fork_sync)
+  app.router.add_post("/api/ai/fork/run", api_fork_run_stream)
   app.router.add_post("/api/ai/onboarding/complete", api_onboarding_complete)
   app.router.add_post("/api/ai/integrate", api_integrate_openpilot)
   register_cabana_routes(app, WEB_DIR)

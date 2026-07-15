@@ -8,6 +8,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from ai.fork.fork_emit import EmitFn, emit_event, emit_phase, stream_llm_completion
 from ai.fork.repo_scan import compact_scan_for_api, derive_fork_identity, scan_openpilot_repo
 
 AI_DIR = Path(__file__).resolve().parent.parent
@@ -86,36 +87,55 @@ async def analyze_fork_with_ai(
   root: Path,
   *,
   force: bool = False,
+  emit: EmitFn = None,
 ) -> dict[str, Any]:
   """Let configured model read scan + file excerpts and infer fork characteristics."""
-  from ai.client import chat_completion_collect, load_config_from_params
+  from ai.client import load_config_from_params
 
+  await emit_phase(emit, "scan", "active")
   scan = scan_openpilot_repo(root)
   commit = scan.get("git_commit") or "unknown"
   identity = derive_fork_identity(scan)
+  compact = compact_scan_for_api(scan)
+  await emit_phase(emit, "scan", "done", detail={"git_commit": commit, "fork_id": identity.get("fork_id")})
+  await emit_event(emit, {"type": "scan", "data": compact})
 
+  await emit_phase(emit, "cache", "active")
   if not force:
     cached = load_cached_analysis(git_commit=commit)
     if cached and cached.get("analysis"):
+      await emit_phase(emit, "cache", "done", message="命中缓存，跳过 LLM 分析")
+      await emit_event(emit, {"type": "analysis", "cached": True, "data": cached["analysis"]})
       return {
         "ok": True,
         "cached": True,
         "git_commit": commit,
         "identity": identity,
-        "scan": compact_scan_for_api(scan),
+        "scan": compact,
         "analysis": cached["analysis"],
       }
+  await emit_phase(emit, "cache", "done", message="需要运行 AI 分析" if not force else "已强制重新分析")
 
   config = load_config_from_params(params)
   if not config.is_configured:
+    err = config.configuration_error or "请先配置模型 API（设置 → 模型）"
+    await emit_event(emit, {"type": "error", "error": err})
     return {
       "ok": False,
-      "error": config.configuration_error or "请先配置模型 API（设置 → 模型）",
+      "error": err,
       "identity": identity,
-      "scan": compact_scan_for_api(scan),
+      "scan": compact,
     }
 
+  await emit_phase(emit, "read_files", "active")
   file_reads = _read_extra_files(root, scan)
+  await emit_phase(
+    emit,
+    "read_files",
+    "done",
+    message=f"已读取 {len(file_reads)} 个文件",
+    detail=[f["path"] for f in file_reads],
+  )
   prompt_scan = compact_scan_for_api(scan)
   settings_excerpts = [
     {"path": m["path"], "excerpt": m.get("excerpt", "")[:1500]}
@@ -162,23 +182,32 @@ async def analyze_fork_with_ai(
 ```
 """
 
-  text, _reasoning, err = await chat_completion_collect(
+  messages = [{"role": "system", "content": system}, {"role": "user", "content": user}]
+  text, _reasoning, err = await stream_llm_completion(
     config,
-    [{"role": "system", "content": system}, {"role": "user", "content": user}],
+    messages,
+    emit=emit,
+    phase_id="llm_analyze",
     timeout_total=240,
   )
   if err:
-    return {"ok": False, "error": err, "identity": identity, "scan": compact_scan_for_api(scan)}
+    return {"ok": False, "error": err, "identity": identity, "scan": compact}
 
+  await emit_phase(emit, "parse", "active")
   analysis = _parse_analysis_json(text)
   if not analysis:
+    parse_err = "模型返回无法解析为 JSON"
+    await emit_phase(emit, "parse", "error", message=parse_err)
+    await emit_event(emit, {"type": "error", "error": parse_err, "raw_preview": text[:2000]})
     return {
       "ok": False,
-      "error": "模型返回无法解析为 JSON",
+      "error": parse_err,
       "raw_preview": text[:2000],
       "identity": identity,
-      "scan": compact_scan_for_api(scan),
+      "scan": compact,
     }
+  await emit_phase(emit, "parse", "done")
+  await emit_event(emit, {"type": "analysis", "cached": False, "data": analysis})
 
   payload = {
     "git_commit": commit,
@@ -189,13 +218,15 @@ async def analyze_fork_with_ai(
     "scan_summary": prompt_scan,
     "analysis": analysis,
   }
+  await emit_phase(emit, "save_analysis", "active")
   save_analysis(payload)
+  await emit_phase(emit, "save_analysis", "done")
 
   return {
     "ok": True,
     "cached": False,
     "git_commit": commit,
     "identity": identity,
-    "scan": compact_scan_for_api(scan),
+    "scan": compact,
     "analysis": analysis,
   }

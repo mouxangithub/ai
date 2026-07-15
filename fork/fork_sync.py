@@ -8,7 +8,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from ai.fork.analyze_fork import analyze_fork_with_ai, load_cached_analysis
+from ai.fork.analyze_fork import analyze_fork_with_ai
+from ai.fork.fork_emit import EmitFn, emit_event, emit_phase, stream_llm_completion
 from ai.fork.repo_scan import compact_scan_for_api, derive_fork_identity, scan_openpilot_repo
 
 AI_DIR = Path(__file__).resolve().parent.parent
@@ -49,17 +50,22 @@ async def generate_fork_drafts(
   *,
   openpilot_root: Path | None = None,
   force_analyze: bool = False,
+  analysis_result: dict[str, Any] | None = None,
+  emit: EmitFn = None,
 ) -> dict[str, Any]:
   """Run AI repo analysis (if needed) then draft skill/doc notes."""
-  from ai.client import chat_completion_collect, load_config_from_params
+  from ai.client import load_config_from_params
   from ai.system.paths import openpilot_root as default_root
 
   root = openpilot_root or default_root()
   config = load_config_from_params(params)
   if not config.is_configured:
-    return {"ok": False, "error": config.configuration_error or "AI not configured"}
+    err = config.configuration_error or "AI not configured"
+    await emit_event(emit, {"type": "error", "error": err})
+    return {"ok": False, "error": err}
 
-  analysis_result = await analyze_fork_with_ai(params, root, force=force_analyze)
+  if analysis_result is None:
+    analysis_result = await analyze_fork_with_ai(params, root, force=force_analyze, emit=emit)
   if not analysis_result.get("ok"):
     return analysis_result
 
@@ -86,9 +92,11 @@ bullet 列表：建议更新哪些技能/工具/文档（仅建议，不写代�
 ```
 """
 
-  text, _r, err = await chat_completion_collect(
+  text, _r, err = await stream_llm_completion(
     config,
     [{"role": "system", "content": system}, {"role": "user", "content": user}],
+    emit=emit,
+    phase_id="llm_draft",
     timeout_total=240,
   )
   if err:
@@ -101,6 +109,7 @@ bullet 列表：建议更新哪些技能/工具/文档（仅建议，不写代�
     skill_part = re.sub(r"^### Section A:.*?\n", "", parts[0], flags=re.S).strip()
     tools_part = parts[1].strip() if len(parts) > 1 else ""
 
+  await emit_phase(emit, "save_drafts", "active")
   paths["skill"].write_text(skill_part.strip() + "\n", encoding="utf-8")
   paths["tools"].write_text(tools_part.strip() + "\n", encoding="utf-8")
   manifest = {
@@ -114,8 +123,9 @@ bullet 列表：建议更新哪些技能/工具/文档（仅建议，不写代�
     "analysis_summary": (analysis_result.get("analysis") or {}).get("summary"),
   }
   paths["manifest"].write_text(json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8")
+  await emit_phase(emit, "save_drafts", "done", message=str(paths["base"]))
 
-  return {
+  result = {
     "ok": True,
     "fork_id": slug,
     "fork_label": ctx.get("fork_label"),
@@ -126,6 +136,44 @@ bullet 列表：建议更新哪些技能/工具/文档（仅建议，不写代�
     "analysis": analysis_result.get("analysis"),
     "preview": skill_part[:1500],
   }
+  await emit_event(emit, {"type": "draft", "data": result})
+  return result
+
+
+async def run_fork_pipeline(
+  params: Any,
+  root: Path,
+  *,
+  force: bool = False,
+  skip_draft: bool = False,
+  emit: EmitFn = None,
+) -> dict[str, Any]:
+  """Analyze fork (with optional cache) and generate review drafts."""
+  await emit_event(emit, {"type": "start", "force": force, "skip_draft": skip_draft})
+
+  analysis_result = await analyze_fork_with_ai(params, root, force=force, emit=emit)
+  if not analysis_result.get("ok"):
+    await emit_event(emit, {"type": "done", "ok": False, **analysis_result})
+    return analysis_result
+
+  if skip_draft:
+    out = {**analysis_result, "skipped_draft": True}
+    await emit_event(emit, {"type": "done", "ok": True, **out})
+    return out
+
+  draft_result = await generate_fork_drafts(
+    params,
+    openpilot_root=root,
+    analysis_result=analysis_result,
+    emit=emit,
+  )
+  if not draft_result.get("ok"):
+    await emit_event(emit, {"type": "done", "ok": False, **draft_result})
+    return draft_result
+
+  merged = {**draft_result, "analysis_cached": analysis_result.get("cached")}
+  await emit_event(emit, {"type": "done", "ok": True, **merged})
+  return merged
 
 
 def list_fork_drafts() -> list[dict[str, Any]]:

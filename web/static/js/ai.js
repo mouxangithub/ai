@@ -96,6 +96,14 @@ const els = {
   devPackageCheckBtn: $('#devPackageCheckBtn'),
   devPackageUpdateBtn: $('#devPackageUpdateBtn'),
   forkDetectBox: $('#forkDetectBox'),
+  forkProgressBox: $('#forkProgressBox'),
+  forkProgressStatus: $('#forkProgressStatus'),
+  forkProgressPhases: $('#forkProgressPhases'),
+  forkProgressLog: $('#forkProgressLog'),
+  forkProgressThinkingWrap: $('#forkProgressThinkingWrap'),
+  forkProgressThinking: $('#forkProgressThinking'),
+  forkProgressContentWrap: $('#forkProgressContentWrap'),
+  forkProgressContent: $('#forkProgressContent'),
   devForkBadge: $('#devForkBadge'),
   devForkRefreshBtn: $('#devForkRefreshBtn'),
   devForkSyncBtn: $('#devForkSyncBtn'),
@@ -376,6 +384,10 @@ function applyTranslations() {
   if (devForkTitle) devForkTitle.textContent = t('devForkTitle', 'Fork 分析');
   if (els.devForkRefreshBtn) els.devForkRefreshBtn.textContent = t('devForkRefresh', '扫描仓库');
   if (els.devForkSyncBtn) els.devForkSyncBtn.textContent = t('devForkAnalyze', 'AI 分析并生成草稿');
+  const forkThinkingSummary = $('#forkProgressThinkingSummary');
+  if (forkThinkingSummary) forkThinkingSummary.textContent = t('devForkProgressThinking', '思考过程');
+  const forkContentSummary = $('#forkProgressContentSummary');
+  if (forkContentSummary) forkContentSummary.textContent = t('devForkProgressOutput', '模型输出');
   const attrTsk = $('#attrTskLabel');
   if (attrTsk) attrTsk.textContent = t('attrTskWeb', 'TSK Web');
   const attrAi = $('#attrAiLabel');
@@ -4233,6 +4245,217 @@ function renderForkDetectCard(fork) {
   return rows + hint + aiHint;
 }
 
+const forkRunUi = {
+  phases: new Map(),
+  reasoningByPhase: {},
+  contentByPhase: {},
+  activePhase: null,
+};
+
+function resetForkRunUi() {
+  forkRunUi.phases.clear();
+  forkRunUi.reasoningByPhase = {};
+  forkRunUi.contentByPhase = {};
+  forkRunUi.activePhase = null;
+  if (els.forkProgressPhases) els.forkProgressPhases.innerHTML = '';
+  if (els.forkProgressLog) {
+    els.forkProgressLog.textContent = '';
+    els.forkProgressLog.hidden = true;
+  }
+  if (els.forkProgressThinking) els.forkProgressThinking.textContent = '';
+  if (els.forkProgressContent) els.forkProgressContent.textContent = '';
+  if (els.forkProgressThinkingWrap) els.forkProgressThinkingWrap.hidden = true;
+  if (els.forkProgressContentWrap) els.forkProgressContentWrap.hidden = true;
+}
+
+function setForkRunBusy(busy, statusText) {
+  if (!els.forkProgressBox) return;
+  els.forkProgressBox.classList.toggle('hidden', false);
+  els.forkProgressBox.classList.toggle('is-idle', !busy);
+  els.forkProgressBox.setAttribute('aria-busy', busy ? 'true' : 'false');
+  if (els.forkProgressStatus && statusText) {
+    els.forkProgressStatus.textContent = statusText;
+  }
+}
+
+function forkPhaseIcon(status) {
+  if (status === 'done') return '✓';
+  if (status === 'error') return '✕';
+  if (status === 'active') return '…';
+  return '○';
+}
+
+function renderForkRunPhases() {
+  if (!els.forkProgressPhases) return;
+  const order = ['scan', 'cache', 'read_files', 'llm_analyze', 'parse', 'save_analysis', 'llm_draft', 'save_drafts'];
+  const items = [...forkRunUi.phases.values()].sort((a, b) => {
+    const ai = order.indexOf(a.id);
+    const bi = order.indexOf(b.id);
+    return (ai < 0 ? 99 : ai) - (bi < 0 ? 99 : bi);
+  });
+  els.forkProgressPhases.innerHTML = items.map((p) => {
+    const cls = p.status === 'active' ? 'is-active' : (p.status === 'error' ? 'is-error' : (p.status === 'done' ? 'is-done' : ''));
+    const msg = p.message ? ` — ${escapeHtml(p.message)}` : '';
+    return `<li class="${cls}"><span class="fork-phase-icon">${forkPhaseIcon(p.status)}</span><span>${escapeHtml(p.label || p.id)}${msg}</span></li>`;
+  }).join('');
+}
+
+function appendForkRunLog(message) {
+  if (!els.forkProgressLog || !message) return;
+  els.forkProgressLog.hidden = false;
+  const line = document.createElement('div');
+  line.textContent = message;
+  els.forkProgressLog.appendChild(line);
+  els.forkProgressLog.scrollTop = els.forkProgressLog.scrollHeight;
+}
+
+function updateForkStreamPanels() {
+  const reasoning = Object.values(forkRunUi.reasoningByPhase).join('');
+  const content = Object.values(forkRunUi.contentByPhase).join('');
+  if (els.forkProgressThinkingWrap && els.forkProgressThinking) {
+    const has = Boolean(reasoning.trim());
+    els.forkProgressThinkingWrap.hidden = !has;
+    if (has) els.forkProgressThinking.textContent = reasoning;
+  }
+  if (els.forkProgressContentWrap && els.forkProgressContent) {
+    const has = Boolean(content.trim());
+    els.forkProgressContentWrap.hidden = !has;
+    if (has) els.forkProgressContent.textContent = content;
+  }
+}
+
+function handleForkRunEvent(event) {
+  if (!event || !event.type) return;
+  if (event.type === 'phase') {
+    forkRunUi.phases.set(event.id, {
+      id: event.id,
+      label: event.label || event.id,
+      status: event.status,
+      message: event.message || '',
+    });
+    if (event.status === 'active') {
+      forkRunUi.activePhase = event.id;
+      forkRunUi.reasoningByPhase[event.id] = forkRunUi.reasoningByPhase[event.id] || '';
+      forkRunUi.contentByPhase[event.id] = forkRunUi.contentByPhase[event.id] || '';
+      setForkRunBusy(true, event.label || t('devForkRunning', 'AI 分析进行中…'));
+    }
+    if (event.message) appendForkRunLog(`${event.label || event.id}: ${event.message}`);
+    renderForkRunPhases();
+    return;
+  }
+  if (event.type === 'reasoning' && event.delta) {
+    const phase = event.phase || forkRunUi.activePhase || 'llm';
+    forkRunUi.reasoningByPhase[phase] = (forkRunUi.reasoningByPhase[phase] || '') + event.delta;
+    updateForkStreamPanels();
+    return;
+  }
+  if (event.type === 'content' && event.delta) {
+    const phase = event.phase || forkRunUi.activePhase || 'llm';
+    forkRunUi.contentByPhase[phase] = (forkRunUi.contentByPhase[phase] || '') + event.delta;
+    updateForkStreamPanels();
+    return;
+  }
+  if (event.type === 'log' && event.message) {
+    appendForkRunLog(event.message);
+    return;
+  }
+  if (event.type === 'error') {
+    appendForkRunLog(event.error || t('devForkAnalyzeFail', 'AI 分析失败'));
+    setForkRunBusy(false, event.error || t('devForkAnalyzeFail', 'AI 分析失败'));
+  }
+}
+
+async function postSseStream(url, body, onEvent) {
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Accept: 'text/event-stream',
+    },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    let errText = res.statusText;
+    try {
+      const j = await res.json();
+      errText = j.error || errText;
+    } catch (_) {
+      try { errText = await res.text(); } catch (__) { /* ignore */ }
+    }
+    throw new Error(errText || `HTTP ${res.status}`);
+  }
+  if (!res.body) throw new Error('No response body');
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let buf = '';
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buf += decoder.decode(value, { stream: true });
+    const parts = buf.split('\n\n');
+    buf = parts.pop() || '';
+    for (const part of parts) {
+      const line = part.split('\n').find((l) => l.startsWith('data: '));
+      if (!line) continue;
+      try {
+        onEvent(JSON.parse(line.slice(6)));
+      } catch (_) { /* ignore malformed chunk */ }
+    }
+  }
+}
+
+async function refreshForkDetectCard() {
+  if (els.forkDetectBox) {
+    els.forkDetectBox.innerHTML = `
+      <div class="dev-skeleton dev-skeleton-line"></div>
+      <div class="dev-skeleton dev-skeleton-line short"></div>`;
+  }
+  const { data: fork } = await api('GET', '/api/ai/fork/detect');
+  if (els.forkDetectBox) els.forkDetectBox.innerHTML = renderForkDetectCard(fork);
+  if (els.devForkBadge) els.devForkBadge.textContent = fork?.fork_id || '—';
+  return fork;
+}
+
+async function runForkAnalyzePipeline({ force = false } = {}) {
+  if (!configured) {
+    showToast(t('devForkNeedConfig', '请先在设置中配置模型 API'));
+    openSettings('model');
+    return null;
+  }
+  resetForkRunUi();
+  setForkRunBusy(true, t('devForkRunning', 'AI 分析进行中…'));
+  els.devForkSyncBtn.disabled = true;
+  els.devForkRefreshBtn.disabled = true;
+  let finalResult = null;
+  try {
+    await postSseStream('/api/ai/fork/run', { confirm: true, force }, (event) => {
+      handleForkRunEvent(event);
+      if (event.type === 'done') finalResult = event;
+    });
+    if (finalResult?.ok) {
+      setForkRunBusy(false, t('devForkSyncOk', '分析与草稿已生成'));
+      showToast(t('devForkSyncOk', '分析与草稿已生成'));
+      await refreshForkDetectCard();
+    } else if (finalResult) {
+      const err = finalResult.error || t('devForkSyncFail', '草稿生成失败');
+      setForkRunBusy(false, err);
+      showToast(err);
+    } else {
+      setForkRunBusy(false, t('devForkAnalyzeFail', 'AI 分析失败'));
+      showToast(t('devForkAnalyzeFail', 'AI 分析失败'));
+    }
+    return finalResult;
+  } catch (e) {
+    const err = e?.message || t('devForkAnalyzeFail', 'AI 分析失败');
+    handleForkRunEvent({ type: 'error', error: err });
+    showToast(err);
+    return null;
+  } finally {
+    els.devForkSyncBtn.disabled = false;
+    els.devForkRefreshBtn.disabled = false;
+  }
+}
+
 function openOnboardingWizard() {
   if (!els.onboardingModal) return;
   const sel = els.onboardingProvider;
@@ -4759,28 +4982,19 @@ function bindUiEvents() {
       els.devPackageUpdateBtn.disabled = false;
     }
   });
-  els.devForkRefreshBtn?.addEventListener('click', () => renderDevPane());
+  els.devForkRefreshBtn?.addEventListener('click', async () => {
+    els.devForkRefreshBtn.disabled = true;
+    try {
+      await refreshForkDetectCard();
+    } catch {
+      showToast(t('devForkLoadFail', '无法扫描 fork'));
+    } finally {
+      els.devForkRefreshBtn.disabled = false;
+    }
+  });
   els.devForkSyncBtn?.addEventListener('click', async () => {
     if (!window.confirm(t('devForkAnalyzeConfirm', 'AI 将阅读整个 openpilot 项目并分析 fork，随后生成草稿（需人工审核）。继续？'))) return;
-    els.devForkSyncBtn.disabled = true;
-    try {
-      const { data: analyzed } = await api('POST', '/api/ai/fork/analyze', { force: false });
-      if (!analyzed.ok) {
-        showToast(analyzed.error || t('devForkAnalyzeFail', 'AI 分析失败'));
-        return;
-      }
-      const { data } = await api('POST', '/api/ai/fork/sync', { confirm: true });
-      if (data.ok) {
-        showToast(t('devForkSyncOk', '分析与草稿已生成'));
-        renderDevPane();
-      } else {
-        showToast(data.error || t('devForkSyncFail', '草稿生成失败'));
-      }
-    } catch {
-      showToast(t('devForkAnalyzeFail', 'AI 分析失败'));
-    } finally {
-      els.devForkSyncBtn.disabled = false;
-    }
+    await runForkAnalyzePipeline({ force: false });
   });
   els.onboardingBackdrop?.addEventListener('click', closeOnboardingWizard);
   els.onboardingTestBtn?.addEventListener('click', () => testOnboardingWizard());

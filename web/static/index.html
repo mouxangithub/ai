@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>op助手</title>
   <link rel="icon" type="image/svg+xml" href="/static/img/favicon.svg">
-  <link rel="stylesheet" href="/static/css/ai.css?v=20260715e0">
+  <link rel="stylesheet" href="/static/css/ai.css?v=20260715f0">
   <link rel="stylesheet" href="/static/css/cabana-panel.css?v=20260710z">
 </head>
 <body>
@@ -521,6 +521,22 @@
             <div class="dev-env-body" id="forkDetectBox">
               <div class="dev-skeleton dev-skeleton-line"></div>
             </div>
+            <div class="fork-progress hidden" id="forkProgressBox" aria-live="polite" aria-busy="false">
+              <div class="fork-progress-head">
+                <span class="fork-progress-spinner" id="forkProgressSpinner" aria-hidden="true"></span>
+                <span class="fork-progress-status" id="forkProgressStatus"></span>
+              </div>
+              <ul class="fork-progress-phases" id="forkProgressPhases"></ul>
+              <div class="fork-progress-log" id="forkProgressLog" hidden></div>
+              <details class="fork-progress-details" id="forkProgressThinkingWrap" hidden>
+                <summary id="forkProgressThinkingSummary">思考过程</summary>
+                <pre class="fork-progress-pre" id="forkProgressThinking"></pre>
+              </details>
+              <details class="fork-progress-details" id="forkProgressContentWrap" hidden>
+                <summary id="forkProgressContentSummary">模型输出</summary>
+                <pre class="fork-progress-pre" id="forkProgressContent"></pre>
+              </details>
+            </div>
             <div class="dev-package-actions">
               <button type="button" id="devForkRefreshBtn" class="btn small ghost">扫描仓库</button>
               <button type="button" id="devForkSyncBtn" class="btn small primary">AI 分析并生成草稿</button>
@@ -714,7 +730,7 @@
   <script src="/static/js/local-prefs.js?v=20260715n"></script>
   <script src="/static/js/quick-actions.js?v=20260715h"></script>
   <script src="/static/js/tsk-panel.js?v=20260715ab"></script>
-  <script src="/static/js/ai.js?v=20260715d0"></script>
+  <script src="/static/js/ai.js?v=20260715f0"></script>
   <script src="/static/js/cabana-panel.js?v=20260715aa"></script>
 </body>
 </html>
