@@ -25,7 +25,9 @@ curl -fsSL https://raw.githubusercontent.com/mouxangithub/ai/main/install/instal
 cd "$OPENPILOT_ROOT" && python3 -m ai.aid
 ```
 
-安装脚本会自动：克隆/更新 `ai/` → 补丁 `params_keys.h` 与 `launch_chffrplus.sh` → 编译 `params_pyx.so`。
+安装脚本会自动：克隆/更新 `ai/` → **改写** `params_keys.h` 与 `launch_chffrplus.sh` → 编译 `params_pyx.so`。
+
+**卸载：** `bash ai/install/uninstall.sh` 或见 [docs/INSTALL.md](docs/INSTALL.md#卸载)。
 
 ## 文档索引
 

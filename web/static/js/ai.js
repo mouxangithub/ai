@@ -376,6 +376,10 @@ function applyTranslations() {
   if (devForkTitle) devForkTitle.textContent = t('devForkTitle', 'Fork 分析');
   if (els.devForkRefreshBtn) els.devForkRefreshBtn.textContent = t('devForkRefresh', '扫描仓库');
   if (els.devForkSyncBtn) els.devForkSyncBtn.textContent = t('devForkAnalyze', 'AI 分析并生成草稿');
+  const attrTsk = $('#attrTskLabel');
+  if (attrTsk) attrTsk.textContent = t('attrTskWeb', 'TSK Web');
+  const attrAi = $('#attrAiLabel');
+  if (attrAi) attrAi.textContent = t('attrOpAi', 'op助手');
   const devSessionsTitle = $('#devSessionsTitle');
   if (devSessionsTitle) devSessionsTitle.textContent = t('devSessionsTitle', 'PC 工具会话');
   const devAssetsTitle = $('#devAssetsTitle');

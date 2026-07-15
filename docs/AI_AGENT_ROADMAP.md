@@ -1,7 +1,8 @@
 # op助手 AI Agent 能力路线图
 
-> 更新：2026-07-14  
-> 参考：上游 openpilot 车辆适配方法论、Carrot/OpenPilotCP 社区调优实践、本仓库 `dragonpilot/settings/`
+> **维护者参考文档**（非用户手册）。用户安装与使用请阅 [docs/README.md](README.md)、[INSTALL.md](INSTALL.md)、[OVERVIEW.md](OVERVIEW.md)。  
+> 更新：2026-07-15  
+> 参考：上游 openpilot 车辆适配方法论、社区调优实践、各 fork 的 `settings/ITEMS`
 
 ---
 

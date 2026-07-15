@@ -97,14 +97,16 @@ do_update() {
 }
 
 do_clone() {
-  if [[ -d "$TARGET" ]] && [[ ! -d "$TARGET/.git" ]]; then
+  if [[ -d "$TARGET" ]]; then
+    if [[ -d "$TARGET/.git" ]]; then
+      echo "检测到已有 git 安装的 ai/ → 执行更新（git pull）"
+      do_update
+      return 0
+    fi
     local bak="${TARGET}.bak.$(date +%s)"
-    echo "备份已有目录（非 git）: $TARGET -> $bak"
+    echo "检测到已有 ai/ 目录（非 git）→ 备份后重新克隆"
+    echo "  $TARGET -> $bak"
     mv "$TARGET" "$bak"
-  fi
-  if [[ -d "$TARGET/.git" ]]; then
-    do_update
-    return 0
   fi
   echo "克隆 op助手..."
   git clone --depth 1 -b "$AI_BRANCH" "$GIT_URL" "$TARGET"

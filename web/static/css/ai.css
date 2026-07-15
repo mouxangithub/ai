@@ -2377,6 +2377,32 @@ html, body {
   margin-top: 0.25rem;
 }
 
+.settings-attribution {
+  margin: 0.75rem 1rem 0;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.08));
+  font-size: 0.72rem;
+  line-height: 1.5;
+  color: var(--text-muted, #888);
+}
+
+.settings-attribution-line {
+  margin: 0.15rem 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  align-items: center;
+}
+
+.settings-attribution a {
+  color: var(--accent, #6ea8fe);
+  text-decoration: none;
+}
+
+.settings-attribution a:hover {
+  text-decoration: underline;
+}
+
 .settings-save-bar {
   flex-shrink: 0;
   padding: 0.65rem 1rem 0.85rem;
