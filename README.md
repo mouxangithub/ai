@@ -7,6 +7,7 @@
 | 独立仓库 | https://github.com/mouxangithub/ai |
 | 安装路径 | `<openpilot>/ai`（车机默认 `/data/openpilot/ai`） |
 | 一键安装 | `curl -fsSL https://raw.githubusercontent.com/mouxangithub/ai/main/install/install.sh \| bash` |
+| 自动集成 | 补丁 `params_keys.h` + `launch_chffrplus.sh` + 编译 `params_pyx.so` |
 | 详细说明 | [docs/INSTALL.md](docs/INSTALL.md) |
 
 ---

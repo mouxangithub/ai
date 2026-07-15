@@ -8,6 +8,7 @@ __pycache__/
 .env
 .env.*
 data/pc_tool_sessions/
+data/fork_drafts/
 *.swp
 *~
 .DS_Store

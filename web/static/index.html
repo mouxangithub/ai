@@ -513,6 +513,20 @@
             </div>
           </section>
 
+          <section class="dev-card" aria-labelledby="devForkTitle">
+            <div class="dev-card-head">
+              <h3 class="dev-card-title" id="devForkTitle">Fork 识别</h3>
+              <span class="dev-count-badge" id="devForkBadge">—</span>
+            </div>
+            <div class="dev-env-body" id="forkDetectBox">
+              <div class="dev-skeleton dev-skeleton-line"></div>
+            </div>
+            <div class="dev-package-actions">
+              <button type="button" id="devForkRefreshBtn" class="btn small ghost">重新检测</button>
+              <button type="button" id="devForkSyncBtn" class="btn small primary">生成草稿</button>
+            </div>
+          </section>
+
           <section class="dev-card" aria-labelledby="devEnvTitle">
             <h3 class="dev-card-title" id="devEnvTitle">运行环境</h3>
             <div class="dev-env-body" id="hostEnvBox">
@@ -632,6 +646,35 @@
     </div>
   </div>
 
+  <div id="onboardingModal" class="modal onboarding-modal" hidden>
+    <div class="modal-backdrop" id="onboardingBackdrop"></div>
+    <div class="modal-content onboarding-content">
+      <div class="modal-header">
+        <h2 id="onboardingTitle">欢迎使用 op助手</h2>
+      </div>
+      <div class="modal-body">
+        <p class="settings-pane-desc" id="onboardingDesc">首次使用请配置模型 API，完成后即可开始对话。</p>
+        <label class="field">
+          <span class="field-label" id="onboardingProviderLabel">服务商</span>
+          <select id="onboardingProvider"></select>
+        </label>
+        <label class="field">
+          <span class="field-label" id="onboardingApiKeyLabel">API Key</span>
+          <input type="password" id="onboardingApiKey" autocomplete="off">
+        </label>
+        <label class="field">
+          <span class="field-label" id="onboardingModelLabel">模型</span>
+          <input type="text" id="onboardingModel" placeholder="deepseek-v4-flash">
+        </label>
+        <p class="field-hint" id="onboardingResult"></p>
+      </div>
+      <div class="modal-footer actions">
+        <button type="button" id="onboardingTestBtn" class="btn ghost">测试连接</button>
+        <button type="button" id="onboardingSaveBtn" class="btn primary">保存并开始</button>
+      </div>
+    </div>
+  </div>
+
   <div id="pinModal" class="modal" hidden>
     <div class="modal-backdrop"></div>
     <div class="modal-content">
@@ -660,7 +703,7 @@
   <script src="/static/js/local-prefs.js?v=20260715n"></script>
   <script src="/static/js/quick-actions.js?v=20260715h"></script>
   <script src="/static/js/tsk-panel.js?v=20260715ab"></script>
-  <script src="/static/js/ai.js?v=20260715b0"></script>
+  <script src="/static/js/ai.js?v=20260715c0"></script>
   <script src="/static/js/cabana-panel.js?v=20260715aa"></script>
 </body>
 </html>

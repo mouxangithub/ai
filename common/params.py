@@ -377,4 +377,22 @@ ITEMS = [
     "param_type": "STRING",
     "default": "Asia/Shanghai",
   },
+  {
+    "key": "ai_first_run_done",
+    "flags": "PERSISTENT",
+    "param_type": "BOOL",
+    "default": "0",
+  },
+  {
+    "key": "ai_fork_id",
+    "flags": "PERSISTENT",
+    "param_type": "STRING",
+    "default": "",
+  },
+  {
+    "key": "ai_fork_profile_applied",
+    "flags": "PERSISTENT",
+    "param_type": "STRING",
+    "default": "",
+  },
 ]

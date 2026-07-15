@@ -1470,6 +1470,14 @@ html, body {
   margin-top: 0.5rem;
 }
 
+.onboarding-content {
+  max-width: 28rem;
+}
+
+.onboarding-modal .modal-footer {
+  justify-content: flex-end;
+}
+
 .dev-card-title {
   margin: 0;
   font-size: 0.82rem;

@@ -95,6 +95,18 @@ const els = {
   devPackageVersionBadge: $('#devPackageVersionBadge'),
   devPackageCheckBtn: $('#devPackageCheckBtn'),
   devPackageUpdateBtn: $('#devPackageUpdateBtn'),
+  forkDetectBox: $('#forkDetectBox'),
+  devForkBadge: $('#devForkBadge'),
+  devForkRefreshBtn: $('#devForkRefreshBtn'),
+  devForkSyncBtn: $('#devForkSyncBtn'),
+  onboardingModal: $('#onboardingModal'),
+  onboardingBackdrop: $('#onboardingBackdrop'),
+  onboardingProvider: $('#onboardingProvider'),
+  onboardingApiKey: $('#onboardingApiKey'),
+  onboardingModel: $('#onboardingModel'),
+  onboardingTestBtn: $('#onboardingTestBtn'),
+  onboardingSaveBtn: $('#onboardingSaveBtn'),
+  onboardingResult: $('#onboardingResult'),
   pcSessionsList: $('#pcSessionsList'),
   devAssetsList: $('#devAssetsList'),
   devRefreshBtn: $('#devRefreshBtn'),
@@ -360,6 +372,10 @@ function applyTranslations() {
   if (devPackageTitle) devPackageTitle.textContent = t('devPackageTitle', 'op助手 版本');
   if (els.devPackageCheckBtn) els.devPackageCheckBtn.textContent = t('devPackageCheck', '检查更新');
   if (els.devPackageUpdateBtn) els.devPackageUpdateBtn.textContent = t('devPackageUpdate', '立即更新');
+  const devForkTitle = $('#devForkTitle');
+  if (devForkTitle) devForkTitle.textContent = t('devForkTitle', 'Fork 识别');
+  if (els.devForkRefreshBtn) els.devForkRefreshBtn.textContent = t('devForkRefresh', '重新检测');
+  if (els.devForkSyncBtn) els.devForkSyncBtn.textContent = t('devForkSync', '生成草稿');
   const devSessionsTitle = $('#devSessionsTitle');
   if (devSessionsTitle) devSessionsTitle.textContent = t('devSessionsTitle', 'PC 工具会话');
   const devAssetsTitle = $('#devAssetsTitle');
@@ -3763,6 +3779,9 @@ async function loadBootstrap() {
   applyEmbeddingModelSelection(savedConfig?.embeddingModel || '');
 
   showConfigureHint();
+  if (data.onboarding?.showWizard) {
+    openOnboardingWizard();
+  }
   await loadUsage();
 }
 
@@ -4183,6 +4202,79 @@ function renderPackageVersionCard(pkg) {
   return rows + hint + installHint;
 }
 
+function renderForkDetectCard(fork) {
+  if (!fork || !fork.ok) {
+    return `<p class="dev-empty">${escapeHtml(fork?.error || t('devForkLoadFail', '无法检测 fork'))}</p>`;
+  }
+  const lines = [
+    ['Fork', `${fork.fork_label || fork.fork_id} (${fork.confidence || '—'})`],
+    ['分支', fork.git_branch || '—'],
+    ['推荐技能', (fork.profile?.skills || []).slice(0, 4).join(', ') || '—'],
+  ];
+  const rows = lines.map(([label, val]) => `
+    <div class="dev-kv">
+      <span class="dev-kv-label">${escapeHtml(label)}</span>
+      <span class="dev-kv-value">${escapeHtml(String(val))}</span>
+    </div>`).join('');
+  const reasons = (fork.reasons || []).slice(0, 3).join(' · ');
+  const hint = reasons ? `<p class="dev-env-hint muted">${escapeHtml(reasons)}</p>` : '';
+  return rows + hint;
+}
+
+function openOnboardingWizard() {
+  if (!els.onboardingModal) return;
+  const sel = els.onboardingProvider;
+  if (sel && providers.length) {
+    sel.innerHTML = providers.map((p) => `<option value="${escapeHtml(p)}">${escapeHtml(providerLabels[p] || p)}</option>`).join('');
+    const cur = els.providerSelect?.value || providers[0];
+    if (providers.includes(cur)) sel.value = cur;
+  }
+  if (els.onboardingModel) {
+    const p = sel?.value || 'opencode-zen';
+    els.onboardingModel.value = defaults[p] || modelCatalog[p]?.[0] || 'deepseek-v4-flash';
+  }
+  if (els.onboardingResult) els.onboardingResult.textContent = '';
+  els.onboardingModal.hidden = false;
+}
+
+function closeOnboardingWizard() {
+  if (els.onboardingModal) els.onboardingModal.hidden = true;
+}
+
+async function saveOnboardingWizard() {
+  const provider = els.onboardingProvider?.value || 'opencode-zen';
+  const apiKey = els.onboardingApiKey?.value?.trim() || '';
+  const model = els.onboardingModel?.value?.trim() || '';
+  if (!apiKey || !model) {
+    if (els.onboardingResult) els.onboardingResult.textContent = t('onboardingMissing', '请填写 API Key 和模型');
+    return;
+  }
+  const payload = { provider, apiKey, model };
+  const { data } = await api('POST', '/api/ai/config', payload);
+  if (!data.ok) {
+    if (els.onboardingResult) els.onboardingResult.textContent = data.error || t('saveFailed', '保存失败');
+    return;
+  }
+  await api('POST', '/api/ai/onboarding/complete', {});
+  configured = !!data.configured;
+  closeOnboardingWizard();
+  showToast(t('onboardingDone', '配置已保存，可以开始对话'));
+  await loadBootstrap();
+}
+
+async function testOnboardingWizard() {
+  const provider = els.onboardingProvider?.value || 'opencode-zen';
+  const apiKey = els.onboardingApiKey?.value?.trim() || '';
+  const model = els.onboardingModel?.value?.trim() || '';
+  if (els.onboardingResult) els.onboardingResult.textContent = t('testing', '测试中…');
+  const { data } = await api('POST', '/api/ai/test', { provider, apiKey, model });
+  if (els.onboardingResult) {
+    els.onboardingResult.textContent = data.ok
+      ? t('connectionOk', '连接成功')
+      : (data.error || t('connectionFail', '连接失败'));
+  }
+}
+
 function setDevPaneLoading(loading) {
   els.devRefreshBtn?.classList.toggle('is-loading', loading);
   if (loading && els.hostEnvBox) {
@@ -4197,12 +4289,13 @@ async function loadDevPane() {
   if (!els.hostEnvBox) return;
   setDevPaneLoading(true);
   try {
-    const [{ data: boot }, { data: assets }, { data: pcs }, { data: passport }, { data: pkg }] = await Promise.all([
+    const [{ data: boot }, { data: assets }, { data: pcs }, { data: passport }, { data: pkg }, { data: fork }] = await Promise.all([
       api('GET', '/api/ai/bootstrap').catch(() => ({ data: {} })),
       api('GET', '/api/ai/dev-assets').catch(() => ({ data: {} })),
       api('GET', '/api/ai/pc-sessions').catch(() => ({ data: {} })),
       api('GET', '/api/ai/tune_passport?limit=15').catch(() => ({ data: {} })),
       api('GET', '/api/ai/package/version?fetch=1').catch(() => ({ data: {} })),
+      api('GET', '/api/ai/fork/detect').catch(() => ({ data: {} })),
     ]);
     const env = boot.hostEnvironment || hostEnvironment;
     if (env) {
@@ -4221,6 +4314,13 @@ async function loadDevPane() {
     if (els.devPackageUpdateBtn) {
       els.devPackageUpdateBtn.hidden = !pkg?.update_available;
       els.devPackageUpdateBtn.disabled = false;
+    }
+
+    if (els.forkDetectBox) {
+      els.forkDetectBox.innerHTML = renderForkDetectCard(fork);
+    }
+    if (els.devForkBadge) {
+      els.devForkBadge.textContent = fork?.fork_id || '—';
     }
 
     const sessions = pcs?.sessions || [];
@@ -4645,6 +4745,32 @@ function bindUiEvents() {
     } catch {
       showToast(t('devPackageUpdateFail', '更新失败'));
       els.devPackageUpdateBtn.disabled = false;
+    }
+  });
+  els.devForkRefreshBtn?.addEventListener('click', () => renderDevPane());
+  els.devForkSyncBtn?.addEventListener('click', async () => {
+    if (!window.confirm(t('devForkSyncConfirm', '将使用已配置模型生成本 fork 的技能/文档草稿（需人工审核）。继续？'))) return;
+    els.devForkSyncBtn.disabled = true;
+    try {
+      const { data } = await api('POST', '/api/ai/fork/sync', { confirm: true });
+      if (data.ok) {
+        showToast(t('devForkSyncOk', '草稿已生成，见 ai/data/fork_drafts/'));
+      } else {
+        showToast(data.error || t('devForkSyncFail', '生成失败'));
+      }
+    } catch {
+      showToast(t('devForkSyncFail', '生成失败'));
+    } finally {
+      els.devForkSyncBtn.disabled = false;
+    }
+  });
+  els.onboardingBackdrop?.addEventListener('click', closeOnboardingWizard);
+  els.onboardingTestBtn?.addEventListener('click', () => testOnboardingWizard());
+  els.onboardingSaveBtn?.addEventListener('click', () => saveOnboardingWizard());
+  els.onboardingProvider?.addEventListener('change', () => {
+    const p = els.onboardingProvider.value;
+    if (els.onboardingModel && !els.onboardingModel.value) {
+      els.onboardingModel.value = defaults[p] || '';
     }
   });
   els.settingsBtn?.addEventListener('click', () => openSettings());

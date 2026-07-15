@@ -120,6 +120,20 @@ else
   do_clone
 fi
 
+run_integrate() {
+  local py=python3
+  command -v "$py" >/dev/null 2>&1 || py=python
+  local integrate="$TARGET/install/integrate_openpilot.py"
+  if [[ -f "$integrate" ]]; then
+    echo ""
+    echo ">>> 集成 openpilot（params_keys.h / launch_chffrplus.sh / params_pyx.so）"
+    OPENPILOT_ROOT="$ROOT" PYTHONPATH="$ROOT" "$py" "$integrate" --root "$ROOT" || {
+      echo "警告: openpilot 集成未完全成功，见上方日志。aid 可能需要手动编译 params_pyx.so。" >&2
+    }
+  fi
+}
+run_integrate
+
 VER="$(cat "$TARGET/VERSION" 2>/dev/null || echo unknown)"
 echo ""
 echo "=========================================="
@@ -131,7 +145,7 @@ echo "  Web UI:  http://<设备IP>:5090"
 echo "=========================================="
 echo ""
 echo "下一步:"
-echo "  1. 确认 fork 的 launch_chffrplus.sh 会启动 ai.aid（见 docs/INSTALL.md）"
-echo "  2. 浏览器打开 :5090 → 设置 → 配置模型 API"
-echo "  3. 开发面板可检查更新: 设置 → 开发 → op助手 版本"
+echo "  1. 若集成成功，重启 openpilot 或手动: cd $ROOT && python3 -m ai.aid"
+echo "  2. 浏览器打开 :5090 → 首次配置向导 / 设置 → 模型 API"
+echo "  3. 开发面板: 设置 → 开发 → 版本 / Fork 同步"
 echo ""

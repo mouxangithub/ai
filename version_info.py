@@ -5,6 +5,7 @@ from __future__ import annotations
 import os
 import re
 import subprocess
+import sys
 import urllib.error
 import urllib.request
 from pathlib import Path
@@ -188,4 +189,24 @@ def run_package_update(*, openpilot_root: str | None = None) -> dict[str, Any]:
   }
   if proc.returncode != 0:
     result["error"] = stderr or stdout or "git pull 失败"
+    return result
+
+  integrate_py = INSTALL_DIR / "integrate_openpilot.py"
+  if integrate_py.is_file():
+    try:
+      integ = subprocess.run(
+        [sys.executable, str(integrate_py), "--root", root],
+        capture_output=True,
+        text=True,
+        timeout=1800,
+        env={**env, "PYTHONPATH": root},
+      )
+      result["integrate_exit_code"] = integ.returncode
+      result["integrate_output"] = ((integ.stdout or "") + (integ.stderr or "")).strip()[-4000:]
+      if integ.returncode != 0:
+        result["integrate_warning"] = "git 更新成功，但 openpilot 集成未完全成功"
+    except (OSError, subprocess.TimeoutExpired) as exc:
+      result["integrate_warning"] = str(exc)
+
+  result["version"] = read_version()
   return result

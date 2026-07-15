@@ -1,0 +1,12 @@
+{
+  "id": "iqpilot",
+  "label": "IQPilot",
+  "remotes": ["iqpilot", "iq-pilot"],
+  "markers": {
+    "file_contains": [{"path": "README.md", "contains": "IQPilot"}]
+  },
+  "skills": ["vehicle-adaptation", "diagnostics"],
+  "docs": ["docs/VEHICLE_ADAPTATION_GUIDE.md"],
+  "param_prefixes": ["iq_"],
+  "notes": "IQPilot 社区 fork。"
+}

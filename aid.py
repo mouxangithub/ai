@@ -18,6 +18,7 @@ import re
 import subprocess
 import sys
 import time
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -123,6 +124,11 @@ def _json_response(data: Any, status: int = 200) -> web.Response:
 def _read_param_str(key: str, default: str = "") -> str:
   val = _PARAMS.get(key)
   return val.decode() if isinstance(val, bytes) else (val or default)
+
+
+def _read_param_bool(key: str, default: bool = False) -> bool:
+  val = _read_param_str(key, "1" if default else "0")
+  return str(val).lower() in ("1", "true", "yes", "on")
 
 
 def _mask_key(key: str) -> str:
@@ -253,6 +259,12 @@ async def api_bootstrap(request: web.Request) -> web.Response:
     skills_on = load_enabled_skill_ids(_PARAMS)
     from ai.timezone_util import read_ai_timezone_name
     tz_name = read_ai_timezone_name(_PARAMS)
+    first_run_done = _read_param_bool("ai_first_run_done")
+    try:
+      from ai.fork.detect_fork import detect_fork
+      fork_detected = detect_fork(Path(__file__).resolve().parent.parent)
+    except Exception:
+      fork_detected = {"ok": False}
   except Exception as e:
     return _json_response({"ok": False, "error": str(e)}, status=500)
 
@@ -318,6 +330,11 @@ async def api_bootstrap(request: web.Request) -> web.Response:
     "skillsEnabled": sorted(skills_on) if skills_on is not None else None,
     "pinRequired": bool(_read_param_str("ai_web_pin").strip()),
     "adminMode": is_admin_mode(_PARAMS),
+    "onboarding": {
+      "firstRunDone": first_run_done,
+      "showWizard": not first_run_done or not config.is_configured,
+    },
+    "fork": fork_detected if fork_detected.get("ok") else None,
     "workflows": list_workflows(),
     "notifications": list_notifications(unread_only=True).get("notifications", [])[:5],
   })
@@ -951,7 +968,7 @@ async def api_package_update(request: web.Request) -> web.Response:
       return _json_response({
         "ok": True,
         "needs_confirmation": True,
-        "hint": "将执行 git pull 更新 /ai 目录。请 POST confirm=true。",
+        "hint": "将执行 git pull 并重新集成 openpilot。请 POST confirm=true。",
       })
 
     root = body.get("openpilot_root") or str(Path(__file__).resolve().parent.parent)
@@ -960,6 +977,72 @@ async def api_package_update(request: web.Request) -> web.Response:
     return _json_response(result, status=status)
   except Exception as e:
     cloudlog.error(f"aid: api_package_update error: {e}")
+    return _json_response({"ok": False, "error": str(e)}, status=500)
+
+
+async def api_fork_detect(request: web.Request) -> web.Response:
+  try:
+    from ai.fork.detect_fork import detect_fork
+
+    root = Path(__file__).resolve().parent.parent
+    return _json_response(detect_fork(root))
+  except Exception as e:
+    cloudlog.error(f"aid: api_fork_detect error: {e}")
+    return _json_response({"ok": False, "error": str(e)}, status=500)
+
+
+async def api_fork_sync(request: web.Request) -> web.Response:
+  try:
+    from ai.fork.fork_sync import generate_fork_drafts, list_fork_drafts
+
+    try:
+      body = await request.json()
+    except (json.JSONDecodeError, ValueError, aiohttp.ClientPayloadError):
+      body = {}
+    if not body.get("confirm"):
+      return _json_response({
+        "ok": True,
+        "needs_confirmation": True,
+        "hint": "将使用已配置模型生成本 fork 的技能/文档草稿（需人工审核）。POST confirm=true。",
+        "drafts": list_fork_drafts()[:5],
+      })
+    fork_id = body.get("fork_id")
+    result = await generate_fork_drafts(_PARAMS, fork_id=fork_id)
+    if result.get("ok") and result.get("fork_id"):
+      _PARAMS.put("ai_fork_id", str(result["fork_id"]))
+      _PARAMS.put("ai_fork_profile_applied", datetime.now(timezone.utc).isoformat())
+    return _json_response(result, status=200 if result.get("ok") else 500)
+  except Exception as e:
+    cloudlog.error(f"aid: api_fork_sync error: {e}")
+    return _json_response({"ok": False, "error": str(e)}, status=500)
+
+
+async def api_onboarding_complete(request: web.Request) -> web.Response:
+  try:
+    _PARAMS.put_bool("ai_first_run_done", True)
+    config = _read_ai_config()
+    return _json_response({
+      "ok": True,
+      "configured": config.is_configured,
+      "configureError": config.configuration_error,
+    })
+  except Exception as e:
+    return _json_response({"ok": False, "error": str(e)}, status=500)
+
+
+async def api_integrate_openpilot(request: web.Request) -> web.Response:
+  try:
+    from ai.system.host_env import is_pc_dev
+    from ai.install.integrate_openpilot import integrate
+
+    state = _get_state_reader().update(timeout=0)
+    if state.is_driving and not is_pc_dev():
+      return _json_response({"ok": False, "error": "行驶中无法集成，请停车后重试。"}, status=403)
+    root = Path(__file__).resolve().parent.parent
+    result = integrate(root, root / "ai", force_compile=bool(request.query.get("force")))
+    return _json_response(result, status=200 if result.get("ok") else 500)
+  except Exception as e:
+    cloudlog.error(f"aid: api_integrate_openpilot error: {e}")
     return _json_response({"ok": False, "error": str(e)}, status=500)
 
 
@@ -1058,6 +1141,10 @@ def create_app() -> web.Application:
   app.router.add_get("/api/ai/adaptation/{project_id}/bundle", api_adaptation_bundle)
   app.router.add_get("/api/ai/package/version", api_package_version)
   app.router.add_post("/api/ai/package/update", api_package_update)
+  app.router.add_get("/api/ai/fork/detect", api_fork_detect)
+  app.router.add_post("/api/ai/fork/sync", api_fork_sync)
+  app.router.add_post("/api/ai/onboarding/complete", api_onboarding_complete)
+  app.router.add_post("/api/ai/integrate", api_integrate_openpilot)
   register_cabana_routes(app, WEB_DIR)
   register_sync_routes(app)
   from ai.tsk_routes import register_tsk_routes
