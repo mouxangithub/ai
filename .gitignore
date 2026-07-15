@@ -9,6 +9,7 @@ __pycache__/
 .env.*
 data/pc_tool_sessions/
 data/fork_drafts/
+data/fork_analysis/
 *.swp
 *~
 .DS_Store

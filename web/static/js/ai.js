@@ -373,9 +373,9 @@ function applyTranslations() {
   if (els.devPackageCheckBtn) els.devPackageCheckBtn.textContent = t('devPackageCheck', '检查更新');
   if (els.devPackageUpdateBtn) els.devPackageUpdateBtn.textContent = t('devPackageUpdate', '立即更新');
   const devForkTitle = $('#devForkTitle');
-  if (devForkTitle) devForkTitle.textContent = t('devForkTitle', 'Fork 识别');
-  if (els.devForkRefreshBtn) els.devForkRefreshBtn.textContent = t('devForkRefresh', '重新检测');
-  if (els.devForkSyncBtn) els.devForkSyncBtn.textContent = t('devForkSync', '生成草稿');
+  if (devForkTitle) devForkTitle.textContent = t('devForkTitle', 'Fork 分析');
+  if (els.devForkRefreshBtn) els.devForkRefreshBtn.textContent = t('devForkRefresh', '扫描仓库');
+  if (els.devForkSyncBtn) els.devForkSyncBtn.textContent = t('devForkAnalyze', 'AI 分析并生成草稿');
   const devSessionsTitle = $('#devSessionsTitle');
   if (devSessionsTitle) devSessionsTitle.textContent = t('devSessionsTitle', 'PC 工具会话');
   const devAssetsTitle = $('#devAssetsTitle');
@@ -4204,13 +4204,20 @@ function renderPackageVersionCard(pkg) {
 
 function renderForkDetectCard(fork) {
   if (!fork || !fork.ok) {
-    return `<p class="dev-empty">${escapeHtml(fork?.error || t('devForkLoadFail', '无法检测 fork'))}</p>`;
+    return `<p class="dev-empty">${escapeHtml(fork?.error || t('devForkLoadFail', '无法扫描 fork'))}</p>`;
   }
+  const scan = fork.scan || {};
+  const analysis = fork.analysis || {};
   const lines = [
-    ['Fork', `${fork.fork_label || fork.fork_id} (${fork.confidence || '—'})`],
+    ['识别', `${fork.fork_label || fork.fork_id} (${fork.confidence || '—'})`],
+    ['模式', fork.mode === 'ai_cached' ? t('devForkModeAi', 'AI 已分析') : t('devForkModeScan', '仓库扫描')],
     ['分支', fork.git_branch || '—'],
-    ['推荐技能', (fork.profile?.skills || []).slice(0, 4).join(', ') || '—'],
+    ['特征目录', (scan.distinctive_dirs || []).slice(0, 4).join(', ') || '—'],
+    ['Param 前缀', Object.keys(scan.param_prefixes || {}).slice(0, 5).join(', ') || '—'],
   ];
+  if (analysis.summary) {
+    lines.push(['AI 摘要', analysis.summary.slice(0, 120)]);
+  }
   const rows = lines.map(([label, val]) => `
     <div class="dev-kv">
       <span class="dev-kv-label">${escapeHtml(label)}</span>
@@ -4218,7 +4225,8 @@ function renderForkDetectCard(fork) {
     </div>`).join('');
   const reasons = (fork.reasons || []).slice(0, 3).join(' · ');
   const hint = reasons ? `<p class="dev-env-hint muted">${escapeHtml(reasons)}</p>` : '';
-  return rows + hint;
+  const aiHint = fork.hint ? `<p class="dev-env-hint">${escapeHtml(fork.hint)}</p>` : '';
+  return rows + hint + aiHint;
 }
 
 function openOnboardingWizard() {
@@ -4749,17 +4757,23 @@ function bindUiEvents() {
   });
   els.devForkRefreshBtn?.addEventListener('click', () => renderDevPane());
   els.devForkSyncBtn?.addEventListener('click', async () => {
-    if (!window.confirm(t('devForkSyncConfirm', '将使用已配置模型生成本 fork 的技能/文档草稿（需人工审核）。继续？'))) return;
+    if (!window.confirm(t('devForkAnalyzeConfirm', 'AI 将阅读整个 openpilot 项目并分析 fork，随后生成草稿（需人工审核）。继续？'))) return;
     els.devForkSyncBtn.disabled = true;
     try {
+      const { data: analyzed } = await api('POST', '/api/ai/fork/analyze', { force: false });
+      if (!analyzed.ok) {
+        showToast(analyzed.error || t('devForkAnalyzeFail', 'AI 分析失败'));
+        return;
+      }
       const { data } = await api('POST', '/api/ai/fork/sync', { confirm: true });
       if (data.ok) {
-        showToast(t('devForkSyncOk', '草稿已生成，见 ai/data/fork_drafts/'));
+        showToast(t('devForkSyncOk', '分析与草稿已生成'));
+        renderDevPane();
       } else {
-        showToast(data.error || t('devForkSyncFail', '生成失败'));
+        showToast(data.error || t('devForkSyncFail', '草稿生成失败'));
       }
     } catch {
-      showToast(t('devForkSyncFail', '生成失败'));
+      showToast(t('devForkAnalyzeFail', 'AI 分析失败'));
     } finally {
       els.devForkSyncBtn.disabled = false;
     }

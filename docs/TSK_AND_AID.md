@@ -1,5 +1,15 @@
 # TSK Manager 与 op 助手（aid）合并架构
 
+## 来源说明
+
+本仓库 **TSK Web（丰田 SecOC 管理界面）** 及 `:5090` 上 **设置 → SecOC** 相关能力，源自社区项目：
+
+**https://github.com/optskug/openpilot**
+
+代码已迁入 `ai/tsk/` 并与 op助手共用 `ai.aid` 进程。使用或再分发时请保留对 optskug 社区的致谢。
+
+---
+
 ## 为什么合并
 
 丰田 SecOC 提取流程会 **停止 manager**（`pkill manager`），若 TSK 与 manager 同生命周期，网页与 API 会一起消失。因此 **TSK 与 op 助手共用 `ai.aid` 进程**，并在 `launch_chffrplus.sh` 里 **先于 manager** 启动（但在 `build.py` 编译完成之后）。

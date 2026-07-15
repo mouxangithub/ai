@@ -982,12 +982,41 @@ async def api_package_update(request: web.Request) -> web.Response:
 
 async def api_fork_detect(request: web.Request) -> web.Response:
   try:
+    from ai.fork.analyze_fork import analyze_fork_with_ai
     from ai.fork.detect_fork import detect_fork
 
     root = Path(__file__).resolve().parent.parent
+    do_analyze = request.query.get("analyze", "0") in ("1", "true", "yes")
+    if do_analyze:
+      result = await analyze_fork_with_ai(_PARAMS, root, force=request.query.get("force") in ("1", "true"))
+      if result.get("ok"):
+        result["detect"] = detect_fork(root)
+      return _json_response(result, status=200 if result.get("ok") else 500)
     return _json_response(detect_fork(root))
   except Exception as e:
     cloudlog.error(f"aid: api_fork_detect error: {e}")
+    return _json_response({"ok": False, "error": str(e)}, status=500)
+
+
+async def api_fork_analyze(request: web.Request) -> web.Response:
+  try:
+    from ai.fork.analyze_fork import analyze_fork_with_ai
+
+    root = Path(__file__).resolve().parent.parent
+    try:
+      body = await request.json()
+    except (json.JSONDecodeError, ValueError, aiohttp.ClientPayloadError):
+      body = {}
+    force = bool(body.get("force"))
+    result = await analyze_fork_with_ai(_PARAMS, root, force=force)
+    if result.get("ok") and result.get("analysis"):
+      fid = result["analysis"].get("fork_identity") or result.get("identity", {}).get("fork_id")
+      if fid:
+        _PARAMS.put("ai_fork_id", str(fid))
+        _PARAMS.put("ai_fork_profile_applied", datetime.now(timezone.utc).isoformat())
+    return _json_response(result, status=200 if result.get("ok") else 500)
+  except Exception as e:
+    cloudlog.error(f"aid: api_fork_analyze error: {e}")
     return _json_response({"ok": False, "error": str(e)}, status=500)
 
 
@@ -1003,11 +1032,13 @@ async def api_fork_sync(request: web.Request) -> web.Response:
       return _json_response({
         "ok": True,
         "needs_confirmation": True,
-        "hint": "将使用已配置模型生成本 fork 的技能/文档草稿（需人工审核）。POST confirm=true。",
+        "hint": "AI 将先阅读 openpilot 项目并分析 fork，再生成技能/文档草稿（需人工审核）。POST confirm=true。",
         "drafts": list_fork_drafts()[:5],
       })
-    fork_id = body.get("fork_id")
-    result = await generate_fork_drafts(_PARAMS, fork_id=fork_id)
+    result = await generate_fork_drafts(
+      _PARAMS,
+      force_analyze=bool(body.get("force_analyze")),
+    )
     if result.get("ok") and result.get("fork_id"):
       _PARAMS.put("ai_fork_id", str(result["fork_id"]))
       _PARAMS.put("ai_fork_profile_applied", datetime.now(timezone.utc).isoformat())
@@ -1142,6 +1173,7 @@ def create_app() -> web.Application:
   app.router.add_get("/api/ai/package/version", api_package_version)
   app.router.add_post("/api/ai/package/update", api_package_update)
   app.router.add_get("/api/ai/fork/detect", api_fork_detect)
+  app.router.add_post("/api/ai/fork/analyze", api_fork_analyze)
   app.router.add_post("/api/ai/fork/sync", api_fork_sync)
   app.router.add_post("/api/ai/onboarding/complete", api_onboarding_complete)
   app.router.add_post("/api/ai/integrate", api_integrate_openpilot)

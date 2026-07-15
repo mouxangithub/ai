@@ -1,4 +1,4 @@
-"""Generate fork-specific skill/doc drafts using configured LLM (P5)."""
+"""Generate fork-specific skill/doc drafts from AI repo analysis (human review required)."""
 
 from __future__ import annotations
 
@@ -8,59 +8,21 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from ai.fork.detect_fork import detect_fork, profile_for_fork
+from ai.fork.analyze_fork import analyze_fork_with_ai, load_cached_analysis
+from ai.fork.repo_scan import compact_scan_for_api, derive_fork_identity, scan_openpilot_repo
 
 AI_DIR = Path(__file__).resolve().parent.parent
 DRAFTS_DIR = AI_DIR / "data" / "fork_drafts"
-MAX_SCAN_LINES = 400
 
 
-def _scan_params_keys(root: Path, prefixes: list[str]) -> list[str]:
-  for rel in ("common/params_keys.h", "openpilot/common/params_keys.h"):
-    path = root / rel
-    if not path.is_file():
-      continue
-    keys: list[str] = []
-    for line in path.read_text(encoding="utf-8", errors="replace").splitlines()[:2000]:
-      m = re.search(r'\{"([^"]+)"', line)
-      if not m:
-        continue
-      key = m.group(1)
-      if not prefixes or any(key.startswith(p) for p in prefixes):
-        keys.append(key)
-    return keys[:120]
-  return []
+def _slug_for_drafts(identity: dict[str, Any], analysis: dict[str, Any] | None) -> str:
+  if analysis and analysis.get("fork_identity"):
+    return re.sub(r"[^\w./-]+", "-", str(analysis["fork_identity"]))[:80]
+  return re.sub(r"[^\w./-]+", "-", str(identity.get("fork_id", "fork")))[:80]
 
 
-def _scan_settings_dirs(root: Path) -> list[str]:
-  hints: list[str] = []
-  for rel in ("dragonpilot/settings", "sunnypilot", "carrot"):
-    d = root / rel
-    if d.is_dir():
-      py_files = sorted(d.rglob("*.py"))[:12]
-      hints.append(f"{rel}: {len(py_files)} settings modules")
-  return hints
-
-
-def build_fork_context(root: Path, fork_id: str | None = None) -> dict[str, Any]:
-  detected = detect_fork(root)
-  fid = fork_id or detected.get("fork_id") or "openpilot"
-  profile = profile_for_fork(fid) or {}
-  prefixes = list(profile.get("param_prefixes") or [])
-  return {
-    "fork_id": fid,
-    "fork_label": profile.get("label", fid),
-    "detected": detected,
-    "profile": profile,
-    "param_keys_sample": _scan_params_keys(root, prefixes),
-    "settings_hints": _scan_settings_dirs(root),
-    "recommended_skills": profile.get("skills", []),
-    "recommended_docs": profile.get("docs", []),
-  }
-
-
-def _draft_paths(fork_id: str) -> dict[str, Path]:
-  base = DRAFTS_DIR / fork_id
+def _draft_paths(slug: str) -> dict[str, Path]:
+  base = DRAFTS_DIR / slug.replace("/", "__")
   return {
     "base": base,
     "skill": base / "FORK_SKILL.md",
@@ -69,57 +31,68 @@ def _draft_paths(fork_id: str) -> dict[str, Path]:
   }
 
 
+def build_fork_context(root: Path, analysis_payload: dict[str, Any] | None = None) -> dict[str, Any]:
+  scan = scan_openpilot_repo(root)
+  identity = derive_fork_identity(scan)
+  analysis = (analysis_payload or {}).get("analysis")
+  return {
+    "identity": identity,
+    "scan": compact_scan_for_api(scan),
+    "analysis": analysis,
+    "fork_id": _slug_for_drafts(identity, analysis),
+    "fork_label": (analysis or {}).get("fork_name") or identity.get("fork_label"),
+  }
+
+
 async def generate_fork_drafts(
   params: Any,
   *,
-  fork_id: str | None = None,
   openpilot_root: Path | None = None,
+  force_analyze: bool = False,
 ) -> dict[str, Any]:
-  """Use configured chat model to draft fork-specific guidance (human review required)."""
+  """Run AI repo analysis (if needed) then draft skill/doc notes."""
   from ai.client import chat_completion_collect, load_config_from_params
   from ai.system.paths import openpilot_root as default_root
 
   root = openpilot_root or default_root()
-  ctx = build_fork_context(root, fork_id)
-  fid = ctx["fork_id"]
-  paths = _draft_paths(fid)
-  paths["base"].mkdir(parents=True, exist_ok=True)
-
   config = load_config_from_params(params)
   if not config.is_configured:
-    return {"ok": False, "error": config.configuration_error or "AI not configured", "fork_id": fid}
+    return {"ok": False, "error": config.configuration_error or "AI not configured"}
+
+  analysis_result = await analyze_fork_with_ai(params, root, force=force_analyze)
+  if not analysis_result.get("ok"):
+    return analysis_result
+
+  ctx = build_fork_context(root, analysis_result)
+  slug = ctx["fork_id"]
+  paths = _draft_paths(slug)
+  paths["base"].mkdir(parents=True, exist_ok=True)
 
   system = (
-    "You are an openpilot fork integration assistant. "
-    "Output concise Markdown for maintainers. Do not invent unsafe vehicle controls. "
-    "Focus on params, skills, and documentation alignment for the detected fork."
+    "你是 op助手 维护者助手。根据 AI 仓库分析结果，撰写可人工审核的技能草稿与工具说明。"
+    "不要自动执行写参；强调安全与停车 offroad。"
   )
-  user = f"""Analyze this fork context and produce TWO markdown sections.
+  user = f"""基于以下 fork 分析，输出两段 Markdown：
 
-## Context (JSON)
-```json
-{json.dumps(ctx, ensure_ascii=False, indent=2)[:12000]}
-```
-
-## Output format
 ### Section A: FORK_SKILL
-A skill draft (YAML frontmatter + markdown) for op助手 describing fork-specific tuning params and workflows.
+YAML frontmatter + 技能正文：本 fork 的调参 Param、工作流、与 op助手 工具的配合。
 
 ### Section B: TOOLS_NOTES
-Bullet list of suggested tool/skill/doc updates for this fork (no code, just actionable notes).
+bullet 列表：建议更新哪些技能/工具/文档（仅建议，不写代码）。
 
-Keep total under 2500 words."""
+## 上下文
+```json
+{json.dumps(ctx, ensure_ascii=False, indent=2)[:14000]}
+```
+"""
 
-  text, _reasoning, err = await chat_completion_collect(
+  text, _r, err = await chat_completion_collect(
     config,
-    [
-      {"role": "system", "content": system},
-      {"role": "user", "content": user},
-    ],
-    timeout_total=180,
+    [{"role": "system", "content": system}, {"role": "user", "content": user}],
+    timeout_total=240,
   )
   if err:
-    return {"ok": False, "error": err, "fork_id": fid}
+    return {"ok": False, "error": err, "fork_id": slug, "analysis": analysis_result.get("analysis")}
 
   skill_part = text
   tools_part = ""
@@ -131,25 +104,26 @@ Keep total under 2500 words."""
   paths["skill"].write_text(skill_part.strip() + "\n", encoding="utf-8")
   paths["tools"].write_text(tools_part.strip() + "\n", encoding="utf-8")
   manifest = {
-    "fork_id": fid,
+    "fork_id": slug,
+    "fork_label": ctx.get("fork_label"),
     "generated_at": datetime.now(timezone.utc).isoformat(),
     "model": config.model,
     "provider": config.provider,
+    "git_commit": analysis_result.get("git_commit"),
     "paths": {k: str(v) for k, v in paths.items()},
-    "context_summary": {
-      "param_keys_count": len(ctx.get("param_keys_sample") or []),
-      "recommended_skills": ctx.get("recommended_skills"),
-    },
+    "analysis_summary": (analysis_result.get("analysis") or {}).get("summary"),
   }
   paths["manifest"].write_text(json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8")
 
   return {
     "ok": True,
-    "fork_id": fid,
+    "fork_id": slug,
+    "fork_label": ctx.get("fork_label"),
     "draft_dir": str(paths["base"]),
     "skill_draft": str(paths["skill"]),
     "tools_notes": str(paths["tools"]),
     "manifest": manifest,
+    "analysis": analysis_result.get("analysis"),
     "preview": skill_part[:1500],
   }
 
@@ -160,8 +134,7 @@ def list_fork_drafts() -> list[dict[str, Any]]:
   out: list[dict[str, Any]] = []
   for manifest_path in sorted(DRAFTS_DIR.glob("*/manifest.json")):
     try:
-      data = json.loads(manifest_path.read_text(encoding="utf-8"))
-      out.append(data)
+      out.append(json.loads(manifest_path.read_text(encoding="utf-8")))
     except Exception:
       continue
   return out
