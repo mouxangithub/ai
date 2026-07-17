@@ -24,6 +24,18 @@ class TestHardwareLite(unittest.TestCase):
     with patch.object(hl, "detect_lite_hw", return_value=False):
       self.assertIsNone(hl.lite_write_block_reason("RecordAudio"))
 
+  def test_mici_not_lite(self):
+    with patch.object(hl, "_comma_device_slug", return_value="mici"):
+      self.assertFalse(hl.detect_lite_hw())
+
+  def test_tizi_lite_profile_label(self):
+    with patch.object(hl, "detect_lite_hw", return_value=True):
+      with patch.object(hl, "_comma_device_slug", return_value="tizi"):
+        prof = hl.lite_profile()
+        self.assertEqual(prof["device_type"], "tizi")
+        self.assertEqual(prof["product_label"], "C3X")
+        self.assertTrue(prof["lite_capable"])
+
   def test_lite_profile_beepd_eligible(self):
     with patch.object(hl, "detect_lite_hw", return_value=True):
       class FakeParams:

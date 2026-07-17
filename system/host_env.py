@@ -98,9 +98,10 @@ def get_host_environment() -> dict[str, Any]:
     if is_comma_device():
       out["comma_device"] = hardware_profile
       if hardware_profile.get("lite") is True:
+        label = hardware_profile.get("product_label") or "C3/C3X"
         out["hint"] = (
           out["hint"]
-          + " Lite C3：无 mic/soundd/驾驶员监控；用 SpDevBeep+beepd 蜂鸣反馈，勿写 RecordAudio/AlwaysOnDM。"
+          + f" Lite {label}：无 mic/soundd/驾驶员监控；用 SpDevBeep+beepd 蜂鸣反馈，勿写 RecordAudio/AlwaysOnDM。"
         )
   try:
     from ai.tools.device_hw_tools import get_sp_device_hw

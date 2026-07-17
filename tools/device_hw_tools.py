@@ -52,9 +52,12 @@ def get_sp_device_hw(params: Params | None = None, get_state_reader=None) -> dic
 def set_sp_dev_beep(params: Params, enabled: bool) -> dict[str, Any]:
   lite = detect_lite_hw()
   if lite is False:
+    from ai.system.hardware_lite import lite_device_label
+
+    label = lite_device_label() or "device"
     return {
       "ok": False,
-      "error": "SpDevBeep is for Lite C3 only (this device has soundd).",
+      "error": f"SpDevBeep is for Lite C3/C3X only (this {label} has soundd).",
     }
   if lite is None and not is_comma_device():
     return {
