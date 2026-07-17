@@ -69,6 +69,7 @@ def create_pending(
     ok, reason = validate_write_batch(writes, admin=is_admin_mode(params))
   elif action in (
     "set_torque_settings", "set_lane_change_settings", "set_speed_limit_settings", "set_visuals_settings",
+    "set_model_tune_settings", "set_display_settings", "set_device_settings",
   ):
     ok, reason = True, ""
   elif action in (
@@ -203,6 +204,18 @@ def confirm_pending(params: Params, pending_id: str) -> dict[str, Any]:
   if action == "set_visuals_settings":
     from ai.tools.sp_tune_groups import apply_visuals_writes
     return apply_visuals_writes(params, payload.get("params") or {})
+
+  if action == "set_model_tune_settings":
+    from ai.tools.model_tune_tools import apply_model_tune_writes
+    return apply_model_tune_writes(params, payload.get("params") or {})
+
+  if action == "set_display_settings":
+    from ai.tools.display_device_tools import apply_display_writes
+    return apply_display_writes(params, payload.get("params") or {})
+
+  if action == "set_device_settings":
+    from ai.tools.display_device_tools import apply_device_writes
+    return apply_device_writes(params, payload.get("params") or {})
 
   if action == "clear_model_cache":
     from ai.tools.model_manager_tools import clear_model_cache

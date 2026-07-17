@@ -21,7 +21,9 @@ Dragonpilot 专有 `dp_*` 参数见 **dp-tuning** 技能（若安装了 dragonpi
 | `LiveTorqueParamsToggle` / `CustomTorqueParams` | 扭矩学习与自定义 |
 | `NeuralNetworkLateralControl` | NN 横向控制 |
 
-工具：`get_mads_settings`、`set_mads_settings`、`list_model_bundles`（模型页 Lagd 相关）
+工具：`get_mads_settings`、`set_mads_settings`、`get_torque_settings`、`set_torque_settings`、`get_speed_limit_settings`、`get_model_tune_settings`、`list_model_bundles`（模型页 Lagd 相关）
+
+`list_sp_settings` 现已使用 **合并 catalog**（静态 + UI 文案 + params_keys.h），与 `get_params_catalog` 一致。
 
 ## 纵向 Longitudinal
 

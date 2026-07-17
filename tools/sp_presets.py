@@ -93,6 +93,11 @@ SP_TUNE_PRESETS: dict[str, dict[str, Any]] = {
     "name": "SP NN 横向",
     "params": {"NeuralNetworkLateralControl": "1"},
   },
+  "sp_model_tune_reset": {
+    "name": "SP 模型调参默认",
+    "description": "CameraOffset 0 / PlanplusControl 1.0",
+    "params": {"CameraOffset": "0.0", "PlanplusControl": "1.0"},
+  },
   "sp_lane_change_fast": {
     "name": "SP 快速变道",
     "params": {"AutoLaneChangeTimer": "0", "AutoLaneChangeBsmDelay": "0"},

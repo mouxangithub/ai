@@ -13,6 +13,8 @@ Settings → **Models**（不是 Vehicle 车型选择）。
 | `cancel_model_download` | 清除 `ModelManager_DownloadIndex` |
 | `clear_model_cache` | `ModelManager_ClearCache` 清缓存（保留当前模型） |
 | `manage_model_favorites` | 增删 `ModelManager_Favs`（分号分隔 ref） |
+| `get_model_tune_settings` | `CameraOffset` / `PlanplusControl` |
+| `set_model_tune_settings` | 写入模型调参（静止） |
 
 ## 相关 Param
 

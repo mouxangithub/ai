@@ -1,5 +1,5 @@
 {
-  "version": 19,
+  "version": 20,
   "skills": [
     {"id": "safety-policy", "name": "安全边界", "description": "告诉 AI 什么时候只能看、什么时候可以改参数", "path": "safety-policy/SKILL.md", "default_enabled": true, "requires_tools": []},
     {"id": "memory-protocol", "name": "记忆习惯", "description": "让 AI 记住你的车型、常用设置和备注", "path": "memory-protocol/SKILL.md", "default_enabled": true, "requires_tools": ["update_agent_memory", "get_agent_memory", "search_memory_semantic"]},
@@ -7,7 +7,7 @@
     {"id": "dp-tuning", "name": "Dragonpilot 调优 (dp_*)", "description": "保留 dp_* 与 Dashy 调参能力（与 SP 并行）", "path": "dp-tuning/SKILL.md", "default_enabled": false, "requires_tools": ["list_tune_presets", "apply_tune_preset", "fetch_dashy_settings", "read_params", "write_params", "read_manager_log"]},
     {"id": "sunnypilot-settings", "name": "sunnypilot 设置与参数", "description": "对照 sunnypilot UI 与专用工具", "path": "sunnypilot-settings/SKILL.md", "default_enabled": true, "requires_tools": ["list_sp_settings", "get_params_catalog", "fetch_dashy_settings", "get_car_platform_bundle", "get_model_manager_status", "get_mads_settings", "get_osm_status", "get_sunnylink_status", "get_sp_device_hw"]},
     {"id": "car-platform", "name": "车型平台 CarPlatformBundle", "description": "手动选择 opendbc 车型平台", "path": "car-platform/SKILL.md", "default_enabled": true, "requires_tools": ["list_car_platforms", "get_car_platform_bundle", "select_car_platform", "select_driving_model", "read_params"]},
-    {"id": "model-manager", "name": "ModelManager 神经网络模型", "description": "切换 sunnypilot 驾驶 NN 模型 bundle", "path": "model-manager/SKILL.md", "default_enabled": true, "requires_tools": ["list_model_bundles", "get_model_manager_status", "select_model_bundle", "refresh_model_list", "cancel_model_download", "clear_model_cache", "manage_model_favorites", "read_params"]},
+    {"id": "model-manager", "name": "ModelManager 神经网络模型", "description": "切换 sunnypilot 驾驶 NN 模型 bundle", "path": "model-manager/SKILL.md", "default_enabled": true, "requires_tools": ["list_model_bundles", "get_model_manager_status", "select_model_bundle", "refresh_model_list", "cancel_model_download", "clear_model_cache", "manage_model_favorites", "get_model_tune_settings", "set_model_tune_settings", "read_params"]},
     {"id": "mads-settings", "name": "MADS 模块化辅助驾驶", "description": "MADS 开关与踩刹车横向行为", "path": "mads-settings/SKILL.md", "default_enabled": true, "requires_tools": ["get_mads_settings", "set_mads_settings", "read_params", "apply_sp_tune_preset"]},
     {"id": "osm-maps", "name": "OSM 离线地图", "description": "mapd 区域选择与地图下载", "path": "osm-maps/SKILL.md", "default_enabled": true, "requires_tools": ["get_osm_status", "list_osm_regions", "select_osm_region", "trigger_osm_download", "cancel_osm_download", "delete_osm_maps"]},
     {"id": "sp-tune-presets", "name": "SP 调优预设", "description": "sunnypilot 一键预设与回滚", "path": "sp-tune-presets/SKILL.md", "default_enabled": true, "requires_tools": ["list_sp_tune_presets", "apply_sp_tune_preset", "save_tune_snapshot", "restore_tune_snapshot", "list_tune_snapshots"]},
@@ -45,6 +45,7 @@
     {"id": "sp-speed-limit", "name": "限速辅助", "description": "SpeedLimit 模式与偏移", "path": "sp-speed-limit/SKILL.md", "default_enabled": true, "requires_tools": ["get_speed_limit_settings", "set_speed_limit_settings", "apply_sp_tune_preset"]},
     {"id": "sp-visuals-settings", "name": "视觉 HUD", "description": "彩虹路径、Chevron、DevUI 等", "path": "sp-visuals-settings/SKILL.md", "default_enabled": true, "requires_tools": ["list_visuals_settings", "set_visuals_settings", "apply_sp_tune_preset"]},
     {"id": "sp-device-lite", "name": "Lite 硬件", "description": "LITE 变体与 SpDevBeep", "path": "sp-device-lite/SKILL.md", "default_enabled": true, "requires_tools": ["get_sp_device_hw", "set_sp_dev_beep", "get_host_environment"]},
-    {"id": "sunnylink-backup", "name": "Sunnylink 备份", "description": "云备份/恢复与模型收藏", "path": "sunnylink-backup/SKILL.md", "default_enabled": true, "requires_tools": ["get_sunnylink_status", "trigger_sunnylink_backup", "trigger_sunnylink_restore", "manage_model_favorites", "clear_model_cache"]}
+    {"id": "sunnylink-backup", "name": "Sunnylink 备份", "description": "云备份/恢复与模型收藏", "path": "sunnylink-backup/SKILL.md", "default_enabled": true, "requires_tools": ["get_sunnylink_status", "list_sunnylink_backups", "get_backup_manager_status", "trigger_sunnylink_backup", "trigger_sunnylink_restore", "manage_model_favorites", "clear_model_cache"]},
+    {"id": "sp-display-device", "name": "显示与设备", "description": "亮度、熄屏、offroad 关机、开发者服务", "path": "sp-display-device/SKILL.md", "default_enabled": true, "requires_tools": ["get_display_settings", "set_display_settings", "get_device_settings", "set_device_settings", "get_sp_device_hw", "set_sp_dev_beep"]}
   ]
 }

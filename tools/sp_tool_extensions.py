@@ -18,6 +18,14 @@ SP_EXTENSION_TOOL_META: dict[str, dict[str, Any]] = {
   "trigger_sunnylink_restore": {"label": "Sunnylink 恢复", "group": "write", "default_enabled": True, "driving": False},
   "get_sp_device_hw": {"label": "设备硬件", "group": "read", "default_enabled": True, "driving": True},
   "set_sp_dev_beep": {"label": "Lite 蜂鸣", "group": "write", "default_enabled": True, "driving": True},
+  "get_model_tune_settings": {"label": "模型调参", "group": "read", "default_enabled": True, "driving": True},
+  "set_model_tune_settings": {"label": "写入模型调参", "group": "write", "default_enabled": True, "driving": True},
+  "get_display_settings": {"label": "显示设置", "group": "read", "default_enabled": True, "driving": True},
+  "set_display_settings": {"label": "写入显示", "group": "write", "default_enabled": True, "driving": True},
+  "get_device_settings": {"label": "设备设置", "group": "read", "default_enabled": True, "driving": True},
+  "set_device_settings": {"label": "写入设备", "group": "write", "default_enabled": True, "driving": True},
+  "list_sunnylink_backups": {"label": "Sunnylink 备份列表", "group": "read", "default_enabled": True, "driving": True},
+  "get_backup_manager_status": {"label": "备份进程状态", "group": "read", "default_enabled": True, "driving": True},
 }
 
 SP_EXTENSION_SCHEMAS: list[dict[str, Any]] = [
@@ -34,6 +42,14 @@ SP_EXTENSION_SCHEMAS: list[dict[str, Any]] = [
   {"type": "function", "function": {"name": "trigger_sunnylink_restore", "description": "Queue Sunnylink restore from version (offroad).", "parameters": {"type": "object", "properties": {"version": {"type": "string"}, "confirm": {"type": "boolean"}}, "required": ["confirm"]}}},
   {"type": "function", "function": {"name": "get_sp_device_hw", "description": "Lite variant, SpDevBeep, Panda count, board hints.", "parameters": {"type": "object", "properties": {}, "required": []}}},
   {"type": "function", "function": {"name": "set_sp_dev_beep", "description": "Enable SpDevBeep on Lite hardware (GPIO beepd).", "parameters": {"type": "object", "properties": {"enabled": {"type": "boolean"}, "confirm": {"type": "boolean"}}, "required": ["enabled", "confirm"]}}},
+  {"type": "function", "function": {"name": "get_model_tune_settings", "description": "Read CameraOffset and PlanplusControl (modeld_v2).", "parameters": {"type": "object", "properties": {}, "required": []}}},
+  {"type": "function", "function": {"name": "set_model_tune_settings", "description": "Write CameraOffset / PlanplusControl while stationary.", "parameters": {"type": "object", "properties": {"params": {"type": "object"}, "confirm": {"type": "boolean"}}, "required": ["params", "confirm"]}}},
+  {"type": "function", "function": {"name": "get_display_settings", "description": "Read display params (brightness, onroad screen off, interactivity).", "parameters": {"type": "object", "properties": {}, "required": []}}},
+  {"type": "function", "function": {"name": "set_display_settings", "description": "Write display params while stationary.", "parameters": {"type": "object", "properties": {"params": {"type": "object"}, "confirm": {"type": "boolean"}}, "required": ["params", "confirm"]}}},
+  {"type": "function", "function": {"name": "get_device_settings", "description": "Read device params (max offroad, boot mode, quiet, developer toggles).", "parameters": {"type": "object", "properties": {}, "required": []}}},
+  {"type": "function", "function": {"name": "set_device_settings", "description": "Write device/developer service params while stationary.", "parameters": {"type": "object", "properties": {"params": {"type": "object"}, "confirm": {"type": "boolean"}}, "required": ["params", "confirm"]}}},
+  {"type": "function", "function": {"name": "list_sunnylink_backups", "description": "List Sunnylink cloud backups for this device.", "parameters": {"type": "object", "properties": {}, "required": []}}},
+  {"type": "function", "function": {"name": "get_backup_manager_status", "description": "backupManagerSP progress and pending backup/restore flags.", "parameters": {"type": "object", "properties": {}, "required": []}}},
 ]
 
 
@@ -62,6 +78,57 @@ def make_sp_extension_handlers(
         return create_pending(p, action=action, payload={"params": writes}, preview=preview.get("changes", preview))
       return apply_fn(p, writes)
     return handler
+
+  def _device_group_set(action: str, group: str, apply_fn):
+    def handler(args):
+      err = stationary_check("write_param")
+      if err:
+        return err
+      writes = args.get("params") or {}
+      if not isinstance(writes, dict):
+        return {"ok": False, "error": "params must be an object"}
+      if not args.get("confirm") and needs_confirm():
+        from ai.tools.display_device_tools import preview_group_writes as dev_preview
+        preview = dev_preview(p, writes, group)
+        if not preview.get("ok", True):
+          return preview
+        return create_pending(p, action=action, payload={"params": writes}, preview=preview.get("changes", preview))
+      return apply_fn(p, writes)
+    return handler
+
+  def _model_tune_set(args):
+    err = stationary_check("write_param")
+    if err:
+      return err
+    writes = args.get("params") or {}
+    if not args.get("confirm") and needs_confirm():
+      from ai.tools.model_tune_tools import preview_model_tune_writes
+      preview = preview_model_tune_writes(p, writes)
+      if not preview.get("ok", True):
+        return preview
+      return create_pending(p, action="set_model_tune_settings", payload={"params": writes}, preview=preview.get("changes", preview))
+    from ai.tools.model_tune_tools import apply_model_tune_writes
+    return apply_model_tune_writes(p, writes)
+
+  def h_get_model_tune_settings(_a):
+    from ai.tools.model_tune_tools import get_model_tune_settings
+    return get_model_tune_settings(p)
+
+  def h_get_display_settings(_a):
+    from ai.tools.display_device_tools import get_display_settings
+    return get_display_settings(p)
+
+  def h_get_device_settings(_a):
+    from ai.tools.display_device_tools import get_device_settings
+    return get_device_settings(p)
+
+  def h_list_sunnylink_backups(_a):
+    from ai.tools.sunnylink_tools import list_sunnylink_backups
+    return list_sunnylink_backups(p)
+
+  def h_get_backup_manager_status(_a):
+    from ai.tools.sunnylink_tools import get_backup_manager_status
+    return get_backup_manager_status(get_state_reader=get_state_reader)
 
   def h_get_torque_settings(_a):
     from ai.tools.sp_tune_groups import get_torque_settings
@@ -123,6 +190,8 @@ def make_sp_extension_handlers(
     apply_visuals_writes,
   )
 
+  from ai.tools.display_device_tools import apply_device_writes, apply_display_writes
+
   return {
     "get_torque_settings": h_get_torque_settings,
     "set_torque_settings": _group_set("set_torque_settings", "torque", apply_torque_writes),
@@ -137,4 +206,12 @@ def make_sp_extension_handlers(
     "trigger_sunnylink_restore": h_trigger_sunnylink_restore,
     "get_sp_device_hw": h_get_sp_device_hw,
     "set_sp_dev_beep": h_set_sp_dev_beep,
+    "get_model_tune_settings": h_get_model_tune_settings,
+    "set_model_tune_settings": _model_tune_set,
+    "get_display_settings": h_get_display_settings,
+    "set_display_settings": _device_group_set("set_display_settings", "display", apply_display_writes),
+    "get_device_settings": h_get_device_settings,
+    "set_device_settings": _device_group_set("set_device_settings", "device", apply_device_writes),
+    "list_sunnylink_backups": h_list_sunnylink_backups,
+    "get_backup_manager_status": h_get_backup_manager_status,
   }

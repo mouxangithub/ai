@@ -93,9 +93,11 @@ def catalog_summary() -> list[dict[str, Any]]:
       "key": k,
       "tier": v.get("tier"),
       "section": v.get("section"),
+      "title": v.get("title") or v.get("summary"),
       "summary": v.get("summary"),
       "brands": v.get("brands"),
       "requires": v.get("requires"),
+      "ui_source": v.get("ui_source"),
     }
     for k, v in sorted(load_catalog().items())
   ]

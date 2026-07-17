@@ -1,10 +1,10 @@
 {
-  "version": 4,
+  "version": 5,
   "description": "Param safety catalog for sunnypilot SP助手. Tiers: read_always | write_offroad_ui | write_offroad_tune | write_offroad_dev | write_forbidden | read_redacted. Includes dp_* (dragonpilot fork) and sunnypilot keys.",
   "params": [
     {"key": "QuietMode", "tier": "write_offroad_ui", "section": "Device", "summary": "安静模式（减少提示音）"},
-    {"key": "PlanplusControl", "tier": "write_offroad_tune", "section": "Longitudinal", "summary": "Plan+ 纵向控制"},
-    {"key": "CameraOffset", "tier": "write_offroad_tune", "section": "Lateral", "summary": "摄像头横向偏移校准"},
+    {"key": "PlanplusControl", "tier": "write_offroad_tune", "section": "Models", "summary": "Plan+ 纵向控制增益 (modeld_v2)"},
+    {"key": "CameraOffset", "tier": "write_offroad_tune", "section": "Models", "summary": "摄像头横向偏移 (m)，自定义 NN 模型"},
     {"key": "BackupManager_CreateBackup", "tier": "write_offroad_ui", "section": "Sunnylink", "summary": "触发 Sunnylink 云备份"},
     {"key": "BackupManager_RestoreVersion", "tier": "write_offroad_ui", "section": "Sunnylink", "summary": "Sunnylink 恢复版本号"},
     {"key": "ModelManager_ClearCache", "tier": "write_offroad_tune", "section": "Models", "summary": "清除模型缓存"},
