@@ -97,4 +97,9 @@ def get_host_environment() -> dict[str, Any]:
     out["hardware_profile"] = hardware_profile
     if is_comma_device():
       out["comma_device"] = hardware_profile
+  try:
+    from ai.tools.device_hw_tools import get_sp_device_hw
+    out["sp_device_hw"] = get_sp_device_hw()
+  except Exception:
+    pass
   return out

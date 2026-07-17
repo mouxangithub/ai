@@ -11,6 +11,8 @@ Settings → **Models**（不是 Vehicle 车型选择）。
 | `select_model_bundle` | `ref=Default` 恢复 stock；否则按 ref 下载并切换 |
 | `refresh_model_list` | `ModelManager_LastSyncTime=0` 强制拉取列表 |
 | `cancel_model_download` | 清除 `ModelManager_DownloadIndex` |
+| `clear_model_cache` | `ModelManager_ClearCache` 清缓存（保留当前模型） |
+| `manage_model_favorites` | 增删 `ModelManager_Favs`（分号分隔 ref） |
 
 ## 相关 Param
 

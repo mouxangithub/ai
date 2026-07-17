@@ -67,6 +67,15 @@ def create_pending(
   elif action == "set_mads_settings":
     writes = payload.get("params") or {}
     ok, reason = validate_write_batch(writes, admin=is_admin_mode(params))
+  elif action in (
+    "set_torque_settings", "set_lane_change_settings", "set_speed_limit_settings", "set_visuals_settings",
+  ):
+    ok, reason = True, ""
+  elif action in (
+    "clear_model_cache", "cancel_osm_download", "manage_model_favorites",
+    "trigger_sunnylink_backup", "trigger_sunnylink_restore", "set_sp_dev_beep",
+  ):
+    ok, reason = True, ""
   elif action == "save_adaptation_draft":
     files = payload.get("files") or {}
     ok, reason = (True, "") if isinstance(files, dict) and files else (False, "files required")
@@ -178,6 +187,51 @@ def confirm_pending(params: Params, pending_id: str) -> dict[str, Any]:
   if action == "set_mads_settings":
     from ai.tools.mads_tools import apply_mads_writes
     return apply_mads_writes(params, payload.get("params") or {})
+
+  if action == "set_torque_settings":
+    from ai.tools.sp_tune_groups import apply_torque_writes
+    return apply_torque_writes(params, payload.get("params") or {})
+
+  if action == "set_lane_change_settings":
+    from ai.tools.sp_tune_groups import apply_lane_change_writes
+    return apply_lane_change_writes(params, payload.get("params") or {})
+
+  if action == "set_speed_limit_settings":
+    from ai.tools.sp_tune_groups import apply_speed_limit_writes
+    return apply_speed_limit_writes(params, payload.get("params") or {})
+
+  if action == "set_visuals_settings":
+    from ai.tools.sp_tune_groups import apply_visuals_writes
+    return apply_visuals_writes(params, payload.get("params") or {})
+
+  if action == "clear_model_cache":
+    from ai.tools.model_manager_tools import clear_model_cache
+    return clear_model_cache(params)
+
+  if action == "cancel_osm_download":
+    from ai.tools.osm_tools import cancel_osm_download
+    return cancel_osm_download(params)
+
+  if action == "manage_model_favorites":
+    from ai.tools.model_manager_tools import manage_model_favorites
+    return manage_model_favorites(
+      params,
+      add=payload.get("add"),
+      remove=payload.get("remove"),
+      replace=payload.get("replace"),
+    )
+
+  if action == "trigger_sunnylink_backup":
+    from ai.tools.sunnylink_tools import trigger_sunnylink_backup
+    return trigger_sunnylink_backup(params)
+
+  if action == "trigger_sunnylink_restore":
+    from ai.tools.sunnylink_tools import trigger_sunnylink_restore
+    return trigger_sunnylink_restore(params, str(payload.get("version", "latest") or "latest"))
+
+  if action == "set_sp_dev_beep":
+    from ai.tools.device_hw_tools import set_sp_dev_beep
+    return set_sp_dev_beep(params, bool(payload.get("enabled")))
 
   if action == "save_adaptation_draft":
     from ai.tools.adaptation import save_adaptation_draft

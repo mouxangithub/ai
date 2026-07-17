@@ -303,7 +303,10 @@ def trip_review(
       k: v for k, v in (tune.get("params") or {}).items()
       if k in (
         "dp_lat_alka", "dp_vag_avoid_eps_lockout", "LongitudinalPersonality", "dp_dev_model_selected",
-        "Mads", "MadsSteeringMode", "LagdToggle", "SmartCruiseControlMap", "CarPlatformBundle",
+        "Mads", "MadsSteeringMode", "LagdToggle", "LagdToggleDelay", "SmartCruiseControlMap",
+        "SmartCruiseControlVision", "DynamicExperimentalControl", "CarPlatformBundle",
+        "ModelManager_ActiveBundle", "SpeedLimitMode", "SpeedLimitPolicy", "LiveTorqueParamsToggle",
+        "AutoLaneChangeTimer", "NeuralNetworkLateralControl",
       )
     },
     "route": route_info if route_info.get("ok") else {"ok": False, "route": route or None},
@@ -343,9 +346,56 @@ def suggest_tune_from_review(
   if personality == "0":
     suggestions.append({
       "reason": "纵向人格为激进",
+      "preset_id": "sp_comfort_lon",
+      "fork": "sunnypilot",
+      "params": {"LongitudinalPersonality": "2", "DynamicExperimentalControl": "0"},
+    })
+    suggestions.append({
+      "reason": "纵向人格为激进 (DP 备选)",
       "preset_id": "comfort_follow",
+      "fork": "dragonpilot",
       "params": {"dp_lon_acm": "1", "LongitudinalPersonality": "2"},
     })
+
+  if "speedLimitActive" in event_names or "speedLimitChanged" in event_names:
+    if str(params.get("SpeedLimitMode", "0")) == "0":
+      suggestions.append({
+        "reason": "限速相关事件",
+        "preset_id": "sp_speed_limit_assist",
+        "fork": "sunnypilot",
+      })
+
+  if "laneChangeBlocked" in event_names or "autoLaneChange" in event_names:
+    suggestions.append({
+      "reason": "变道相关事件",
+      "action": "检查 AutoLaneChangeTimer / BSM 延迟",
+      "params": {"AutoLaneChangeBsmDelay": "1"},
+      "fork": "sunnypilot",
+    })
+
+  if "madsSteeringPaused" in event_names or "madsSteeringDisengaged" in event_names:
+    if str(params.get("Mads", "0")) != "1":
+      suggestions.append({
+        "reason": "MADS 横向暂停/退出事件",
+        "preset_id": "sp_mads_full",
+        "fork": "sunnypilot",
+      })
+
+  if "lagdLearning" in event_names or "steerSaturated" in event_names:
+    if str(params.get("LagdToggle", "1")) != "1":
+      suggestions.append({
+        "reason": "转向饱和/延迟学习",
+        "preset_id": "sp_lagd_on",
+        "fork": "sunnypilot",
+      })
+
+  if "smartCruiseControl" in event_names:
+    if str(params.get("SmartCruiseControlMap", "0")) != "1":
+      suggestions.append({
+        "reason": "SCC 相关事件",
+        "preset_id": "sp_scc_map_vision",
+        "fork": "sunnypilot",
+      })
 
   if not suggestions and not event_names:
     if str(params.get("dp_lon_acm", "0")) != "1":

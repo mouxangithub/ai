@@ -80,6 +80,54 @@ SP_TUNE_PRESETS: dict[str, dict[str, Any]] = {
     "params": {"HyundaiLongitudinalTuning": "1"},
     "brands": ["hyundai", "kia", "genesis"],
   },
+  "sp_speed_limit_assist": {
+    "name": "SP 限速辅助",
+    "description": "开启地图限速模式与标准策略",
+    "params": {"SpeedLimitMode": "1", "SpeedLimitPolicy": "0", "SpeedLimitOffsetType": "0"},
+  },
+  "sp_speed_limit_offset_5": {
+    "name": "SP 限速 +5",
+    "params": {"SpeedLimitMode": "1", "SpeedLimitOffsetType": "1", "SpeedLimitValueOffset": "5"},
+  },
+  "sp_nn_lateral": {
+    "name": "SP NN 横向",
+    "params": {"NeuralNetworkLateralControl": "1"},
+  },
+  "sp_lane_change_fast": {
+    "name": "SP 快速变道",
+    "params": {"AutoLaneChangeTimer": "0", "AutoLaneChangeBsmDelay": "0"},
+  },
+  "sp_lane_change_cautious": {
+    "name": "SP 谨慎变道",
+    "params": {"AutoLaneChangeTimer": "2", "AutoLaneChangeBsmDelay": "2"},
+  },
+  "sp_visuals_minimal": {
+    "name": "SP 极简 HUD",
+    "params": {
+      "RainbowMode": "0", "ChevronInfo": "0", "DevUIInfo": "0",
+      "StandstillTimer": "0", "RoadNameToggle": "0",
+    },
+  },
+  "sp_visuals_rainbow": {
+    "name": "SP 彩虹路径",
+    "params": {"RainbowMode": "1", "ChevronInfo": "1"},
+  },
+  "sp_acc_custom": {
+    "name": "SP 自定义 ACC 步进",
+    "params": {
+      "CustomAccIncrementsEnabled": "1",
+      "CustomAccShortPressIncrement": "1",
+      "CustomAccLongPressIncrement": "5",
+    },
+  },
+  "sp_dec_on": {
+    "name": "SP DEC 开启",
+    "params": {"DynamicExperimentalControl": "1"},
+  },
+  "sp_quiet_device": {
+    "name": "SP 安静模式",
+    "params": {"QuietMode": "1"},
+  },
   "sp_rollback_last_tune": {
     "name": "恢复上次 SP/DP 调优快照",
     "description": "从 tune_snapshot_store 恢复",

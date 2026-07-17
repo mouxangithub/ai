@@ -62,7 +62,14 @@ def list_model_bundles(params: Params | None = None, *, refresh: bool = False) -
       folders.setdefault(folder or "(default)", []).append(getattr(b, "ref", "") or getattr(b, "internalName", ""))
 
     favs_raw = params.get("ModelManager_Favs")
-    favs = favs_raw if isinstance(favs_raw, list) else []
+    if isinstance(favs_raw, bytes):
+      favs_raw = favs_raw.decode(errors="replace")
+    if isinstance(favs_raw, str):
+      favs = [x for x in favs_raw.split(";") if x]
+    elif isinstance(favs_raw, list):
+      favs = favs_raw
+    else:
+      favs = []
 
     return {
       "ok": True,
@@ -178,3 +185,45 @@ def cancel_model_download(params: Params) -> dict[str, Any]:
 def clear_model_cache(params: Params) -> dict[str, Any]:
   params.put_bool("ModelManager_ClearCache", True)
   return {"ok": True, "hint": "Cache clear runs on next manager cycle; active model is kept."}
+
+
+def _parse_favs(params: Params) -> list[str]:
+  raw = params.get("ModelManager_Favs")
+  if isinstance(raw, bytes):
+    raw = raw.decode(errors="replace")
+  if not raw:
+    return []
+  if isinstance(raw, str):
+    return [x.strip() for x in raw.split(";") if x.strip()]
+  if isinstance(raw, list):
+    return [str(x).strip() for x in raw if str(x).strip()]
+  return []
+
+
+def manage_model_favorites(
+  params: Params,
+  *,
+  add: list[str] | None = None,
+  remove: list[str] | None = None,
+  replace: list[str] | None = None,
+) -> dict[str, Any]:
+  """Manage ModelManager_Favs (semicolon-separated refs, same as UI)."""
+  favs = set(_parse_favs(params))
+  if replace is not None:
+    favs = {str(x).strip() for x in replace if str(x).strip()}
+  else:
+    for ref in add or []:
+      ref = str(ref).strip()
+      if ref:
+        favs.add(ref)
+    for ref in remove or []:
+      favs.discard(str(ref).strip())
+  ordered = sorted(favs)
+  if ordered:
+    params.put("ModelManager_Favs", ";".join(ordered))
+  else:
+    try:
+      params.remove("ModelManager_Favs")
+    except Exception:
+      pass
+  return {"ok": True, "favorites": ordered}

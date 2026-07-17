@@ -5,6 +5,11 @@ from __future__ import annotations
 from typing import Any, Callable
 
 from ai.plugins.loader import collect_plugin_schemas, collect_plugin_tool_meta, make_plugin_handlers
+from ai.tools.sp_tool_extensions import (
+  SP_EXTENSION_SCHEMAS,
+  SP_EXTENSION_TOOL_META,
+  make_sp_extension_handlers,
+)
 
 EXTENSION_TOOL_META: dict[str, dict[str, Any]] = {
   "reboot_device": {"label": "重启设备", "group": "shell", "default_enabled": True, "driving": True},
@@ -69,6 +74,7 @@ EXTENSION_TOOL_META: dict[str, dict[str, Any]] = {
 }
 
 EXTENSION_TOOL_META.update(collect_plugin_tool_meta())
+EXTENSION_TOOL_META.update(SP_EXTENSION_TOOL_META)
 
 EXTENSION_SCHEMAS: list[dict[str, Any]] = [
   {"type": "function", "function": {"name": "reboot_device", "description": "Reboot the comma/AGNOS device.", "parameters": {"type": "object", "properties": {"delay_sec": {"type": "integer"}}, "required": []}}},
@@ -133,6 +139,7 @@ EXTENSION_SCHEMAS: list[dict[str, Any]] = [
 ]
 
 EXTENSION_SCHEMAS.extend(collect_plugin_schemas())
+EXTENSION_SCHEMAS.extend(SP_EXTENSION_SCHEMAS)
 
 
 def make_extension_handlers(
@@ -718,4 +725,12 @@ def make_extension_handlers(
     "konik_connect_pipeline": h_konik_connect_pipeline,
   }
   base.update(make_plugin_handlers(ctx))
+  base.update(
+    make_sp_extension_handlers(
+      params,
+      stationary_check=stationary_check,
+      needs_confirm=needs_confirm,
+      get_state_reader=get_state_reader,
+    )
+  )
   return base

@@ -154,6 +154,22 @@ def trigger_osm_download(params: Params) -> dict[str, Any]:
   return {"ok": True, "hint": "Download starts via mapd; poll get_osm_status.", "status": get_osm_status(params)}
 
 
+def cancel_osm_download(params: Params) -> dict[str, Any]:
+  """Best-effort cancel in-progress OSM download (clears shm queue + pending flag)."""
+  mem = _shm_params(params)
+  had = bool(mem.get("OSMDownloadLocations"))
+  try:
+    mem.remove("OSMDownloadLocations")
+  except Exception:
+    pass
+  try:
+    mem.remove("OSMDownloadProgress")
+  except Exception:
+    pass
+  params.put_bool("OsmDbUpdatesCheck", False)
+  return {"ok": True, "cancelled": had, "status": get_osm_status(params)}
+
+
 def delete_osm_maps(params: Params) -> dict[str, Any]:
   root = _map_root()
   if root.exists():

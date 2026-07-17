@@ -151,10 +151,13 @@ TOOL_META: dict[str, dict[str, Any]] = {
   "select_model_bundle": {"label": "切换 NN 模型", "group": "write", "default_enabled": True, "driving": True},
   "refresh_model_list": {"label": "刷新模型列表", "group": "write", "default_enabled": True, "driving": True},
   "cancel_model_download": {"label": "取消模型下载", "group": "write", "default_enabled": True, "driving": True},
+  "clear_model_cache": {"label": "清除模型缓存", "group": "write", "default_enabled": True, "driving": True},
+  "manage_model_favorites": {"label": "模型收藏", "group": "write", "default_enabled": True, "driving": True},
   "set_mads_settings": {"label": "写入 MADS", "group": "write", "default_enabled": True, "driving": True},
   "select_osm_region": {"label": "选择 OSM 区域", "group": "write", "default_enabled": True, "driving": True},
   "trigger_osm_download": {"label": "触发 OSM 下载", "group": "write", "default_enabled": True, "driving": True},
   "delete_osm_maps": {"label": "删除 OSM 地图", "group": "write", "default_enabled": True, "driving": True},
+  "cancel_osm_download": {"label": "取消 OSM 下载", "group": "write", "default_enabled": True, "driving": True},
   "update_agent_memory": {"label": "更新记忆", "group": "memory", "default_enabled": True, "driving": True},
   "manage_knowledge_doc": {"label": "管理知识库", "group": "memory", "default_enabled": True, "driving": True},
   "manage_scheduled_task": {"label": "管理定时任务", "group": "config", "default_enabled": True, "driving": True},
@@ -215,6 +218,8 @@ def build_tool_schemas() -> list[dict[str, Any]]:
     {"type": "function", "function": {"name": "select_model_bundle", "description": "Select NN model by ref (Default=stock). Stationary only.", "parameters": {"type": "object", "properties": {"ref": {"type": "string"}, "confirm": {"type": "boolean"}}, "required": ["ref", "confirm"]}}},
     {"type": "function", "function": {"name": "refresh_model_list", "description": "Force ModelManager to refresh remote model list.", "parameters": {"type": "object", "properties": {"confirm": {"type": "boolean"}}, "required": []}}},
     {"type": "function", "function": {"name": "cancel_model_download", "description": "Cancel in-progress model download.", "parameters": {"type": "object", "properties": {"confirm": {"type": "boolean"}}, "required": []}}},
+    {"type": "function", "function": {"name": "clear_model_cache", "description": "Queue ModelManager cache clear (keeps active model).", "parameters": {"type": "object", "properties": {"confirm": {"type": "boolean"}}, "required": []}}},
+    {"type": "function", "function": {"name": "manage_model_favorites", "description": "Add/remove/replace ModelManager_Favs refs (semicolon list).", "parameters": {"type": "object", "properties": {"add": {"type": "array", "items": {"type": "string"}}, "remove": {"type": "array", "items": {"type": "string"}}, "replace": {"type": "array", "items": {"type": "string"}}, "confirm": {"type": "boolean"}}, "required": []}}},
     {"type": "function", "function": {"name": "get_mads_settings", "description": "Read MADS toggles and steering-on-brake mode.", "parameters": {"type": "object", "properties": {}, "required": []}}},
     {"type": "function", "function": {"name": "set_mads_settings", "description": "Write MADS params (Mads, MadsMainCruiseAllowed, MadsUnifiedEngagementMode, MadsSteeringMode).", "parameters": {"type": "object", "properties": {"params": {"type": "object"}, "confirm": {"type": "boolean"}}, "required": ["params", "confirm"]}}},
     {"type": "function", "function": {"name": "get_osm_status", "description": "OSM offline map download status and selected region.", "parameters": {"type": "object", "properties": {}, "required": []}}},
@@ -222,6 +227,7 @@ def build_tool_schemas() -> list[dict[str, Any]]:
     {"type": "function", "function": {"name": "select_osm_region", "description": "Set OSM country/state selection (does not download).", "parameters": {"type": "object", "properties": {"country_code": {"type": "string"}, "country_title": {"type": "string"}, "state_code": {"type": "string"}, "state_title": {"type": "string"}, "confirm": {"type": "boolean"}}, "required": []}}},
     {"type": "function", "function": {"name": "trigger_osm_download", "description": "Start OSM map database download (offroad, WiFi).", "parameters": {"type": "object", "properties": {"confirm": {"type": "boolean"}}, "required": ["confirm"]}}},
     {"type": "function", "function": {"name": "delete_osm_maps", "description": "Delete all downloaded OSM maps.", "parameters": {"type": "object", "properties": {"confirm": {"type": "boolean"}}, "required": ["confirm"]}}},
+    {"type": "function", "function": {"name": "cancel_osm_download", "description": "Cancel in-progress OSM map download.", "parameters": {"type": "object", "properties": {"confirm": {"type": "boolean"}}, "required": []}}},
     {"type": "function", "function": {"name": "select_car_platform", "description": "Alias: set CarPlatformBundle platform (empty=auto). Stationary only.", "parameters": {"type": "object", "properties": {"model": {"type": "string"}, "confirm": {"type": "boolean"}}, "required": ["model", "confirm"]}}},
     {"type": "function", "function": {"name": "write_params", "description": "Write Params while stationary. JSON object key->value. Optional regression guard via route_before/route_after.", "parameters": {"type": "object", "properties": {"params": {"type": "object", "additionalProperties": True}, "confirm": {"type": "boolean", "description": "Must be true to apply."}, "route_before": {"type": "string"}, "route_after": {"type": "string"}, "skip_regression_check": {"type": "boolean"}}, "required": ["params", "confirm"]}}},
     {"type": "function", "function": {"name": "apply_tune_preset", "description": "Apply a named tune preset while stationary.", "parameters": {"type": "object", "properties": {"preset_id": {"type": "string"}, "confirm": {"type": "boolean"}, "route_before": {"type": "string"}, "route_after": {"type": "string"}, "skip_regression_check": {"type": "boolean"}}, "required": ["preset_id", "confirm"]}}},
@@ -637,6 +643,34 @@ def make_handlers(
     from ai.tools.model_manager_tools import cancel_model_download
     return cancel_model_download(p)
 
+  def h_clear_model_cache(args):
+    err = _stationary_check("write_param")
+    if err:
+      return err
+    if not args.get("confirm") and _needs_confirm():
+      return {"ok": True, "needs_confirmation": True, "hint": "Set confirm=true to clear model cache."}
+    from ai.tools.model_manager_tools import clear_model_cache
+    return clear_model_cache(p)
+
+  def h_manage_model_favorites(args):
+    err = _stationary_check("write_param")
+    if err:
+      return err
+    payload = {
+      "add": args.get("add"),
+      "remove": args.get("remove"),
+      "replace": args.get("replace"),
+    }
+    if not args.get("confirm") and _needs_confirm():
+      return {"ok": True, "needs_confirmation": True, "payload": payload}
+    from ai.tools.model_manager_tools import manage_model_favorites
+    return manage_model_favorites(
+      p,
+      add=payload.get("add"),
+      remove=payload.get("remove"),
+      replace=payload.get("replace"),
+    )
+
   def h_get_mads_settings(_a):
     from ai.tools.mads_tools import get_mads_settings
     return get_mads_settings(p)
@@ -698,6 +732,15 @@ def make_handlers(
       return {"ok": True, "needs_confirmation": True, "hint": "Set confirm=true to delete all maps."}
     from ai.tools.osm_tools import delete_osm_maps
     return delete_osm_maps(p)
+
+  def h_cancel_osm_download(args):
+    err = _stationary_check("write_param")
+    if err:
+      return err
+    if not args.get("confirm") and _needs_confirm():
+      return {"ok": True, "needs_confirmation": True, "hint": "Set confirm=true to cancel OSM download."}
+    from ai.tools.osm_tools import cancel_osm_download
+    return cancel_osm_download(p)
 
   def h_get_agent_memory(_a):
     return get_memory(p)
@@ -1495,6 +1538,8 @@ def make_handlers(
     "select_model_bundle": h_select_model_bundle,
     "refresh_model_list": h_refresh_model_list,
     "cancel_model_download": h_cancel_model_download,
+    "clear_model_cache": h_clear_model_cache,
+    "manage_model_favorites": h_manage_model_favorites,
     "get_mads_settings": h_get_mads_settings,
     "set_mads_settings": h_set_mads_settings,
     "get_osm_status": h_get_osm_status,
@@ -1502,6 +1547,7 @@ def make_handlers(
     "select_osm_region": h_select_osm_region,
     "trigger_osm_download": h_trigger_osm_download,
     "delete_osm_maps": h_delete_osm_maps,
+    "cancel_osm_download": h_cancel_osm_download,
     "get_agent_memory": h_get_agent_memory,
     "update_agent_memory": h_update_agent_memory,
     "list_scheduled_tasks": h_list_scheduled_tasks,
