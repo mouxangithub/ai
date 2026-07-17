@@ -679,9 +679,11 @@ async def api_pc_sessions(request: web.Request) -> web.Response:
 
 async def _scheduler_execute_action(action: str, _payload: dict[str, Any]) -> str:
   if action == "read_last_log":
-    raw = _PARAMS.get("dp_dev_last_log")
-    text = raw.decode(errors="replace") if isinstance(raw, bytes) else str(raw or "")
-    return text[:400] or "empty"
+    from ai.tools.diagnostics_tools import read_manager_log
+    res = read_manager_log(_PARAMS, lines=80)
+    text = res.get("log", "") or ""
+    src = res.get("source", "")
+    return (f"[{src}] " if src else "") + text[:400] or "empty"
   if action == "read_usage":
     u = load_usage(_PARAMS)
     return f"calls={u.get('calls')} tokens={u.get('total_tokens')}"

@@ -16,10 +16,48 @@ from ai.tools.params_policy import load_catalog
 _ROUTES_DIR = ROUTES_DIR
 
 _TUNE_KEY_PREFIXES = ("dp_lat_", "dp_lon_", "dp_ui_", "dp_toyota_", "dp_honda_", "dp_vag_")
+_SP_TUNE_PREFIXES = (
+  "Mads", "Lagd", "LaneTurn", "SpeedLimit", "SmartCruise", "DynamicExperimental",
+  "Blinker", "LiveTorque", "TorqueParams", "CustomAcc", "AutoLaneChange",
+  "Toyota", "Subaru", "Hyundai", "Tesla", "NeuralNetwork", "EnforceTorque",
+  "IntelligentCruise", "Osm",
+)
 _TUNE_EXTRA = frozenset({
   "LongitudinalPersonality", "ExperimentalMode", "IsLdwEnabled",
   "DisengageOnAccelerator", "CarPlatformBundle",
+  "Mads", "MadsMainCruiseAllowed", "MadsUnifiedEngagementMode", "MadsSteeringMode",
+  "LagdToggle", "LagdToggleDelay", "LaneTurnDesire", "LaneTurnValue",
+  "DynamicExperimentalControl", "SmartCruiseControlMap", "SmartCruiseControlVision",
+  "SpeedLimitMode", "SpeedLimitOffsetType", "SpeedLimitValueOffset", "SpeedLimitPolicy",
+  "LiveTorqueParamsToggle", "CustomTorqueParams", "BlindSpot",
+  "ModelManager_ActiveBundle",
 })
+
+
+def _is_tune_key(key: str) -> bool:
+  if key in _TUNE_EXTRA:
+    return True
+  if key.startswith(_TUNE_KEY_PREFIXES):
+    return True
+  return any(key.startswith(p) for p in _SP_TUNE_PREFIXES)
+
+
+def _read_device_log(params: Params, *, lines: int = 80) -> tuple[str, str]:
+  """Return (text, source). Tries dp_dev_last_log then /data/log/latest.log."""
+  raw = params.get("dp_dev_last_log")
+  text = raw.decode(errors="replace") if isinstance(raw, bytes) else str(raw or "")
+  if text.strip():
+    return text, "dp_dev_last_log"
+  from ai.system.shell import run_command
+  tail = run_command("tail_params_log")
+  shell_text = (tail.get("stdout") or "").strip()
+  if shell_text:
+    return shell_text, "/data/log/latest.log"
+  err_tail = run_command("grep_log_errors")
+  err_text = (err_tail.get("stdout") or "").strip()
+  if err_text and err_text != "(no matches)":
+    return err_text, "grep_log_errors"
+  return text, "empty"
 
 
 async def fetch_dashy_settings(timeout: float = 3.0) -> dict[str, Any]:
@@ -37,14 +75,9 @@ async def fetch_dashy_settings(timeout: float = 3.0) -> dict[str, Any]:
 
 
 def read_manager_log(params: Params, *, lines: int = 80) -> dict[str, Any]:
-  raw = params.get("dp_dev_last_log")
-  text = raw.decode(errors="replace") if isinstance(raw, bytes) else str(raw or "")
-  if not text.strip():
-    from ai.system.shell import run_command
-    tail = run_command("tail_params_log")
-    text = tail.get("stdout", "") or text
+  text, source = _read_device_log(params, lines=lines)
   chunk = "\n".join(text.splitlines()[-lines:])
-  return {"ok": True, "lines": lines, "log": chunk}
+  return {"ok": True, "lines": lines, "log": chunk, "source": source}
 
 
 def grep_log(params: Params, pattern: str, *, lines: int = 200) -> dict[str, Any]:
@@ -88,7 +121,7 @@ def snapshot_tune_state(params: Params, brand: str = "") -> dict[str, Any]:
     tier = meta.get("tier", "")
     if tier not in ("write_offroad_tune", "write_offroad_ui"):
       continue
-    if key.startswith(_TUNE_KEY_PREFIXES) or key in _TUNE_EXTRA:
+    if key.startswith(_TUNE_KEY_PREFIXES) or _is_tune_key(key):
       try:
         val = params.get(key)
         if isinstance(val, bytes):
@@ -238,7 +271,7 @@ def trip_review(
   if not recommendations and not events:
     recommendations.append("当前无 critical events；可对比 snapshot_tune_state 做舒适/运动调优")
   if tune.get("param_count", 0) > 0 and not recommendations:
-    recommendations.append("调优项已快照，可向用户建议 1–3 项 dp_* 微调（静止时 diff_params 预览）")
+    recommendations.append("调优项已快照；可 diff_params 预览 dp_* 或 SP 参数（Mads/Lagd/SCC 等）")
 
   tune_suggestions = suggest_tune_from_review(events, tune, brand=brand or secoc.get("brand", ""))
 
@@ -268,7 +301,10 @@ def trip_review(
     "tune_snapshot_count": tune.get("param_count", 0),
     "tune_highlights": {
       k: v for k, v in (tune.get("params") or {}).items()
-      if k in ("dp_lat_alka", "dp_vag_avoid_eps_lockout", "LongitudinalPersonality", "dp_dev_model_selected")
+      if k in (
+        "dp_lat_alka", "dp_vag_avoid_eps_lockout", "LongitudinalPersonality", "dp_dev_model_selected",
+        "Mads", "MadsSteeringMode", "LagdToggle", "SmartCruiseControlMap", "CarPlatformBundle",
+      )
     },
     "route": route_info if route_info.get("ok") else {"ok": False, "route": route or None},
     "recent_log_matches": matches[:8],
@@ -314,8 +350,15 @@ def suggest_tune_from_review(
   if not suggestions and not event_names:
     if str(params.get("dp_lon_acm", "0")) != "1":
       suggestions.append({
-        "reason": "无异常事件，可尝试舒适跟车",
+        "reason": "无异常事件，可尝试舒适跟车 (DP)",
         "preset_id": "comfort_follow",
+        "fork": "dragonpilot",
+      })
+    if str(params.get("LongitudinalPersonality", "1")) != "2":
+      suggestions.append({
+        "reason": "无异常事件，可尝试 SP 舒适纵向",
+        "preset_id": "sp_comfort_lon",
+        "fork": "sunnypilot",
       })
 
   return suggestions[:5]
@@ -366,7 +409,11 @@ def apply_tune_from_route(
   for item in review.get("tune_suggestions") or []:
     if item.get("preset_id") and not item.get("params"):
       from ai.tools.presets import get_preset
-      preset = get_preset(str(item["preset_id"]))
+      from ai.tools.sp_presets import get_sp_preset
+      pid = str(item["preset_id"])
+      preset = get_sp_preset(pid) if pid.startswith("sp_") else get_preset(pid)
+      if not preset and not pid.startswith("sp_"):
+        preset = get_sp_preset(pid)
       if preset:
         merged.update(preset.get("params") or {})
         applied_preset = str(item["preset_id"])

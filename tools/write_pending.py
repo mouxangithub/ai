@@ -56,8 +56,17 @@ def create_pending(
     if not preset:
       return {"ok": False, "error": "Unknown preset_id"}
     ok, reason = validate_write_batch(preset["params"], admin=is_admin_mode(params))
-  elif action == "select_driving_model":
+  elif action == "apply_sp_tune_preset":
+    from ai.tools.sp_presets import get_sp_preset
+    preset = get_sp_preset(str(payload.get("preset_id", "")))
+    if not preset:
+      return {"ok": False, "error": "Unknown sp preset_id"}
+    ok, reason = validate_write_batch(preset["params"], admin=is_admin_mode(params))
+  elif action in ("select_driving_model", "select_car_platform", "select_model_bundle"):
     ok, reason = True, ""
+  elif action == "set_mads_settings":
+    writes = payload.get("params") or {}
+    ok, reason = validate_write_batch(writes, admin=is_admin_mode(params))
   elif action == "save_adaptation_draft":
     files = payload.get("files") or {}
     ok, reason = (True, "") if isinstance(files, dict) and files else (False, "files required")
@@ -68,7 +77,7 @@ def create_pending(
   else:
     return {"ok": False, "error": f"Unknown action {action}"}
 
-  if not ok and action != "select_driving_model":
+  if not ok and action not in ("select_driving_model", "select_car_platform", "select_model_bundle"):
     return {"ok": False, "error": reason}
 
   pid = f"w_{uuid.uuid4().hex[:12]}"
@@ -137,10 +146,38 @@ def confirm_pending(params: Params, pending_id: str) -> dict[str, Any]:
       admin=is_admin_mode(params),
     )
 
-  if action == "select_driving_model":
+  if action == "apply_sp_tune_preset":
+    from ai.tools.sp_presets import get_sp_preset
+    from ai.tools.tune_write_pipeline import apply_param_writes
+    preset_id = str(payload.get("preset_id", ""))
+    preset = get_sp_preset(preset_id)
+    if not preset:
+      return {"ok": False, "error": "Unknown sp preset_id"}
+    return apply_param_writes(
+      params,
+      preset["params"],
+      action="apply_sp_tune_preset",
+      brand=str(payload.get("brand", "") or ""),
+      route_before=str(payload.get("route_before", "") or ""),
+      route_after=str(payload.get("route_after", "") or ""),
+      skip_regression_check=bool(payload.get("skip_regression_check")),
+      snapshot_label=f"auto_before_{preset_id}",
+      preset_id=preset_id,
+      admin=is_admin_mode(params),
+    )
+
+  if action in ("select_driving_model", "select_car_platform"):
     from ai.tools.vehicle_platform import put_car_platform_bundle
     model = str(payload.get("model", ""))
     return put_car_platform_bundle(params, model)
+
+  if action == "select_model_bundle":
+    from ai.tools.model_manager_tools import select_model_bundle
+    return select_model_bundle(params, str(payload.get("ref", "")))
+
+  if action == "set_mads_settings":
+    from ai.tools.mads_tools import apply_mads_writes
+    return apply_mads_writes(params, payload.get("params") or {})
 
   if action == "save_adaptation_draft":
     from ai.tools.adaptation import save_adaptation_draft

@@ -1,35 +1,30 @@
-# Dragonpilot Dashy 与设置源
+# sunnypilot 设置与参数
 
-本 fork 的调优 UI 与参数真相来源：
+## 真相来源（优先级）
 
-1. **`dragonpilot/settings/*.py`** — 定义可调项（title、description、brand 过滤）
-2. **Params `dp_*`** — 运行时存储
-3. **Dashy**（`:5088`，Param `dp_dev_dashy`）— Web 调优面板，镜像多数开关
+1. **`list_sp_settings`** — 当前品牌可见项 + 当前值（来自 `params_catalog.json` + UI 自动发现）
+2. **`get_params_catalog`** — 写入等级 tier
+3. **sunnypilot Settings UI** — `selfdrive/ui/sunnypilot/layouts/settings/`
+4. **Dragonpilot Dashy** — 仅当安装了 dragonpilot；`fetch_dashy_settings` 作补充
 
-## AI 推荐工作流
+## 专用工具（不必死记 Param）
 
-1. `list_dp_settings` — 列出当前品牌可见项 + 当前值（**优先于**死记 Param 名）
-2. `read_params` — 核对具体 key
-3. `get_params_catalog` — 确认写入等级
-4. 静止时 `write_params` 或 `apply_tune_preset`（需用户确认）
+| 领域 | 读 | 写（静止+confirm） |
+|------|-----|-------------------|
+| 车型平台 | `get_car_platform_bundle`, `list_car_platforms` | `select_car_platform` |
+| NN 模型 | `get_model_manager_status`, `list_model_bundles` | `select_model_bundle`, `refresh_model_list` |
+| MADS | `get_mads_settings` | `set_mads_settings` 或 `write_params` |
+| OSM 地图 | `get_osm_status`, `list_osm_regions` | `select_osm_region`, `trigger_osm_download` |
+| 通用调参 | `read_params`, `snapshot_tune_state` | `write_params`, `apply_sp_tune_preset` |
 
-## Dashy API（设备在线时）
+## ai_* 配置
 
-- `GET http://127.0.0.1:5088/api/settings` — 设置树
-- 写操作走 Dashy 白名单；**op助手** 直接写 Params，不必依赖 Dashy 进程
+`ai_provider`、`ai_model` 等走 **`/data/ai/config.json`**（或 PC `~/.comma/ai/config.json`），**不在** `params_keys.h` 编译。
 
-## 与 CarrotPilot 的区别
+## 日志
 
-| 概念 | CarrotPilot (CP) | Dragonpilot (本 fork) |
-|------|------------------|------------------------|
-| 调优入口 | Carrot 专有 Param / UI | `dp_*` + Dashy |
-| 横向全速域 | Carrot MADS 等 | `dp_lat_alka` |
-| 社区 fork | ajouatom / Carrot2 | dragonpilot |
+`read_manager_log`：先 `dp_dev_last_log`（DP 遗留），再 `/data/log/latest.log`（SP 车机默认）。
 
-用户说「CP 调优」时，先澄清是否指 **Carrot 另一台设备**；在本车一律用 `dp_*`。
+## 与 Carrot/CP
 
-## 模型与设备
-
-- `dp_dev_model_selected` / `list_dp_settings` 中的模型项
-- `select_driving_model` 工具：静止 + 确认后切换
-- 改模型后建议 `restart_ui` 或 reengage
+见 **carrot-legacy** 技能；本 fork 写入 **sunnypilot Param**，不要写 CP 专有键。

@@ -38,6 +38,50 @@ def resolve_car_platform_bundle(model: str) -> dict[str, Any] | None:
   return None
 
 
+def list_car_platforms(*, brand: str = "", search: str = "", limit: int = 80) -> dict[str, Any]:
+  """List entries from sunnypilot car_list.json (CarPlatformBundle options)."""
+  cars = load_car_list()
+  brand_l = brand.strip().lower()
+  search_l = search.strip().lower()
+  items: list[dict[str, Any]] = []
+
+  for name, data in cars.items():
+    platform = data.get("platform", "")
+    entry_brand = str(data.get("brand", "") or "").lower()
+    if brand_l and brand_l not in entry_brand and brand_l not in platform.lower():
+      continue
+    hay = f"{name} {platform}".lower()
+    if search_l and search_l not in hay:
+      continue
+    items.append({
+      "name": name,
+      "platform": platform,
+      "brand": data.get("brand"),
+      "year": data.get("year"),
+    })
+
+  items.sort(key=lambda x: x["name"])
+  if limit > 0:
+    items = items[:limit]
+
+  return {
+    "ok": True,
+    "count": len(items),
+    "platforms": items,
+    "hint": "select_car_platform(name_or_platform, confirm=true) sets CarPlatformBundle; empty clears to auto.",
+  }
+
+
+def get_car_platform_bundle(params: Params) -> dict[str, Any]:
+  raw = params.get("CarPlatformBundle")
+  if not raw:
+    return {"ok": True, "mode": "auto", "bundle": None}
+  if isinstance(raw, bytes):
+    import json as _json
+    raw = _json.loads(raw.decode(errors="replace"))
+  return {"ok": True, "mode": "manual", "bundle": raw}
+
+
 def put_car_platform_bundle(params: Params, model: str) -> dict[str, Any]:
   model = str(model or "").strip()
   if not model:
@@ -51,6 +95,10 @@ def put_car_platform_bundle(params: Params, model: str) -> dict[str, Any]:
 
   params.put("CarPlatformBundle", bundle)
   return {"ok": True, "platform": bundle["platform"], "name": bundle["name"]}
+
+
+# Backwards-compatible alias naming
+select_car_platform = put_car_platform_bundle
 
 
 def preview_car_platform_change(params: Params, model: str) -> dict[str, Any]:

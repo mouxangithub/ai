@@ -81,6 +81,7 @@ def list_presets() -> list[dict[str, Any]]:
   return [
     {
       "id": pid,
+      "fork": "dragonpilot",
       "name": p.get("name", pid),
       "description": p.get("description", ""),
       "params": list(p["params"].keys()) if not p.get("rollback") else ["_restore_snapshot"],
