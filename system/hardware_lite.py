@@ -1,6 +1,7 @@
 """Comma device Lite hardware variant — detection and AI param policy.
 
-Lite = C3 (``tici``) or C3X (``tizi``) without I2C audio amp @ bus 0 / 0x10.
+Lite = comma three (``tici`` / C3) without I2C audio amp @ bus 0 / 0x10.
+Matches ``set_lite_hw()`` in ``launch_chffrplus.sh`` (``tici`` only, not ``tizi``).
 When ``LITE=1``: no micd/soundd/dmonitoring*; use ``beepd`` + ``SpDevBeep`` for feedback.
 C4 (``mici``) has no amp chip but is **not** the Lite variant (different product line).
 Not the same as PrimeType.LITE (subscription tier).
@@ -16,12 +17,11 @@ from openpilot.common.params import Params
 
 from ai.system.paths import is_comma_device
 
-# C3 / C3X can ship without the MAX98089 amplifier.
-LITE_CAPABLE_DEVICE_TYPES = frozenset({"tici", "tizi"})
+# Only comma three (C3 / tici) — same gate as launch_chffrplus.sh set_lite_hw().
+LITE_CAPABLE_DEVICE_TYPES = frozenset({"tici"})
 
 LITE_DEVICE_LABELS = {
   "tici": "C3",
-  "tizi": "C3X",
 }
 
 # Writes blocked on Lite (hardware cannot honor these).
@@ -69,6 +69,14 @@ def _probe_amp_missing() -> bool | None:
     return None
 
 
+def _devicetree_has_tici() -> bool:
+  try:
+    with open("/sys/firmware/devicetree/base/model", "rb") as f:
+      return b"tici" in f.read()
+  except OSError:
+    return False
+
+
 def detect_lite_hw() -> bool | None:
   """True=Lite, False=full audio stack, None=unknown (PC or probe failed)."""
   if os.getenv("LITE"):
@@ -77,17 +85,18 @@ def detect_lite_hw() -> bool | None:
     return None
 
   slug = _comma_device_slug()
-  if slug == "mici":
+  if slug in ("mici", "tizi"):
     return False
-  if slug is not None and slug not in LITE_CAPABLE_DEVICE_TYPES:
+  if slug is not None and slug != "tici":
+    return False
+  if slug != "tici" and not _devicetree_has_tici():
     return False
 
   probed = _probe_amp_missing()
   if probed is not None:
     return probed
 
-  # Comma device but devicetree unreadable — still try I2C (legacy /TICI hosts).
-  return _probe_amp_missing()
+  return None
 
 
 def is_lite_hw() -> bool:
@@ -103,7 +112,7 @@ def lite_device_label(device_type: str | None = None) -> str | None:
 
 def lite_write_block_reason(key: str) -> str | None:
   if is_lite_hw() and key in LITE_BLOCKED_WRITE_PARAMS:
-    label = lite_device_label() or "C3/C3X"
+    label = lite_device_label() or "C3"
     return (
       f"Param '{key}' is unavailable on Lite {label} (no microphone / no dmonitoring). "
       f"Use set_sp_dev_beep for GPIO beep feedback instead."
@@ -127,7 +136,7 @@ def lite_profile(params: Params | None = None) -> dict[str, Any]:
   if lite:
     lite_note = (
       f"LITE=1: micd/soundd/dmonitoringd off; beepd when SpDevBeep=1. "
-      f"Lite {label or 'C3/C3X'} (tici/tizi, no amp @ I2C 0x10)."
+      f"Lite {label or 'C3'} (tici, no amp @ I2C 0x10)."
     )
   elif lite is False:
     lite_note = f"Full audio stack ({label or slug or 'comma device'})."

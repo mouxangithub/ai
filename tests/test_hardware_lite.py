@@ -28,12 +28,17 @@ class TestHardwareLite(unittest.TestCase):
     with patch.object(hl, "_comma_device_slug", return_value="mici"):
       self.assertFalse(hl.detect_lite_hw())
 
-  def test_tizi_lite_profile_label(self):
+  def test_tizi_not_lite(self):
+    with patch.object(hl, "_comma_device_slug", return_value="tizi"):
+      with patch.object(hl, "_probe_amp_missing", return_value=True):
+        self.assertFalse(hl.detect_lite_hw())
+
+  def test_tici_lite_profile_label(self):
     with patch.object(hl, "detect_lite_hw", return_value=True):
-      with patch.object(hl, "_comma_device_slug", return_value="tizi"):
+      with patch.object(hl, "_comma_device_slug", return_value="tici"):
         prof = hl.lite_profile()
-        self.assertEqual(prof["device_type"], "tizi")
-        self.assertEqual(prof["product_label"], "C3X")
+        self.assertEqual(prof["device_type"], "tici")
+        self.assertEqual(prof["product_label"], "C3")
         self.assertTrue(prof["lite_capable"])
 
   def test_lite_profile_beepd_eligible(self):

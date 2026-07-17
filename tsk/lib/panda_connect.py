@@ -18,7 +18,8 @@ import time
 from pathlib import Path
 from typing import Any
 
-PANDA_MCU_CACHE = "/persist/dp_dev_panda_mcu_type"
+PANDA_MCU_CACHE = "/persist/sp_dev_panda_mcu_type"
+PANDA_MCU_LEGACY_CACHE = "/persist/dp_dev_panda_mcu_type"
 DEVICE_TREE_MODEL = "/sys/firmware/devicetree/base/model"
 PANDAD_TICI_MODULE = "selfdrive.pandad_tici.pandad"
 PANDAD_MODULE = "selfdrive.pandad.pandad"
@@ -132,11 +133,14 @@ def is_tici_hw() -> bool:
 
 
 def _read_mcu_cache() -> str | None:
-  try:
-    value = Path(PANDA_MCU_CACHE).read_text(encoding="utf-8").strip()
-  except OSError:
-    return None
-  return value if value in ("F4", "H7") else None
+  for path in (PANDA_MCU_CACHE, PANDA_MCU_LEGACY_CACHE):
+    try:
+      value = Path(path).read_text(encoding="utf-8").strip()
+    except OSError:
+      continue
+    if value in ("F4", "H7"):
+      return value
+  return None
 
 
 def _query_panda_mcu_type() -> str | None:

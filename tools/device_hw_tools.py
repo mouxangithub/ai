@@ -57,7 +57,7 @@ def set_sp_dev_beep(params: Params, enabled: bool) -> dict[str, Any]:
     label = lite_device_label() or "device"
     return {
       "ok": False,
-      "error": f"SpDevBeep is for Lite C3/C3X only (this {label} has soundd).",
+      "error": f"SpDevBeep is for Lite C3 only (this {label} has soundd).",
     }
   if lite is None and not is_comma_device():
     return {
