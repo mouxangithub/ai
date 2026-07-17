@@ -22,8 +22,8 @@ AI_TIMEZONE_OPTIONS: list[tuple[str, str]] = [
 
 
 def read_ai_timezone_name(params: Params | None = None) -> str:
-  p = params or Params()
-  raw = p.get("ai_timezone")
+  from ai.common.storage import read_param
+  raw = read_param(params, "ai_timezone")
   if not raw:
     return DEFAULT_AI_TIMEZONE
   name = raw.decode() if isinstance(raw, bytes) else str(raw)

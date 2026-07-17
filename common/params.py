@@ -1,7 +1,8 @@
 """
 AI Agent param definitions.
 
-These params are consumed by the AI agent service (ai.aid) and the Web UI at :5090.
+Schema for ai_* keys. Runtime storage: /data/ai/config.json (see common/config_store.py).
+Openpilot fork Params (e.g. SpDevBeep, CarPlatformBundle) still use params_keys.h.
 """
 
 # Provider presets used by both the device UI and the web config page.

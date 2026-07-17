@@ -27,7 +27,7 @@ STANDARD_TOP_DIRS = frozenset({
   "system",
   "third_party",
   "tools",
-  "tinygrad_repo",
+  "sunnypilot",
   "__pycache__",
 })
 
@@ -98,7 +98,7 @@ def _find_settings_modules(root: Path) -> list[dict[str, str]]:
       continue
     if any(part in rel for part in ("/tests/", "/test/", ".venv/", "opendbc/")):
       continue
-    if "settings" not in rel.lower() and "dragonpilot" not in rel.lower():
+    if "settings" not in rel.lower() and "dragonpilot" not in rel.lower() and "sunnypilot" not in rel.lower():
       continue
     try:
       if path.stat().st_size > 180_000:

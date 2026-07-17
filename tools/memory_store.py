@@ -8,6 +8,8 @@ from typing import Any
 
 from openpilot.common.params import Params
 
+from ai.common.storage import read_param, write_param
+
 NOTES_KEY = "ai_memory_notes"
 PROFILE_KEY = "ai_vehicle_profile"
 MAX_NOTES = 80
@@ -16,7 +18,7 @@ MAX_NOTE_LEN = 2000
 
 def _load_json(params: Params, key: str, default: Any) -> Any:
   try:
-    raw = params.get(key)
+    raw = read_param(params, key)
     if not raw:
       return default
     if isinstance(raw, bytes):
@@ -27,7 +29,7 @@ def _load_json(params: Params, key: str, default: Any) -> Any:
 
 
 def _save_json(params: Params, key: str, data: Any) -> None:
-  params.put(key, json.dumps(data, ensure_ascii=False))
+  write_param(params, key, json.dumps(data, ensure_ascii=False))
 
 
 def get_memory(params: Params | None = None) -> dict[str, Any]:

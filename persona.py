@@ -28,8 +28,9 @@ def get_default_persona(lang: str = "zh") -> str:
 
 def ensure_default_persona(params, lang: str = "zh") -> str:
   """Persist default persona when ai_system_prompt is empty."""
+  from ai.common.storage import read_param, write_param
   try:
-    raw = params.get("ai_system_prompt")
+    raw = read_param(params, "ai_system_prompt")
     current = raw.decode() if isinstance(raw, (bytes, bytearray)) else str(raw or "")
   except Exception:
     current = ""
@@ -37,7 +38,7 @@ def ensure_default_persona(params, lang: str = "zh") -> str:
     return current.strip()
   default = get_default_persona(lang)
   try:
-    params.put("ai_system_prompt", default)
+    write_param(params, "ai_system_prompt", default)
   except Exception:
     pass
   return default

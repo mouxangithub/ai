@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Integrate op助手 into an openpilot fork: params_keys.h, launch script, params_pyx.so."""
+"""Integrate op助手 into an openpilot fork: launch script + optional fork Params."""
 
 from __future__ import annotations
 
@@ -23,16 +23,14 @@ VALID_FLAGS = {
   "DONT_LOG",
   "DEVELOPMENT_ONLY",
   "CLEAR_ON_IGNITION_ON",
+  "BACKUP",
 }
 _PARAM_FIELDS = {"key", "flags", "param_type", "default"}
 
-# Keys used by aid but not always listed in ai/common/params.py ITEMS.
-EXTRA_AI_PARAMS: list[dict[str, str]] = [
-  {"key": "ai_usage_log", "flags": "PERSISTENT", "param_type": "STRING", "default": ""},
-  {"key": "ai_first_run_done", "flags": "PERSISTENT", "param_type": "BOOL", "default": "0"},
-  {"key": "ai_fork_id", "flags": "PERSISTENT", "param_type": "STRING", "default": ""},
-  {"key": "ai_fork_profile_applied", "flags": "PERSISTENT", "param_type": "STRING", "default": ""},
-]
+# Fork Params that ai touches but are NOT stored in /data/ai/config.json
+FORK_INTEGRATION_PARAMS: dict[str, dict[str, str]] = {
+  "SpDevBeep": {"flags": "PERSISTENT", "param_type": "BOOL", "default": "0"},
+}
 
 LAUNCH_MARKER = "start_op_assistant"
 
@@ -102,6 +100,7 @@ def _extract_param(dict_node: ast.Dict, source: str) -> dict[str, str] | None:
 
 
 def collect_ai_params(ai_dir: Path) -> dict[str, dict[str, str]]:
+  """Schema for ai_* keys (stored in /data/ai/config.json, not params_keys.h)."""
   params_py = ai_dir / "common" / "params.py"
   if not params_py.is_file():
     raise FileNotFoundError(f"Missing {params_py}")
@@ -119,16 +118,7 @@ def collect_ai_params(ai_dir: Path) -> dict[str, dict[str, str]]:
     key = param["key"]
     if not key.startswith("ai_"):
       continue
-    flags = param.get("flags", "PERSISTENT")
-    ptype = param.get("param_type", "STRING")
-    if ptype not in VALID_PARAM_TYPES:
-      raise ValueError(f"Invalid param_type {ptype!r} for {key}")
-    for flag in re.split(r"\s*\|\s*", flags):
-      if flag and flag not in VALID_FLAGS:
-        raise ValueError(f"Invalid flag {flag!r} for {key}")
     out[key] = param
-  for extra in EXTRA_AI_PARAMS:
-    out.setdefault(extra["key"], extra)
   return out
 
 
@@ -198,20 +188,17 @@ def patch_launch_script(path: Path, *, dry_run: bool = False) -> dict[str, Any]:
 
   new_content = content
   if re.search(r"cd\s+system/manager", content):
-    # Insert function before manager cd block; insert calls after build.py section.
     if "cd system/manager" in content and fn_block.strip() not in content:
       new_content = content.replace("  cd system/manager", fn_block + "\n  cd system/manager", 1)
     if "./manager.py" in new_content and call_block.strip() not in new_content:
       new_content = new_content.replace("  ./manager.py", call_block + "\n  ./manager.py", 1)
     elif "cd system/manager" in new_content and call_block.strip() not in new_content:
-      # Prebuilt-only forks: after cd system/manager block's build check
       pattern = r"(cd system/manager\n(?:  if \[ ! -f \$DIR/prebuilt \]; then\n    \./build\.py\n  fi\n)?)"
       repl = r"\1\n" + call_block
       new_content, n = re.subn(pattern, repl, new_content, count=1)
       if n == 0:
         new_content = new_content.replace("  cd system/manager\n", "  cd system/manager\n\n" + call_block, 1)
   else:
-  # Fallback: append before last closing brace of launch function
     idx = new_content.rfind("\n}")
     if idx < 0:
       return {"ok": False, "path": str(path), "error": "Unrecognized launch script layout"}
@@ -296,7 +283,6 @@ def compile_params_pyx(root: Path, *, force: bool = False) -> dict[str, Any]:
       "reason": "using existing params_pyx.so (no rebuild)",
       "so_path": str(so),
       "attempts": attempts,
-      "warning": "params_keys.h may be stale until you rebuild on a machine with scons",
     }
 
   hint = (
@@ -313,26 +299,39 @@ def integrate(
   ai_dir: Path | None = None,
   *,
   dry_run: bool = False,
-  skip_compile: bool = False,
+  skip_compile: bool = True,
   force_compile: bool = False,
+  patch_fork_params: bool = True,
 ) -> dict[str, Any]:
   ai_dir = ai_dir or (root / "ai")
-  report: dict[str, Any] = {"ok": True, "openpilot_root": str(root), "ai_dir": str(ai_dir)}
+  report: dict[str, Any] = {
+    "ok": True,
+    "openpilot_root": str(root),
+    "ai_dir": str(ai_dir),
+    "ai_config_store": "/data/ai/config.json",
+  }
 
   try:
-    params = collect_ai_params(ai_dir)
-    report["ai_param_count"] = len(params)
+    ai_schema = collect_ai_params(ai_dir)
+    report["ai_param_count"] = len(ai_schema)
+    report["ai_config"] = {
+      "ok": True,
+      "storage": "json",
+      "note": "ai_* keys are NOT added to params_keys.h",
+    }
   except Exception as exc:
     return {"ok": False, "error": f"collect_ai_params: {exc}"}
 
   params_h = find_params_keys_h(root)
-  if params_h:
-    report["params_keys"] = patch_params_keys_h(params_h, params, dry_run=dry_run)
+  if patch_fork_params and params_h:
+    report["params_keys"] = patch_params_keys_h(params_h, FORK_INTEGRATION_PARAMS, dry_run=dry_run)
     if not report["params_keys"].get("ok"):
       report["ok"] = False
-  else:
+  elif patch_fork_params:
     report["params_keys"] = {"ok": False, "error": "params_keys.h not found"}
     report["ok"] = False
+  else:
+    report["params_keys"] = {"ok": True, "skipped": True, "reason": "patch_fork_params=false"}
 
   launch = find_launch_script(root)
   if launch and launch.name == "launch_openpilot.sh" and (root / "launch_chffrplus.sh").is_file():
@@ -345,15 +344,22 @@ def integrate(
     report["launch"] = {"ok": False, "error": "launch_chffrplus.sh not found"}
     report["ok"] = False
 
-  if skip_compile:
-    report["compile"] = {"ok": True, "skipped": True, "reason": "--skip-compile"}
+  fork_keys_changed = bool(report.get("params_keys", {}).get("changed"))
+  if skip_compile and not force_compile:
+    report["compile"] = {
+      "ok": True,
+      "skipped": True,
+      "reason": "ai_* use config.json; compile not required unless --force-compile or new fork Param added",
+    }
+    if fork_keys_changed and not dry_run:
+      report["compile"]["warning"] = (
+        "SpDevBeep was added to params_keys.h — rebuild params_pyx.so on a machine with scons if beepd toggle is needed"
+      )
   else:
-    keys_changed = bool(report.get("params_keys", {}).get("changed"))
-    report["compile"] = compile_params_pyx(root, force=force_compile or keys_changed)
+    report["compile"] = compile_params_pyx(root, force=force_compile or fork_keys_changed)
     if not report["compile"].get("ok"):
       report["ok"] = False
 
-  # Fork detection (P4) — best effort
   try:
     from ai.fork.detect_fork import detect_fork
 
@@ -369,8 +375,10 @@ def main() -> int:
   parser.add_argument("--root", type=Path, default=None, help="openpilot root (default: OPENPILOT_ROOT or parent of ai/)")
   parser.add_argument("--ai-dir", type=Path, default=None, help="ai package dir")
   parser.add_argument("--dry-run", action="store_true")
-  parser.add_argument("--skip-compile", action="store_true")
+  parser.add_argument("--skip-compile", action="store_true", default=True, help="Skip params_pyx compile (default)")
+  parser.add_argument("--compile", dest="skip_compile", action="store_false", help="Attempt params_pyx.so compile")
   parser.add_argument("--force-compile", action="store_true")
+  parser.add_argument("--no-patch-fork-params", action="store_true", help="Do not patch SpDevBeep into params_keys.h")
   parser.add_argument("--json", action="store_true", dest="as_json")
   args = parser.parse_args()
 
@@ -385,7 +393,6 @@ def main() -> int:
     root = Path(env_root).resolve() if env_root else ai_dir.parent.resolve()
 
   if str(ai_dir.parent.resolve()) != str(root.resolve()):
-    # Allow ai_dir inside root only
     try:
       ai_dir.resolve().relative_to(root.resolve())
     except ValueError:
@@ -401,11 +408,12 @@ def main() -> int:
     dry_run=args.dry_run,
     skip_compile=args.skip_compile,
     force_compile=args.force_compile,
+    patch_fork_params=not args.no_patch_fork_params,
   )
   if args.as_json:
     print(json.dumps(result, ensure_ascii=False, indent=2))
   else:
-    for section in ("params_keys", "launch", "compile", "fork"):
+    for section in ("ai_config", "params_keys", "launch", "compile", "fork"):
       block = result.get(section)
       if not block:
         continue

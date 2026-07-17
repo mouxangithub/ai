@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from aiohttp import web
 
-from openpilot.common.params import Params
+from ai.common.storage import read_param
 
 _PUBLIC_PATHS = frozenset({
   "/", "/static/", "/api/ai/bootstrap", "/api/ai/status",
@@ -25,7 +25,8 @@ async def ai_auth_middleware(request: web.Request, handler):
   if _is_public(path):
     return await handler(request)
 
-  pin = Params().get("ai_web_pin")
+  from ai.common.storage import read_param
+  pin = read_param(None, "ai_web_pin")
   if not pin:
     return await handler(request)
 

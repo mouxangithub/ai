@@ -131,24 +131,25 @@ def _param_to_bool(val: Any, default: bool = False) -> bool:
 
 
 def load_config_from_params(params: Any) -> AIConfig:
+  from ai.common.storage import read_param, read_param_bool
   try:
     from openpilot.common.params import Params
     if not isinstance(params, Params):
       params = Params()
-    provider = _param_to_str(params.get("ai_provider"), "opencode-zen")
+    provider = _param_to_str(read_param(params, "ai_provider"), "opencode-zen")
     if provider == "zhipu":
       provider = "bigmodel"
     return AIConfig(
       provider=provider,
-      model=_param_to_str(params.get("ai_model"), "deepseek-v4-flash"),
-      api_key=_param_to_str(params.get("ai_api_key")),
-      base_url=_param_to_str(params.get("ai_base_url")),
-      system_prompt=_param_to_str(params.get("ai_system_prompt")),
-      temperature=_param_to_float(params.get("ai_temperature"), 0.7),
-      top_p=_param_to_float(params.get("ai_top_p"), 1.0),
-      max_tokens=_param_to_int(params.get("ai_max_tokens"), 4096),
-      thinking_enabled=_param_to_bool(params.get("ai_thinking_enabled"), True),
-      thinking_keep=_param_to_str(params.get("ai_thinking_keep")),
+      model=_param_to_str(read_param(params, "ai_model"), "deepseek-v4-flash"),
+      api_key=_param_to_str(read_param(params, "ai_api_key")),
+      base_url=_param_to_str(read_param(params, "ai_base_url")),
+      system_prompt=_param_to_str(read_param(params, "ai_system_prompt")),
+      temperature=_param_to_float(read_param(params, "ai_temperature"), 0.7),
+      top_p=_param_to_float(read_param(params, "ai_top_p"), 1.0),
+      max_tokens=_param_to_int(read_param(params, "ai_max_tokens"), 4096),
+      thinking_enabled=_param_to_bool(read_param(params, "ai_thinking_enabled"), True),
+      thinking_keep=_param_to_str(read_param(params, "ai_thinking_keep")),
     )
   except Exception as e:
     import warnings

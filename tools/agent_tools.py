@@ -18,7 +18,7 @@ from openpilot.common.params import Params
 from ai.system.safety import is_action_allowed
 from ai.system.admin import is_admin_mode
 from ai.system.shell import ALLOWED_COMMANDS, run_command, run_shell_command
-from ai.tools.dp_settings import list_dp_settings
+from ai.tools.sp_settings import list_sp_settings
 from ai.tools.memory_store import append_note, delete_note, get_memory, update_vehicle_profile
 from ai.tools.param_write import put_param
 from ai.tools.params_policy import (
@@ -47,13 +47,13 @@ from ai.client import load_config_from_params
 TOOL_META: dict[str, dict[str, Any]] = {
   "get_vehicle_state": {"label": "车辆状态", "group": "read", "default_enabled": True, "driving": True},
   "read_params": {"label": "读取参数", "group": "read", "default_enabled": True, "driving": True},
-  "list_dp_settings": {"label": "Dragonpilot 设置", "group": "read", "default_enabled": True, "driving": True},
+  "list_sp_settings": {"label": "sunnypilot 设置", "group": "read", "default_enabled": True, "driving": True},
   "get_params_catalog": {"label": "参数目录", "group": "read", "default_enabled": True, "driving": True},
   "get_agent_memory": {"label": "读取记忆", "group": "read", "default_enabled": True, "driving": True},
   "read_onroad_events": {"label": "onroad 事件", "group": "read", "default_enabled": True, "driving": True},
   "snapshot_tune_state": {"label": "调优快照", "group": "read", "default_enabled": True, "driving": True},
   "diff_params": {"label": "参数对比", "group": "read", "default_enabled": True, "driving": True},
-  "fetch_dashy_settings": {"label": "Dashy 设置", "group": "read", "default_enabled": True, "driving": True},
+  "fetch_dashy_settings": {"label": "sunnypilot 设置", "group": "read", "default_enabled": False, "driving": True},
   "read_manager_log": {"label": "Manager 日志", "group": "read", "default_enabled": True, "driving": True},
   "grep_log": {"label": "日志搜索", "group": "read", "default_enabled": True, "driving": True},
   "search_knowledge_base": {"label": "知识库检索", "group": "read", "default_enabled": True, "driving": True},
@@ -185,12 +185,12 @@ def build_tool_schemas() -> list[dict[str, Any]]:
     {"type": "function", "function": {"name": "get_vehicle_state", "description": "Read current vehicle/openpilot snapshot (speed, engage, alerts, faults, events, device health).", "parameters": {"type": "object", "properties": {}, "required": []}}},
     {"type": "function", "function": {"name": "get_full_vehicle_state", "description": "Read detailed cereal JSON: carState, carParams, selfdriveState, controlsState, deviceState, pandaStates, processes, events.", "parameters": {"type": "object", "properties": {}, "required": []}}},
     {"type": "function", "function": {"name": "read_params", "description": "Read comma-separated Params keys.", "parameters": {"type": "object", "properties": {"keys": {"type": "string"}}, "required": ["keys"]}}},
-    {"type": "function", "function": {"name": "list_dp_settings", "description": "List Dragonpilot tunable settings with titles, descriptions, and current values for this vehicle brand.", "parameters": {"type": "object", "properties": {}, "required": []}}},
+    {"type": "function", "function": {"name": "list_sp_settings", "description": "List sunnypilot tunable settings with titles, descriptions, and current values for this vehicle brand.", "parameters": {"type": "object", "properties": {}, "required": []}}},
     {"type": "function", "function": {"name": "get_params_catalog", "description": "Get AI param safety catalog (tier, section, summary).", "parameters": {"type": "object", "properties": {}, "required": []}}},
     {"type": "function", "function": {"name": "list_tune_presets", "description": "List Dragonpilot tune presets (comfort_follow, alka_enable, etc.).", "parameters": {"type": "object", "properties": {}, "required": []}}},
     {"type": "function", "function": {"name": "write_params", "description": "Write Params while stationary. JSON object key->value. Optional regression guard via route_before/route_after.", "parameters": {"type": "object", "properties": {"params": {"type": "object", "additionalProperties": True}, "confirm": {"type": "boolean", "description": "Must be true to apply."}, "route_before": {"type": "string"}, "route_after": {"type": "string"}, "skip_regression_check": {"type": "boolean"}}, "required": ["params", "confirm"]}}},
     {"type": "function", "function": {"name": "apply_tune_preset", "description": "Apply a named tune preset while stationary.", "parameters": {"type": "object", "properties": {"preset_id": {"type": "string"}, "confirm": {"type": "boolean"}, "route_before": {"type": "string"}, "route_after": {"type": "string"}, "skip_regression_check": {"type": "boolean"}}, "required": ["preset_id", "confirm"]}}},
-    {"type": "function", "function": {"name": "select_driving_model", "description": "Set dp_dev_model_selected (empty string = AUTO). Stationary only.", "parameters": {"type": "object", "properties": {"model": {"type": "string"}, "confirm": {"type": "boolean"}}, "required": ["model", "confirm"]}}},
+    {"type": "function", "function": {"name": "select_driving_model", "description": "Set CarPlatformBundle platform (empty = auto). Uses sunnypilot Vehicle settings. Stationary only.", "parameters": {"type": "object", "properties": {"model": {"type": "string"}, "confirm": {"type": "boolean"}}, "required": ["model", "confirm"]}}},
     {"type": "function", "function": {"name": "get_agent_memory", "description": "Read long-term notes and vehicle profile stored on device.", "parameters": {"type": "object", "properties": {}, "required": []}}},
     {"type": "function", "function": {"name": "update_agent_memory", "description": "Append a note and/or update vehicle profile fields.", "parameters": {"type": "object", "properties": {"note": {"type": "string"}, "tags": {"type": "array", "items": {"type": "string"}}, "vehicle_profile": {"type": "object"}}, "required": []}}},
     {"type": "function", "function": {"name": "list_scheduled_tasks", "description": "List scheduled agent tasks.", "parameters": {"type": "object", "properties": {}, "required": []}}},
@@ -373,10 +373,10 @@ def make_handlers(
       values[key] = val
     return {"keys": values}
 
-  def h_list_dp_settings(_a):
+  def h_list_sp_settings(_a):
     state = get_state_reader().update(timeout=0)
     brand = getattr(state, "brand", "") or ""
-    return list_dp_settings(p, brand=brand)
+    return list_sp_settings(p, brand=brand)
 
   def h_get_params_catalog(_a):
     return {"ok": True, "params": catalog_summary()}
@@ -480,10 +480,13 @@ def make_handlers(
     model = str(args.get("model", ""))
     if not args.get("confirm"):
       if _needs_confirm():
-        preview = diff_params(p, {"dp_dev_model_selected": model}).get("changes", {})
-        return create_pending(p, action="select_driving_model", payload={"model": model}, preview=preview)
-    put_param(p, "dp_dev_model_selected", model)
-    return {"ok": True, "model": model, "hint": "Re-engage or restart UI if model does not switch."}
+        from ai.tools.vehicle_platform import preview_car_platform_change
+        preview = preview_car_platform_change(p, model)
+        if not preview.get("ok", True):
+          return preview
+        return create_pending(p, action="select_driving_model", payload={"model": model}, preview=preview.get("changes", {}))
+    from ai.tools.vehicle_platform import put_car_platform_bundle
+    return put_car_platform_bundle(p, model)
 
   def h_get_agent_memory(_a):
     return get_memory(p)
@@ -576,7 +579,9 @@ def make_handlers(
     return diff_params(p, args.get("params") or {})
 
   async def h_fetch_dashy_settings(_a):
-    return await fetch_dashy_settings()
+    state = get_state_reader().update(timeout=0)
+    brand = getattr(state, "brand", "") or ""
+    return list_sp_settings(p, brand=brand)
 
   def h_read_manager_log(args):
     return read_manager_log(p, lines=int(args.get("lines", 80)))
@@ -1262,7 +1267,8 @@ def make_handlers(
     "get_vehicle_state": h_get_vehicle_state,
     "get_full_vehicle_state": h_get_full_vehicle_state,
     "read_params": h_read_params,
-    "list_dp_settings": h_list_dp_settings,
+    "list_sp_settings": h_list_sp_settings,
+    "list_dp_settings": h_list_sp_settings,
     "get_params_catalog": h_get_params_catalog,
     "list_tune_presets": h_list_tune_presets,
     "write_params": h_write_params,

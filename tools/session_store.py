@@ -8,6 +8,8 @@ from typing import Any
 
 from openpilot.common.params import Params
 
+from ai.common.storage import read_param, write_param
+
 SESSIONS_KEY = "ai_web_sessions"
 MAX_SESSIONS = 30
 MAX_MESSAGES_PER_SESSION = 100
@@ -15,7 +17,7 @@ MAX_MESSAGES_PER_SESSION = 100
 
 def _load(params: Params) -> dict[str, Any]:
   try:
-    raw = params.get(SESSIONS_KEY)
+    raw = read_param(params, SESSIONS_KEY)
     if not raw:
       return {"sessions": [], "activeId": None}
     if isinstance(raw, bytes):
@@ -96,5 +98,5 @@ def save_sessions(params: Params, payload: dict[str, Any]) -> dict[str, Any]:
     "activeId": active_id,
     "savedAt": int(time.time()),
   }
-  params.put(SESSIONS_KEY, json.dumps(data, ensure_ascii=False))
+  write_param(params, SESSIONS_KEY, json.dumps(data, ensure_ascii=False))
   return {"ok": True, "count": len(trimmed), "activeId": active_id, "savedAt": data["savedAt"]}

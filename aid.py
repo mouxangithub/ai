@@ -28,6 +28,8 @@ from aiohttp import web
 from openpilot.common.params import Params
 from openpilot.common.swaglog import cloudlog
 
+from ai.common.storage import read_param, read_param_bool, write_param, write_param_bool
+
 from ai.persona import ensure_default_persona, get_default_persona
 from ai.client import (
   AIConfig,
@@ -122,13 +124,12 @@ def _json_response(data: Any, status: int = 200) -> web.Response:
 
 
 def _read_param_str(key: str, default: str = "") -> str:
-  val = _PARAMS.get(key)
+  val = read_param(_PARAMS, key, default)
   return val.decode() if isinstance(val, bytes) else (val or default)
 
 
 def _read_param_bool(key: str, default: bool = False) -> bool:
-  val = _read_param_str(key, "1" if default else "0")
-  return str(val).lower() in ("1", "true", "yes", "on")
+  return read_param_bool(_PARAMS, key, default)
 
 
 def _mask_key(key: str) -> str:
@@ -422,9 +423,9 @@ async def api_post_config(request: web.Request) -> web.Response:
     if value is None:
       return
     if isinstance(value, bool):
-      _PARAMS.put_bool(key, value)
+      write_param_bool(_PARAMS, key, value)
     else:
-      _PARAMS.put(key, str(value))
+      write_param(_PARAMS, key, str(value))
 
   try:
     _put("ai_provider", body.get("provider"))
@@ -685,9 +686,9 @@ async def _scheduler_execute_action(action: str, _payload: dict[str, Any]) -> st
     u = load_usage(_PARAMS)
     return f"calls={u.get('calls')} tokens={u.get('total_tokens')}"
   if action == "read_tune_snapshot":
-    from ai.tools.dp_settings import list_dp_settings
+    from ai.tools.sp_settings import list_sp_settings
     state = _get_state_reader().update(timeout=0)
-    snap = list_dp_settings(_PARAMS, brand=state.brand)
+    snap = list_sp_settings(_PARAMS, brand=state.brand)
     return f"{snap.get('setting_count', 0)} settings"
   if action == "memory_ping":
     m = get_memory(_PARAMS)
@@ -1012,8 +1013,8 @@ async def api_fork_analyze(request: web.Request) -> web.Response:
     if result.get("ok") and result.get("analysis"):
       fid = result["analysis"].get("fork_identity") or result.get("identity", {}).get("fork_id")
       if fid:
-        _PARAMS.put("ai_fork_id", str(fid))
-        _PARAMS.put("ai_fork_profile_applied", datetime.now(timezone.utc).isoformat())
+        write_param(_PARAMS, "ai_fork_id", str(fid))
+        write_param(_PARAMS, "ai_fork_profile_applied", datetime.now(timezone.utc).isoformat())
     return _json_response(result, status=200 if result.get("ok") else 500)
   except Exception as e:
     cloudlog.error(f"aid: api_fork_analyze error: {e}")
@@ -1040,8 +1041,8 @@ async def api_fork_sync(request: web.Request) -> web.Response:
       force_analyze=bool(body.get("force_analyze")),
     )
     if result.get("ok") and result.get("fork_id"):
-      _PARAMS.put("ai_fork_id", str(result["fork_id"]))
-      _PARAMS.put("ai_fork_profile_applied", datetime.now(timezone.utc).isoformat())
+      write_param(_PARAMS, "ai_fork_id", str(result["fork_id"]))
+      write_param(_PARAMS, "ai_fork_profile_applied", datetime.now(timezone.utc).isoformat())
     return _json_response(result, status=200 if result.get("ok") else 500)
   except Exception as e:
     cloudlog.error(f"aid: api_fork_sync error: {e}")
@@ -1089,13 +1090,13 @@ async def api_fork_run_stream(request: web.Request) -> web.Response:
           emit=emit,
         )
         if result.get("ok") and result.get("fork_id"):
-          _PARAMS.put("ai_fork_id", str(result["fork_id"]))
-          _PARAMS.put("ai_fork_profile_applied", datetime.now(timezone.utc).isoformat())
+          write_param(_PARAMS, "ai_fork_id", str(result["fork_id"]))
+          write_param(_PARAMS, "ai_fork_profile_applied", datetime.now(timezone.utc).isoformat())
         elif result.get("ok") and result.get("analysis"):
           fid = (result.get("analysis") or {}).get("fork_identity") or result.get("identity", {}).get("fork_id")
           if fid:
-            _PARAMS.put("ai_fork_id", str(fid))
-            _PARAMS.put("ai_fork_profile_applied", datetime.now(timezone.utc).isoformat())
+            write_param(_PARAMS, "ai_fork_id", str(fid))
+            write_param(_PARAMS, "ai_fork_profile_applied", datetime.now(timezone.utc).isoformat())
       except Exception as e:
         cloudlog.error(f"aid: api_fork_run_stream pipeline error: {e}")
         await emit({"type": "error", "error": str(e)})
@@ -1111,7 +1112,7 @@ async def api_fork_run_stream(request: web.Request) -> web.Response:
 
 async def api_onboarding_complete(request: web.Request) -> web.Response:
   try:
-    _PARAMS.put_bool("ai_first_run_done", True)
+    write_param_bool(_PARAMS, "ai_first_run_done", True)
     config = _read_ai_config()
     return _json_response({
       "ok": True,

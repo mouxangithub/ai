@@ -9,7 +9,7 @@ from typing import Any
 
 from openpilot.common.params import Params
 
-from ai.tools.dp_settings import list_dp_settings
+from ai.tools.sp_settings import list_sp_settings
 from ai.tools.op_run import ROUTES_DIR
 from ai.tools.params_policy import load_catalog
 
@@ -18,7 +18,7 @@ _ROUTES_DIR = ROUTES_DIR
 _TUNE_KEY_PREFIXES = ("dp_lat_", "dp_lon_", "dp_ui_", "dp_toyota_", "dp_honda_", "dp_vag_")
 _TUNE_EXTRA = frozenset({
   "LongitudinalPersonality", "ExperimentalMode", "IsLdwEnabled",
-  "DisengageOnAccelerator", "dp_dev_model_selected",
+  "DisengageOnAccelerator", "CarPlatformBundle",
 })
 
 
@@ -33,7 +33,7 @@ async def fetch_dashy_settings(timeout: float = 3.0) -> dict[str, Any]:
         data = await resp.json()
         return {"ok": True, "source": "dashy", "url": url, "data": data}
   except Exception as e:
-    return {"ok": False, "error": str(e), "hint": "Is Dashy running (dp_dev_dashy)? Use list_dp_settings as fallback."}
+    return {"ok": False, "error": str(e), "hint": "Use list_sp_settings as fallback."}
 
 
 def read_manager_log(params: Params, *, lines: int = 80) -> dict[str, Any]:
@@ -96,23 +96,29 @@ def snapshot_tune_state(params: Params, brand: str = "") -> dict[str, Any]:
         snapshot[key] = val
       except Exception:
         snapshot[key] = None
-  dp = list_dp_settings(params, brand=brand)
+  sp = list_sp_settings(params, brand=brand)
   return {
     "ok": True,
     "brand": brand,
     "param_count": len(snapshot),
     "params": snapshot,
-    "setting_count": dp.get("setting_count", 0),
+    "setting_count": sp.get("setting_count", 0),
   }
 
 
 def diff_params(params: Params, proposed: dict[str, Any]) -> dict[str, Any]:
+  from ai.common.config_store import is_ai_param
+  from ai.common.storage import read_param
+
   if not isinstance(proposed, dict):
     return {"ok": False, "error": "proposed must be an object"}
   diff: dict[str, Any] = {}
   for key, new_val in proposed.items():
     try:
-      old = params.get(key)
+      if is_ai_param(key):
+        old = read_param(params, key)
+      else:
+        old = params.get(key)
       if isinstance(old, bytes):
         old = old.decode(errors="replace")
     except Exception:

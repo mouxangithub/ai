@@ -84,6 +84,11 @@ def notifications_path() -> Path:
   return workspace_path("ai_notifications.json", mkdir=True)
 
 
+def ai_config_path() -> Path:
+  from ai.common.config_store import ai_config_path as _path
+  return _path()
+
+
 def path_summary() -> dict[str, Any]:
   root = openpilot_root()
   rd = routes_dir()
@@ -91,6 +96,7 @@ def path_summary() -> dict[str, Any]:
     "openpilot_root": str(root),
     "routes_dir": rd,
     "routes_dir_exists": os.path.isdir(rd),
+    "ai_config_path": str(ai_config_path()),
     "adaptation_drafts": str(adaptation_drafts_dir()),
     "env_overrides": {
       "OPENPILOT_ROOT": os.environ.get("OPENPILOT_ROOT") or os.environ.get("OP_ROOT"),

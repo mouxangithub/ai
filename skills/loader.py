@@ -31,9 +31,10 @@ def list_skills() -> list[dict[str, Any]]:
 
 
 def load_enabled_skill_ids(params) -> set[str] | None:
-  """Load enabled skill ids from Params; None means all registered skills."""
+  """Load enabled skill ids from config store; None means all registered skills."""
+  from ai.common.storage import read_param
   try:
-    raw = params.get("ai_skills_enabled")
+    raw = read_param(params, "ai_skills_enabled")
     if not raw:
       return None
     if isinstance(raw, bytes):
@@ -65,7 +66,8 @@ def filter_skills_by_tools(
 
 
 def save_enabled_skill_ids(params, ids: list[str]) -> None:
-  params.put("ai_skills_enabled", json.dumps(ids, ensure_ascii=False))
+  from ai.common.storage import write_param
+  write_param(params, "ai_skills_enabled", json.dumps(ids, ensure_ascii=False))
 
 
 def _read_skill_body(rel_path: str) -> str:

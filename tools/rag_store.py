@@ -10,6 +10,8 @@ from typing import Any
 
 from openpilot.common.params import Params
 
+from ai.common.storage import read_param, write_param
+
 from ai.tools.rag_vectors import chunk_count, remove_doc_chunks, replace_doc_chunks, search_vector_chunks
 
 _RAG_KEY = "ai_rag_documents"
@@ -43,7 +45,7 @@ def _chunk_text(text: str) -> list[str]:
 
 def _load_docs(params: Params) -> list[dict[str, Any]]:
   try:
-    raw = params.get(_RAG_KEY)
+    raw = read_param(params, _RAG_KEY)
     if not raw:
       return []
     if isinstance(raw, bytes):
@@ -59,7 +61,7 @@ def _save_docs(params: Params, docs: list[dict[str, Any]]) -> None:
   while docs and total > _MAX_TOTAL_CHARS:
     removed = docs.pop()
     total -= len(removed.get("text", ""))
-  params.put(_RAG_KEY, json.dumps(docs[:_MAX_DOCS], ensure_ascii=False))
+  write_param(params, _RAG_KEY, json.dumps(docs[:_MAX_DOCS], ensure_ascii=False))
 
 
 def upsert_document_sync(

@@ -128,9 +128,9 @@ run_integrate() {
   local integrate="$TARGET/install/integrate_openpilot.py"
   if [[ -f "$integrate" ]]; then
     echo ""
-    echo ">>> 集成 openpilot（params_keys.h / launch_chffrplus.sh / params_pyx.so）"
-    OPENPILOT_ROOT="$ROOT" PYTHONPATH="$ROOT" "$py" "$integrate" --root "$ROOT" || {
-      echo "警告: openpilot 集成未完全成功，见上方日志。aid 可能需要手动编译 params_pyx.so。" >&2
+    echo ">>> 集成 openpilot（launch_chffrplus.sh + 可选 SpDevBeep；ai 配置 → /data/ai/config.json）"
+    OPENPILOT_ROOT="$ROOT" PYTHONPATH="$ROOT" "$py" "$integrate" --root "$ROOT" --skip-compile || {
+      echo "警告: openpilot 集成未完全成功，见上方日志。" >&2
     }
   fi
 }

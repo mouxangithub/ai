@@ -7,6 +7,8 @@ import time
 from typing import Any
 
 from openpilot.common.params import Params
+
+from ai.common.storage import read_param, write_param
 from openpilot.common.swaglog import cloudlog
 
 USAGE_KEY = "ai_usage_log"
@@ -43,7 +45,7 @@ def _normalize_usage(data: dict[str, Any]) -> dict[str, Any]:
 
 def load_usage(params: Params) -> dict[str, Any]:
   try:
-    raw = params.get(USAGE_KEY)
+    raw = read_param(params, USAGE_KEY)
     if raw:
       if isinstance(raw, bytes):
         raw = raw.decode()
@@ -104,6 +106,6 @@ def record_usage(
     history.append(entry)
     data["history"] = history[-200:]
 
-    params.put(USAGE_KEY, json.dumps(data, ensure_ascii=False))
+    write_param(params, USAGE_KEY, json.dumps(data, ensure_ascii=False))
   except Exception as e:
     cloudlog.error(f"usage_log: failed to record usage: {e}")

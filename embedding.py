@@ -56,13 +56,14 @@ class EmbeddingConfig:
 
 
 def load_embedding_config(params: Any, chat_config: Any | None = None) -> EmbeddingConfig:
-  mode = _param_to_str(params.get("ai_embedding_mode"), "same").lower()
+  from ai.common.storage import read_param
+  mode = _param_to_str(read_param(params, "ai_embedding_mode"), "same").lower()
   if mode not in ("same", "separate"):
     mode = "same"
 
   if mode == "same" and chat_config is not None:
     provider = chat_config.provider
-    model = _param_to_str(params.get("ai_embedding_model")) or DEFAULT_EMBEDDING_MODELS.get(
+    model = _param_to_str(read_param(params, "ai_embedding_model")) or DEFAULT_EMBEDDING_MODELS.get(
       provider, DEFAULT_EMBEDDING_MODELS["openrouter"],
     )
     return EmbeddingConfig(
@@ -73,14 +74,14 @@ def load_embedding_config(params: Any, chat_config: Any | None = None) -> Embedd
       base_url=chat_config.base_url or "",
     )
 
-  provider = _param_to_str(params.get("ai_embedding_provider"), "siliconflow")
-  model = _param_to_str(params.get("ai_embedding_model")) or DEFAULT_EMBEDDING_MODELS.get(
+  provider = _param_to_str(read_param(params, "ai_embedding_provider"), "siliconflow")
+  model = _param_to_str(read_param(params, "ai_embedding_model")) or DEFAULT_EMBEDDING_MODELS.get(
     provider, DEFAULT_EMBEDDING_MODELS["openrouter"],
   )
-  api_key = _param_to_str(params.get("ai_embedding_api_key"))
+  api_key = _param_to_str(read_param(params, "ai_embedding_api_key"))
   if not api_key and chat_config is not None:
     api_key = chat_config.api_key
-  base_url = _param_to_str(params.get("ai_embedding_base_url"))
+  base_url = _param_to_str(read_param(params, "ai_embedding_base_url"))
   return EmbeddingConfig(mode=mode, provider=provider, model=model, api_key=api_key, base_url=base_url)
 
 

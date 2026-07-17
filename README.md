@@ -1,13 +1,12 @@
-# op助手（Openpilot AI Agent）
+# SP助手（sunnypilot AI Agent）
 
-专为 **openpilot 及任意社区 fork** 设计的 AI 助手：聊天调参、路线诊断、车辆适配、TSK SecOC、Cabana CAN 分析。
+专为 **sunnypilot 及 comma 设备 fork** 设计的 AI 助手：聊天调参、路线诊断、车辆适配、TSK SecOC、Cabana CAN 分析。
 
 | 项目 | 说明 |
 |------|------|
-| 独立仓库 | https://github.com/mouxangithub/ai |
-| 安装位置 | `<openpilot>/ai`（车机默认 `/data/openpilot/ai`） |
+| 安装位置 | `<sunnypilot>/ai`（车机默认 `/data/openpilot/ai`） |
 | Web 入口 | `http://<设备IP>:5090` |
-| 一键安装 | 见 [docs/INSTALL.md](docs/INSTALL.md) |
+| 集成 | 已内置于本仓库；`launch_chffrplus.sh` 自动启动 |
 
 ## 快速开始
 
@@ -25,7 +24,7 @@ curl -fsSL https://raw.githubusercontent.com/mouxangithub/ai/main/install/instal
 cd "$OPENPILOT_ROOT" && python3 -m ai.aid
 ```
 
-安装脚本会自动：克隆/更新 `ai/` → **改写** `params_keys.h` 与 `launch_chffrplus.sh` → 编译 `params_pyx.so`。
+安装脚本会自动：克隆/更新 `ai/` → 注入 `launch_chffrplus.sh` → **ai 配置写入 `/data/ai/config.json`（无需编译 params_keys.h）**。
 
 **卸载：** `bash ai/install/uninstall.sh` 或见 [docs/INSTALL.md](docs/INSTALL.md#卸载)。
 

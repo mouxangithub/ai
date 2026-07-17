@@ -368,6 +368,8 @@ def make_extension_handlers(
     )
 
   def h_check_param_watchlist(args):
+    from ai.common.config_store import is_ai_param
+    from ai.common.storage import read_param, write_param
     from ai.tools.tune_passport_store import check_param_watchlist, get_param_watchlist
     import json as _json
     if args.get("reset_baseline"):
@@ -375,11 +377,14 @@ def make_extension_handlers(
       baseline = {}
       for k in keys:
         try:
-          v = params.get(k)
+          if is_ai_param(k):
+            v = read_param(params, k)
+          else:
+            v = params.get(k)
           baseline[k] = v.decode(errors="replace") if isinstance(v, bytes) else v
         except Exception:
           baseline[k] = None
-      params.put("ai_param_watchlist_baseline", _json.dumps(baseline, ensure_ascii=False))
+      write_param(params, "ai_param_watchlist_baseline", _json.dumps(baseline, ensure_ascii=False))
     return check_param_watchlist(params)
 
   def h_generate_adaptation_pr_draft(args):

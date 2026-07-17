@@ -9,6 +9,8 @@ from typing import Any
 
 from openpilot.common.params import Params
 
+from ai.common.storage import read_param, write_param
+
 from ai.tools.params_policy import validate_write_batch
 from ai.system.admin import is_admin_mode
 
@@ -18,7 +20,7 @@ _TTL_SEC = 600
 
 def _load_all(params: Params) -> dict[str, Any]:
   try:
-    raw = params.get(_PENDING_KEY)
+    raw = read_param(params, _PENDING_KEY)
     if not raw:
       return {}
     if isinstance(raw, bytes):
@@ -30,7 +32,7 @@ def _load_all(params: Params) -> dict[str, Any]:
 
 
 def _save_all(params: Params, data: dict[str, Any]) -> None:
-  params.put(_PENDING_KEY, json.dumps(data, ensure_ascii=False))
+  write_param(params, _PENDING_KEY, json.dumps(data, ensure_ascii=False))
 
 
 def _purge_expired(store: dict[str, Any]) -> dict[str, Any]:
@@ -136,9 +138,9 @@ def confirm_pending(params: Params, pending_id: str) -> dict[str, Any]:
     )
 
   if action == "select_driving_model":
+    from ai.tools.vehicle_platform import put_car_platform_bundle
     model = str(payload.get("model", ""))
-    put_param(params, "dp_dev_model_selected", model)
-    return {"ok": True, "model": model}
+    return put_car_platform_bundle(params, model)
 
   if action == "save_adaptation_draft":
     from ai.tools.adaptation import save_adaptation_draft

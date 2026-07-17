@@ -24,13 +24,13 @@ curl -fsSL https://raw.githubusercontent.com/mouxangithub/ai/main/install/instal
 |------|------|
 | 1. 检测 `ai/` | 见下文「已有 ai 目录」 |
 | 2. Git | 克隆或 `git pull` 到 `$OPENPILOT_ROOT/ai` |
-| 3. **自动改写 `params_keys.h`** | 从 `ai/common/params.py` 补齐缺失的 `ai_*` 键（写前 `.bak.时间戳` 备份） |
-| 4. **自动改写 `launch_chffrplus.sh`** | 若无 `start_op_assistant`，注入启动 `ai.aid` 的函数与看门狗 |
-| 5. 编译 | 尝试 `scons common/params_pyx.so` 或 `system/manager/build.py` |
+| 3. **ai 配置** | `ai_*` 写入 `/data/ai/config.json`，**不修改** `params_keys.h`，无需编译 |
+| 4. **可选 fork Param** | 若缺失则补齐 `SpDevBeep`（beepd 蜂鸣，需 fork 已编译进 `params_pyx.so` 或自行 scons） |
+| 5. **自动改写 `launch_chffrplus.sh`** | 若无 `start_op_assistant`，注入启动 `ai.aid` 的函数与看门狗 |
 
-以上第 3–5 步由 `install/integrate_openpilot.py` 执行，**每次安装/更新后都会跑一遍**。
+以上第 3–5 步由 `install/integrate_openpilot.py` 执行，**每次安装/更新后都会跑一遍**（默认 `--skip-compile`）。
 
-预编译 fork 若无 SConstruct：尽量复用已有 `params_pyx.so`；若新增了 Param 键，需在可编译环境重建。
+预编译 fork 无 SConstruct 也可安装：只要已有 `params_pyx.so` 即可读写 openpilot 调参项；`ai_*` 不依赖编译。
 
 ## 已有 `ai/` 目录时怎么办
 
@@ -100,7 +100,7 @@ openpilot 主仓的 `launch_chffrplus.sh` / `params_keys.h` 补丁在 integrate 
 
 ```bash
 cd "$OPENPILOT_ROOT"
-PYTHONPATH=$PWD python3 ai/install/integrate_openpilot.py --root "$PWD"
+PYTHONPATH=$PWD python3 ai/install/integrate_openpilot.py --root "$PWD" --skip-compile
 ```
 
 ## 相关 API

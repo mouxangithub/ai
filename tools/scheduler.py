@@ -15,6 +15,8 @@ def _default_params():
   from openpilot.common.params import Params
   return Params()
 
+from ai.common.storage import read_param, write_param
+
 TASKS_KEY = "ai_scheduled_tasks"
 STATE_KEY = "ai_scheduler_state"
 MAX_TASKS = 20
@@ -29,7 +31,7 @@ VALID_TRIGGERS = frozenset({"interval", "on_offroad", "on_ignition", "on_wifi", 
 
 def _load_tasks(params: Params) -> list[dict[str, Any]]:
   try:
-    raw = params.get(TASKS_KEY)
+    raw = read_param(params, TASKS_KEY)
     if not raw:
       return []
     if isinstance(raw, bytes):
@@ -41,12 +43,12 @@ def _load_tasks(params: Params) -> list[dict[str, Any]]:
 
 
 def _save_tasks(params: Params, tasks: list[dict[str, Any]]) -> None:
-  params.put(TASKS_KEY, json.dumps(tasks[:MAX_TASKS], ensure_ascii=False))
+  write_param(params, TASKS_KEY, json.dumps(tasks[:MAX_TASKS], ensure_ascii=False))
 
 
 def _load_state(params: Params) -> dict[str, Any]:
   try:
-    raw = params.get(STATE_KEY)
+    raw = read_param(params, STATE_KEY)
     if not raw:
       return {}
     if isinstance(raw, bytes):
@@ -58,7 +60,7 @@ def _load_state(params: Params) -> dict[str, Any]:
 
 
 def _save_state(params: Params, state: dict[str, Any]) -> None:
-  params.put(STATE_KEY, json.dumps(state, ensure_ascii=False))
+  write_param(params, STATE_KEY, json.dumps(state, ensure_ascii=False))
 
 
 def list_tasks(params: Params | None = None) -> dict[str, Any]:

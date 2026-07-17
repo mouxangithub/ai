@@ -67,9 +67,10 @@ def list_tune_passport(*, limit: int = 30) -> dict[str, Any]:
 
 def get_param_watchlist(params=None) -> list[str]:
   from openpilot.common.params import Params
+  from ai.common.storage import read_param, write_param
   params = params or Params()
   try:
-    raw = params.get(_WATCHLIST_KEY)
+    raw = read_param(params, _WATCHLIST_KEY)
     if not raw:
       return []
     if isinstance(raw, bytes):
@@ -100,12 +101,16 @@ def manage_param_watchlist(
       if k in current:
         current.remove(k)
     current = current[:30]
-  params.put(_WATCHLIST_KEY, json.dumps(current, ensure_ascii=False))
+  write_param(params, _WATCHLIST_KEY, json.dumps(current, ensure_ascii=False))
   return {"ok": True, "watchlist": current}
 
 
 def check_param_watchlist(params, *, baseline: dict[str, Any] | None = None) -> dict[str, Any]:
   """Compare watchlist params to baseline (or store baseline on first run)."""
+  from openpilot.common.params import Params
+  from ai.common.config_store import is_ai_param
+  from ai.common.storage import read_param, write_param
+
   keys = get_param_watchlist(params)
   if not keys:
     return {"ok": True, "watchlist": [], "hint": "Use manage_param_watchlist to add keys."}
@@ -113,27 +118,35 @@ def check_param_watchlist(params, *, baseline: dict[str, Any] | None = None) -> 
   state_key = "ai_param_watchlist_baseline"
   if baseline is None:
     try:
-      raw = params.get(state_key)
+      raw = read_param(params, state_key)
       if raw:
         if isinstance(raw, bytes):
           raw = raw.decode("utf-8", errors="replace")
         baseline = json.loads(raw)
       else:
         baseline = {}
+        p = params or Params()
         for k in keys:
           try:
-            v = params.get(k)
+            if is_ai_param(k):
+              v = read_param(p, k)
+            else:
+              v = p.get(k)
             baseline[k] = v.decode(errors="replace") if isinstance(v, bytes) else v
           except Exception:
             baseline[k] = None
-        params.put(state_key, json.dumps(baseline, ensure_ascii=False))
+        write_param(params, state_key, json.dumps(baseline, ensure_ascii=False))
     except Exception:
       baseline = {}
 
   changes: dict[str, Any] = {}
+  p = params or Params()
   for k in keys:
     try:
-      cur = params.get(k)
+      if is_ai_param(k):
+        cur = read_param(p, k)
+      else:
+        cur = p.get(k)
       cur_s = cur.decode(errors="replace") if isinstance(cur, bytes) else cur
     except Exception:
       cur_s = None

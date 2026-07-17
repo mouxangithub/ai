@@ -40,8 +40,7 @@ def get_build_info() -> dict[str, Any]:
     from openpilot.common.params import Params
     p = Params()
     for key in (
-      "dp_dev_model_selected",
-      "dp_dev_model_list",
+      "CarPlatformBundle",
       "CarParams",
       "Version",
     ):

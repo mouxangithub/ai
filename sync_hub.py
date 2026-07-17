@@ -12,6 +12,7 @@ from openpilot.common.params import Params
 from openpilot.common.swaglog import cloudlog
 
 from ai.client import load_config_from_params
+from ai.common.storage import read_param
 from ai.embedding import load_embedding_config
 from ai.tools.notifications import list_notifications
 from ai.tools.session_store import get_sessions
@@ -26,7 +27,7 @@ def _mask_key(key: str) -> str:
 
 
 def _read_param_str(params: Params, key: str, default: str = "") -> str:
-  val = params.get(key)
+  val = read_param(params, key, default)
   return val.decode() if isinstance(val, bytes) else (val or default)
 
 
