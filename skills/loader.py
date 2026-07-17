@@ -22,8 +22,13 @@ _MAX_TOTAL_CHARS = 28000
 def _load_registry() -> dict[str, Any]:
   if not _REGISTRY.exists():
     return {"skills": []}
-  with _REGISTRY.open(encoding="utf-8") as f:
-    return json.load(f)
+  try:
+    with _REGISTRY.open(encoding="utf-8") as f:
+      data = json.load(f)
+    return data if isinstance(data, dict) else {"skills": []}
+  except (OSError, json.JSONDecodeError, TypeError, ValueError) as e:
+    log.warning("skills registry unreadable: %s", e)
+    return {"skills": []}
 
 
 def list_skills() -> list[dict[str, Any]]:

@@ -1477,6 +1477,12 @@ function updateModelBadgeFromSaved() {
 function formatApiError(raw) {
   const text = String(raw || '').trim();
   if (!text) return t('chatErrorGeneric', '请求失败，请稍后重试。');
+  if (/Server got itself in trouble|500 Internal Server Error/i.test(text)) {
+    return t(
+      'serverErrorHint',
+      'op助手 服务内部错误。请在车机执行: tail -50 /tmp/aid.log；若提示 web UI missing，请运行 git submodule update --init ai 或 ai/install/install.sh，然后重启 manager。',
+    );
+  }
   if (/401|403|AuthError|Invalid API key|invalid api key|authentication/i.test(text)) {
     const prov = savedConfig?.provider || els.providerSelect?.value || '';
     const provLabel = prov ? providerDisplayName(prov) : t('provider', '服务商');
@@ -4502,7 +4508,7 @@ async function testOnboardingWizard() {
   const apiKey = els.onboardingApiKey?.value?.trim() || '';
   const model = els.onboardingModel?.value?.trim() || '';
   if (els.onboardingResult) els.onboardingResult.textContent = t('testing', '测试中…');
-  const { data } = await api('POST', '/api/ai/test', { provider, apiKey, model });
+  const { data } = await api('POST', '/api/ai/test_connection', { provider, apiKey, model });
   if (els.onboardingResult) {
     els.onboardingResult.textContent = data.ok
       ? t('connectionOk', '连接成功')

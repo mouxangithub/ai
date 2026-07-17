@@ -266,23 +266,21 @@ async def api_bootstrap(request: web.Request) -> web.Response:
       fork_detected = detect_fork(Path(__file__).resolve().parent.parent)
     except Exception:
       fork_detected = {"ok": False}
-  except Exception as e:
-    return _json_response({"ok": False, "error": str(e)}, status=500)
 
-  bootstrap_models: list[dict[str, Any]] = [
-    {"id": mid} for mid in (AI_PROVIDER_MODEL_CATALOG.get(config.provider) or []) if mid
-  ]
-  models_source = "catalog"
-  if config.is_configured:
-    try:
-      lm = await list_models(config)
-      if lm.get("ok") and lm.get("models"):
-        bootstrap_models = lm["models"]
-        models_source = str(lm.get("source") or "api")
-    except Exception as e:
-      cloudlog.warning(f"aid: bootstrap list_models failed: {e}")
+    bootstrap_models: list[dict[str, Any]] = [
+      {"id": mid} for mid in (AI_PROVIDER_MODEL_CATALOG.get(config.provider) or []) if mid
+    ]
+    models_source = "catalog"
+    if config.is_configured:
+      try:
+        lm = await list_models(config)
+        if lm.get("ok") and lm.get("models"):
+          bootstrap_models = lm["models"]
+          models_source = str(lm.get("source") or "api")
+      except Exception as e:
+        cloudlog.warning(f"aid: bootstrap list_models failed: {e}")
 
-  return _json_response({
+    return _json_response({
     "ok": True,
     "driving": state.is_driving,
     "state": state.to_dict(),
@@ -338,7 +336,10 @@ async def api_bootstrap(request: web.Request) -> web.Response:
     "fork": fork_detected if fork_detected.get("ok") else None,
     "workflows": list_workflows(),
     "notifications": list_notifications(unread_only=True).get("notifications", [])[:5],
-  })
+    })
+  except Exception as e:
+    cloudlog.error(f"aid: api_bootstrap error: {e}")
+    return _json_response({"ok": False, "error": str(e)}, status=500)
 
 
 async def api_status(request: web.Request) -> web.Response:
@@ -1145,8 +1146,19 @@ DEFAULT_PORT = 5090
 WEB_DIR = Path(__file__).parent / "web" / "static"
 
 
-async def index(request: web.Request) -> web.FileResponse:
-  resp = web.FileResponse(WEB_DIR / "index.html")
+async def index(request: web.Request) -> web.Response:
+  index_path = WEB_DIR / "index.html"
+  if not index_path.is_file():
+    cloudlog.error(f"aid: missing web UI at {index_path}")
+    return _json_response({
+      "ok": False,
+      "error": (
+        "op助手 Web 资源缺失。请在 openpilot 根目录执行: "
+        "git submodule update --init ai "
+        "或运行 ai/install/install.sh"
+      ),
+    }, status=503)
+  resp = web.FileResponse(index_path)
   resp.headers["Cache-Control"] = "no-cache, must-revalidate"
   return resp
 
@@ -1155,9 +1167,20 @@ async def index(request: web.Request) -> web.FileResponse:
 # App factory
 # -----------------------------------------------------------------------------
 
+@web.middleware
+async def error_middleware(request: web.Request, handler):
+  try:
+    return await handler(request)
+  except web.HTTPException:
+    raise
+  except Exception as e:
+    cloudlog.error(f"aid: unhandled {request.method} {request.path}: {e}")
+    return _json_response({"ok": False, "error": str(e)}, status=500)
+
+
 def create_app() -> web.Application:
   import asyncio
-  app = web.Application(middlewares=[ai_auth_middleware])
+  app = web.Application(middlewares=[error_middleware, ai_auth_middleware])
   app["params"] = _PARAMS
 
   async def _on_startup(application: web.Application) -> None:
@@ -1205,6 +1228,8 @@ def create_app() -> web.Application:
   app.router.add_post("/api/ai/models", api_models)
   app.router.add_get("/api/ai/test_connection", api_test_connection)
   app.router.add_post("/api/ai/test_connection", api_test_connection)
+  app.router.add_get("/api/ai/test", api_test_connection)
+  app.router.add_post("/api/ai/test", api_test_connection)
   app.router.add_post("/api/ai/chat", api_chat)
   app.router.add_get("/api/ai/chat/jobs", api_chat_jobs)
   app.router.add_post("/api/ai/chat/jobs", api_chat_jobs)
