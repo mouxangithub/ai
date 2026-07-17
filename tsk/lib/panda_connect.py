@@ -397,6 +397,8 @@ def tici_info() -> dict[str, Any]:
   cached = _read_mcu_cache()
   dos = is_tici_dos()
   device = get_device_type()
+  from ai.system.hardware_lite import lite_profile
+
   return {
     "device_type": device,
     "tici_hw": is_comma_hw(),
@@ -410,4 +412,5 @@ def tici_info() -> dict[str, Any]:
     "pandad_process": pandad_process_name(),
     "pandad_module": pandad_module(),
     **comma_product_meta(device),
+    **lite_profile(),
   }

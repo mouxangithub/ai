@@ -7,6 +7,7 @@ from typing import Any
 from openpilot.common.params import Params
 
 from ai.tools.catalog_builder import build_merged_catalog
+from ai.system.hardware_lite import LITE_UNAVAILABLE_NOTE, LITE_UNAVAILABLE_PARAMS, is_lite_hw, lite_profile
 
 _BOOL_KEYS = frozenset({
   "ExperimentalMode", "SpDevBeep", "RecordAudio", "RecordFront", "Mads", "LagdToggle",
@@ -48,6 +49,8 @@ def list_sp_settings(params: Params | None = None, brand: str = "") -> dict[str,
   params = params or Params()
   catalog = build_merged_catalog()
   sections: dict[str, list[dict[str, Any]]] = {}
+  lite = is_lite_hw()
+  lp = lite_profile(params) if lite else None
 
   for key, entry in sorted(catalog.items()):
     if entry.get("tier") == "write_forbidden":
@@ -56,7 +59,7 @@ def list_sp_settings(params: Params | None = None, brand: str = "") -> dict[str,
     if brands and brand and brand.lower() not in [b.lower() for b in brands]:
       continue
     section = entry.get("section", "General")
-    sections.setdefault(section, []).append({
+    item: dict[str, Any] = {
       "key": key,
       "section": section,
       "title": entry.get("title") or entry.get("summary", key),
@@ -65,10 +68,14 @@ def list_sp_settings(params: Params | None = None, brand: str = "") -> dict[str,
       "current_value": _read_param(params, key, entry),
       "brands": brands,
       "ui_source": entry.get("ui_source"),
-    })
+    }
+    if lite and key in LITE_UNAVAILABLE_PARAMS:
+      item["lite_unavailable"] = True
+      item["lite_note"] = LITE_UNAVAILABLE_NOTE
+    sections.setdefault(section, []).append(item)
 
   sections_out = [{"title": title, "settings": items} for title, items in sorted(sections.items())]
-  return {
+  out: dict[str, Any] = {
     "ok": True,
     "fork": "sunnypilot",
     "brand": brand,
@@ -77,6 +84,9 @@ def list_sp_settings(params: Params | None = None, brand: str = "") -> dict[str,
     "sections": sections_out,
     "setting_count": sum(len(s["settings"]) for s in sections_out),
   }
+  if lp is not None:
+    out["lite_hardware"] = lp
+  return out
 
 
 list_dp_settings = list_sp_settings

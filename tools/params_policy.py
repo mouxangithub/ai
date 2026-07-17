@@ -7,6 +7,7 @@ from functools import lru_cache
 from typing import Any
 
 from ai.tools.catalog_builder import build_merged_catalog
+from ai.system.hardware_lite import lite_write_block_reason
 
 WRITE_TIERS = frozenset({
   "write_offroad_ui",
@@ -50,6 +51,9 @@ def is_redacted(key: str) -> bool:
 
 
 def can_write(key: str, *, admin: bool = False) -> tuple[bool, str]:
+  lite_reason = lite_write_block_reason(key)
+  if lite_reason:
+    return False, lite_reason
   if admin:
     if key in _DIRECT_CONTROL_PARAM_KEYS:
       return False, f"Param '{key}' enables direct vehicle control; AI cannot write it."

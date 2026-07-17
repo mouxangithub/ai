@@ -7,36 +7,14 @@ from typing import Any
 
 from openpilot.common.params import Params
 
+from ai.system.hardware_lite import detect_lite_hw, lite_profile
 from ai.system.paths import is_comma_device
-
-
-def _detect_lite() -> bool | None:
-  if os.getenv("LITE"):
-    return True
-  if not is_comma_device():
-    return None
-  try:
-    import subprocess
-    proc = subprocess.run(
-      ["i2cget", "-y", "0", "0x10"],
-      capture_output=True,
-      text=True,
-      timeout=3,
-    )
-    return proc.returncode != 0
-  except Exception:
-    return None
 
 
 def get_sp_device_hw(params: Params | None = None, get_state_reader=None) -> dict[str, Any]:
   """Lite variant, SpDevBeep, Panda count, board hints."""
   params = params or Params()
-  lite = _detect_lite()
-  beep = None
-  try:
-    beep = params.get_bool("SpDevBeep")
-  except Exception:
-    pass
+  lp = lite_profile(params)
 
   panda_count = None
   pandas: list[Any] = []
@@ -63,10 +41,7 @@ def get_sp_device_hw(params: Params | None = None, get_state_reader=None) -> dic
   return {
     "ok": True,
     "is_comma_device": is_comma_device(),
-    "lite": lite,
-    "lite_note": "LITE=1: no mic/soundd/dmonitoring; beepd available when SpDevBeep=1",
-    "SpDevBeep": beep,
-    "beepd_eligible": lite is True and beep is True,
+    **lp,
     "panda_count": panda_count,
     "pandas_preview": pandas[:3],
     "board": board,
@@ -75,5 +50,17 @@ def get_sp_device_hw(params: Params | None = None, get_state_reader=None) -> dic
 
 
 def set_sp_dev_beep(params: Params, enabled: bool) -> dict[str, Any]:
+  lite = detect_lite_hw()
+  if lite is False:
+    return {
+      "ok": False,
+      "error": "SpDevBeep is for Lite C3 only (this device has soundd).",
+    }
+  if lite is None and not is_comma_device():
+    return {
+      "ok": True,
+      "SpDevBeep": bool(enabled),
+      "warning": "Lite hardware not detected; SpDevBeep/beepd only applies to Lite C3.",
+    }
   params.put_bool("SpDevBeep", bool(enabled))
   return {"ok": True, "SpDevBeep": bool(enabled), "note": "Requires LITE=1 and onroad for beepd process."}

@@ -97,6 +97,11 @@ def get_host_environment() -> dict[str, Any]:
     out["hardware_profile"] = hardware_profile
     if is_comma_device():
       out["comma_device"] = hardware_profile
+      if hardware_profile.get("lite") is True:
+        out["hint"] = (
+          out["hint"]
+          + " Lite C3：无 mic/soundd/驾驶员监控；用 SpDevBeep+beepd 蜂鸣反馈，勿写 RecordAudio/AlwaysOnDM。"
+        )
   try:
     from ai.tools.device_hw_tools import get_sp_device_hw
     out["sp_device_hw"] = get_sp_device_hw()

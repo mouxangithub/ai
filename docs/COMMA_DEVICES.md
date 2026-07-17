@@ -45,3 +45,44 @@
 
 - [`TSK_AND_AID.md`](TSK_AND_AID.md) — TSK 与 op 助手集成
 - [`VEHICLE_ADAPTATION_GUIDE.md`](VEHICLE_ADAPTATION_GUIDE.md) — 车辆适配与 SecOC
+
+## C3 Lite（无功放 / 无麦克风）
+
+**Lite** 指 comma three（`tici` / F4）上 **I2C 音频功放 `0x10` 不存在** 的硬件变体，与订阅档位 `PrimeType.LITE` **无关**。
+
+| 检测 | 说明 |
+|------|------|
+| `LITE=1` | `launch_chffrplus.sh` 在 `set_lite_hw()` 中设置 |
+| `i2cget -y 0 0x10` 失败 | 无功放 → 判定为 Lite |
+| `ai.system.hardware_lite.detect_lite_hw()` | op 助手统一入口 |
+
+### 进程差异（`system/manager/process_config.py`）
+
+| 进程 | 完整 C3 | Lite C3 |
+|------|---------|---------|
+| `micd` | 开 | **关** |
+| `soundd` | 开 | **关** |
+| `dmonitoringmodeld` / `dmonitoringd` | 开 | **关** |
+| `beepd` | 关 | **开**（需 `SpDevBeep=1` 且 onroad） |
+| `modemd`（TICI） | 开 | **关** |
+
+### op 助手 API / 工具
+
+| 接口 | Lite 相关字段 |
+|------|----------------|
+| `tici_info()` / `host_hardware_profile` | `lite`, `lite_env`, `beepd_eligible`, `audio_feedback`, `unavailable_params` |
+| `get_host_environment` | `hardware_profile.lite`；Lite 时 `hint` 提示勿写 RecordAudio/AlwaysOnDM |
+| `get_sp_device_hw` | 同上 + `SpDevBeep` |
+| `set_sp_dev_beep` | 仅 Lite C3 有效；完整 C3 返回 error |
+| `list_sp_settings` | `lite_unavailable` + `lite_note` 标注不可用项 |
+| `write_params` / `params_policy` | **拒绝** `RecordAudio`、`AlwaysOnDM` |
+
+### 用户反馈替代
+
+- 完整 C3：`soundd` 语音/提示音
+- Lite：`SpDevBeep=1` → onroad 启动 `beepd`（GPIO 蜂鸣），见 `sunnypilot/selfdrive/ui/beepd.py`
+
+### 技能
+
+- `sp-device-lite` — 硬件识别与 SpDevBeep
+- `engage-troubleshooting` — Lite 无 DM/声音时的排障顺序
