@@ -36,17 +36,14 @@ LAUNCH_MARKER = "start_op_assistant"
 
 START_OP_ASSISTANT_FN = r'''  start_op_assistant() {
     local root="$DIR"
+    if [ ! -f "$root/ai/aid.py" ]; then
+      return 0
+    fi
     local aid_py=python3.12
     command -v "$aid_py" >/dev/null 2>&1 || aid_py=python3
     local venv_site="/usr/local/venv/lib/python3.12/site-packages"
     local py_path="$root"
     [ -d "$venv_site" ] && py_path="$root:$venv_site"
-    local so="$root/openpilot/common/params_pyx.so"
-    [ -f "$so" ] || so="$root/common/params_pyx.so"
-    if [ ! -f "$so" ]; then
-      echo "[aid] params_pyx.so missing, skip ($(date))" >> /tmp/aid.log
-      return 1
-    fi
     if pgrep -f "[p]ython.* -m ai\.aid" >/dev/null 2>&1; then
       return 0
     fi
@@ -55,7 +52,7 @@ START_OP_ASSISTANT_FN = r'''  start_op_assistant() {
   }
 '''
 
-START_OP_ASSISTANT_CALL = r'''  # op 助手（含 TSK）在 manager 之前启动，但必须在 scons 编译完成之后
+START_OP_ASSISTANT_CALL = r'''  # op 助手（含 TSK）：ai 配置在 /data/ai/config.json，不依赖 params 编译
   start_op_assistant
   (
     while true; do
@@ -177,8 +174,34 @@ def patch_params_keys_h(path: Path, params: dict[str, dict[str, str]], *, dry_ru
   return {"ok": True, "path": str(path), "backup": str(backup), "added": new_keys, "changed": True}
 
 
+def _upgrade_start_op_assistant(content: str) -> tuple[str, bool]:
+  if LAUNCH_MARKER not in content:
+    return content, False
+  if "params_pyx.so missing" not in content and '[ ! -f "$root/ai/aid.py" ]' in content:
+    return content, False
+  pattern = r"  start_op_assistant\(\) \{.*?^\  \}"
+  new_fn = START_OP_ASSISTANT_FN.rstrip()
+  new_content, n = re.subn(pattern, new_fn, content, count=1, flags=re.MULTILINE | re.DOTALL)
+  if n == 0:
+    return content, False
+  new_content = new_content.replace(
+    "# op 助手（含 TSK）在 manager 之前启动，但必须在 scons 编译完成之后",
+    "# op 助手（含 TSK）：ai 配置在 /data/ai/config.json，不依赖 params 编译",
+  )
+  return new_content, True
+
+
 def patch_launch_script(path: Path, *, dry_run: bool = False) -> dict[str, Any]:
   content = path.read_text(encoding="utf-8")
+  upgraded, was_upgraded = _upgrade_start_op_assistant(content)
+  if was_upgraded:
+    if dry_run:
+      return {"ok": True, "path": str(path), "changed": True, "dry_run": True, "note": "upgraded start_op_assistant"}
+    backup = path.with_suffix(path.suffix + f".bak.{datetime.now().strftime('%Y%m%d%H%M%S')}")
+    shutil.copy2(path, backup)
+    path.write_text(upgraded, encoding="utf-8")
+    return {"ok": True, "path": str(path), "backup": str(backup), "changed": True, "note": "upgraded start_op_assistant"}
+
   if LAUNCH_MARKER in content:
     return {"ok": True, "path": str(path), "changed": False, "note": "start_op_assistant already present"}
 
