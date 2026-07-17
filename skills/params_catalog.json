@@ -1,5 +1,5 @@
 {
-  "version": 5,
+  "version": 6,
   "description": "Param safety catalog for sunnypilot SP助手. Tiers: read_always | write_offroad_ui | write_offroad_tune | write_offroad_dev | write_forbidden | read_redacted. Includes dp_* (dragonpilot fork) and sunnypilot keys.",
   "params": [
     {"key": "QuietMode", "tier": "write_offroad_ui", "section": "Device", "summary": "安静模式（减少提示音）"},
@@ -26,7 +26,8 @@
     {"key": "ExperimentalMode", "tier": "write_offroad_tune", "section": "sunnypilot", "summary": "实验模式（E2E 纵向等）"},
     {"key": "DisengageOnAccelerator", "tier": "write_offroad_tune", "section": "sunnypilot", "summary": "踩油门退出"},
     {"key": "IsLdwEnabled", "tier": "write_offroad_tune", "section": "sunnypilot", "summary": "车道偏离警告"},
-    {"key": "AlwaysOnDM", "tier": "write_offroad_tune", "section": "sunnypilot", "summary": "全时驾驶员监控"},
+    {"key": "AlwaysOnDM", "tier": "write_offroad_tune", "section": "Driver Monitoring", "summary": "驾驶员监控总开关（关=不运行 dmonitoringd）"},
+    {"key": "DistractionDetectionLevel", "tier": "write_offroad_tune", "section": "Driver Monitoring", "summary": "分心检测级别 0严格/1适中/2宽松（需 AlwaysOnDM=1）"},
     {"key": "LongitudinalPersonality", "tier": "write_offroad_tune", "section": "sunnypilot", "summary": "纵向人格 0激进/1标准/2舒适"},
     {"key": "IsMetric", "tier": "write_offroad_ui", "section": "sunnypilot", "summary": "公制单位"},
     {"key": "RecordFront", "tier": "write_offroad_dev", "section": "sunnypilot", "summary": "上传驾驶员摄像头"},

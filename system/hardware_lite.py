@@ -28,11 +28,13 @@ LITE_DEVICE_LABELS = {
 LITE_BLOCKED_WRITE_PARAMS = frozenset({
   "RecordAudio",
   "AlwaysOnDM",
+  "DistractionDetectionLevel",
 })
 
 LITE_UNAVAILABLE_PARAMS = frozenset({
   "RecordAudio",
   "AlwaysOnDM",
+  "DistractionDetectionLevel",
 })
 
 LITE_UNAVAILABLE_NOTE = (

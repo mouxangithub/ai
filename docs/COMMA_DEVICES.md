@@ -75,7 +75,7 @@
 | `get_sp_device_hw` | 同上 + `SpDevBeep` |
 | `set_sp_dev_beep` | 仅 Lite C3/C3X 有效；完整音频版返回 error |
 | `list_sp_settings` | `lite_unavailable` + `lite_note` 标注不可用项 |
-| `write_params` / `params_policy` | **拒绝** `RecordAudio`、`AlwaysOnDM` |
+| `write_params` / `params_policy` | **拒绝** `RecordAudio`、`AlwaysOnDM`、`DistractionDetectionLevel` |
 
 ### 用户反馈替代
 

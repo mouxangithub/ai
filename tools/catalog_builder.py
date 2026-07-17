@@ -116,7 +116,8 @@ def _infer_tier(key: str) -> str:
     if key in ("ModelManager_ModelsCache", "ModelManager_LastSyncTime", "ModelRunnerTypeCache"):
       return "read_always"
     return "write_offroad_tune"
-  if key in ("SpDevBeep", "RecordAudio", "RecordFront", "ShowAdvancedControls", "Brightness", "QuietMode"):
+  if key in ("SpDevBeep", "RecordAudio", "RecordFront", "AlwaysOnDM", "DistractionDetectionLevel",
+             "ShowAdvancedControls", "Brightness", "QuietMode"):
     return "write_offroad_ui"
   if key in ("QuickBootToggle", "EnableGithubRunner", "EnableCopyparty"):
     return "write_offroad_dev"

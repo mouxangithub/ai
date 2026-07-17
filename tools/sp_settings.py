@@ -10,7 +10,8 @@ from ai.tools.catalog_builder import build_merged_catalog
 from ai.system.hardware_lite import LITE_UNAVAILABLE_NOTE, LITE_UNAVAILABLE_PARAMS, is_lite_hw, lite_profile
 
 _BOOL_KEYS = frozenset({
-  "ExperimentalMode", "SpDevBeep", "RecordAudio", "RecordFront", "Mads", "LagdToggle",
+  "ExperimentalMode", "SpDevBeep", "RecordAudio", "RecordFront", "AlwaysOnDM", "DistractionDetectionLevel",
+  "Mads", "LagdToggle",
   "LaneTurnDesire", "NeuralNetworkLateralControl", "DynamicExperimentalControl",
   "SmartCruiseControlMap", "SmartCruiseControlVision", "CustomTorqueParams",
   "LiveTorqueParamsToggle", "LiveTorqueParamsRelaxedToggle", "TorqueParamsOverrideEnabled",
