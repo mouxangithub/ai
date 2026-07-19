@@ -7,6 +7,7 @@ Markdown 技能包，供 op助手在系统 prompt 中加载领域知识。
 - **Param 分级**：`params_catalog.json`（供未来 `write_params` 白名单）  
 - **路线图**：`../docs/AI_AGENT_ROADMAP.md`
 - **Comma 设备 / pandad**：`../docs/COMMA_DEVICES.md`（C3/C3X/C4 与 `panda_connect.py`）
+- **C3 DOS / 黑熊刷机**：`../docs/PANDA_FLASH.md` + 技能 `c3-dos-panda/`
 - **CP 迁移对照**：`carrot-legacy/` + 内置 RAG（`tools/rag_seed.py`）
 - **车辆适配**：`vehicle-adaptation/`（指纹、DBC、草稿导出）
 

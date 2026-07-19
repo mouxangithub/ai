@@ -26,6 +26,11 @@ SP_EXTENSION_TOOL_META: dict[str, dict[str, Any]] = {
   "set_device_settings": {"label": "写入设备", "group": "write", "default_enabled": True, "driving": True},
   "list_sunnylink_backups": {"label": "Sunnylink 备份列表", "group": "read", "default_enabled": True, "driving": True},
   "get_backup_manager_status": {"label": "备份进程状态", "group": "read", "default_enabled": True, "driving": True},
+  "list_f4_pandas": {"label": "F4 Panda 列表", "group": "read", "default_enabled": True, "driving": True},
+  "recover_dos_panda": {"label": "刷 DOS/黑熊固件", "group": "write", "default_enabled": True, "driving": False},
+  "rebuild_pandad_tici": {"label": "重编 pandad_tici", "group": "write", "default_enabled": True, "driving": False},
+  "panda_recovery_hint": {"label": "Panda 恢复建议", "group": "read", "default_enabled": True, "driving": True},
+  "build_panda_firmware": {"label": "编译 panda 固件", "group": "write", "default_enabled": True, "driving": False, "pc_only": False},
 }
 
 SP_EXTENSION_SCHEMAS: list[dict[str, Any]] = [
@@ -50,6 +55,11 @@ SP_EXTENSION_SCHEMAS: list[dict[str, Any]] = [
   {"type": "function", "function": {"name": "set_device_settings", "description": "Write device/developer service params while stationary.", "parameters": {"type": "object", "properties": {"params": {"type": "object"}, "confirm": {"type": "boolean"}}, "required": ["params", "confirm"]}}},
   {"type": "function", "function": {"name": "list_sunnylink_backups", "description": "List Sunnylink cloud backups for this device.", "parameters": {"type": "object", "properties": {}, "required": []}}},
   {"type": "function", "function": {"name": "get_backup_manager_status", "description": "backupManagerSP progress and pending backup/restore flags.", "parameters": {"type": "object", "properties": {}, "required": []}}},
+  {"type": "function", "function": {"name": "list_f4_pandas", "description": "List USB pandas; highlight F4 (black/DOS) and internal vs external. Read-only.", "parameters": {"type": "object", "properties": {}, "required": []}}},
+  {"type": "function", "function": {"name": "panda_recovery_hint", "description": "When sidebar NO PANDA or pandaStates empty: recommended tool sequence and doc links.", "parameters": {"type": "object", "properties": {}, "required": []}}},
+  {"type": "function", "function": {"name": "build_panda_firmware", "description": "Offroad: scons panda/board to produce panda.bin.signed (F4 firmware, not panda_tici).", "parameters": {"type": "object", "properties": {"jobs": {"type": "integer"}}, "required": []}}},
+  {"type": "function", "function": {"name": "recover_dos_panda", "description": "Offroad: flash F4 panda (C3 DOS internal or aux black panda) with panda/ firmware. Inline in ai — does NOT require tools/recover_dos_panda.py. NEVER use panda_tici firmware for F4. confirm=true required.", "parameters": {"type": "object", "properties": {"confirm": {"type": "boolean"}, "serial": {"type": "string"}, "external": {"type": "boolean", "description": "Flash first external F4 (aux black panda)"}, "internal": {"type": "boolean", "description": "Flash internal F4 (C3 DOS)"}, "build_firmware": {"type": "boolean", "description": "Run scons first if firmware missing"}}, "required": []}}},
+  {"type": "function", "function": {"name": "rebuild_pandad_tici", "description": "Offroad: run tools/rebuild_pandad_tici.sh after git reset deleted pandad binary. confirm=true required.", "parameters": {"type": "object", "properties": {"confirm": {"type": "boolean"}}, "required": []}}},
 ]
 
 
@@ -129,6 +139,41 @@ def make_sp_extension_handlers(
   def h_get_backup_manager_status(_a):
     from ai.tools.sunnylink_tools import get_backup_manager_status
     return get_backup_manager_status(get_state_reader=get_state_reader)
+
+  def h_list_f4_pandas(_a):
+    from ai.tools.panda_flash_tools import list_f4_pandas
+    return list_f4_pandas()
+
+  def h_panda_recovery_hint(_a):
+    from ai.tools.panda_flash_tools import panda_recovery_hint
+    return panda_recovery_hint(get_state_reader=get_state_reader)
+
+  def h_build_panda_firmware(args):
+    err = stationary_check("run_shell")
+    if err:
+      return err
+    from ai.tools.panda_flash_tools import build_panda_firmware
+    return build_panda_firmware(jobs=int(args.get("jobs", 4) or 4))
+
+  def h_recover_dos_panda(args):
+    err = stationary_check("run_shell")
+    if err:
+      return err
+    from ai.tools.panda_flash_tools import recover_dos_panda
+    return recover_dos_panda(
+      confirm=bool(args.get("confirm")),
+      serial=str(args.get("serial", "") or ""),
+      external=bool(args.get("external")),
+      internal=bool(args.get("internal")),
+      build_firmware=bool(args.get("build_firmware")),
+    )
+
+  def h_rebuild_pandad_tici(args):
+    err = stationary_check("run_shell")
+    if err:
+      return err
+    from ai.tools.panda_flash_tools import rebuild_pandad_tici
+    return rebuild_pandad_tici(confirm=bool(args.get("confirm")))
 
   def h_get_torque_settings(_a):
     from ai.tools.sp_tune_groups import get_torque_settings
@@ -214,4 +259,9 @@ def make_sp_extension_handlers(
     "set_device_settings": _device_group_set("set_device_settings", "device", apply_device_writes),
     "list_sunnylink_backups": h_list_sunnylink_backups,
     "get_backup_manager_status": h_get_backup_manager_status,
+    "list_f4_pandas": h_list_f4_pandas,
+    "panda_recovery_hint": h_panda_recovery_hint,
+    "build_panda_firmware": h_build_panda_firmware,
+    "recover_dos_panda": h_recover_dos_panda,
+    "rebuild_pandad_tici": h_rebuild_pandad_tici,
   }

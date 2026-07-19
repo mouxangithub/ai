@@ -11,7 +11,7 @@
     {
       "id": "device-extras",
       "name": "设备健康插件",
-      "description": "device_health / panda_status 设备与 Panda 诊断",
+      "description": "device_health / panda_status / recover_dos_panda 设备与 Panda 诊断",
       "module": "ai.plugins.builtin.device_extras",
       "enabled": true
     }

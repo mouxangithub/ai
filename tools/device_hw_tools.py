@@ -45,7 +45,7 @@ def get_sp_device_hw(params: Params | None = None, get_state_reader=None) -> dic
     "panda_count": panda_count,
     "pandas_preview": pandas[:3],
     "board": board,
-    "hint": "Set SpDevBeep via set_sp_dev_beep (offroad). Aux Panda is launch-time only (set_aux_panda in launch_chffrplus.sh).",
+    "hint": "NO PANDA / F4 刷机见技能 c3-dos-panda 与 ai/docs/PANDA_FLASH.md。Aux Panda 为启动时配置（launch_chffrplus.sh set_aux_panda）。",
   }
 
 

@@ -358,8 +358,31 @@ class TestExtensionTools(unittest.TestCase):
       "network-diagnostics", "post-tune-validation", "dp-brand-hyundai",
       "dp-brand-subaru", "dp-brand-gm", "dp-brand-lexus", "dp-brand-ford",
       "dp-brand-nissan", "dp-brand-mazda", "dp-brand-chrysler", "dp-brand-tesla",
+      "c3-dos-panda",
     ):
       self.assertIn(sid, ids)
+
+  def test_panda_flash_tools_preview(self):
+    from ai.tools.panda_flash_tools import recover_dos_panda, panda_recovery_hint
+
+    preview = recover_dos_panda(confirm=False, internal=True)
+    self.assertTrue(preview.get("needs_confirmation"))
+    self.assertIn("preview", preview)
+    self.assertEqual(preview["preview"].get("implementation"), "inline (no script required)")
+
+    hint = panda_recovery_hint(get_state_reader=None)
+    self.assertTrue(hint.get("ok"))
+    self.assertEqual(hint.get("skill"), "c3-dos-panda")
+
+  def test_sp_extension_panda_tools_registered(self):
+    from ai.tools.sp_tool_extensions import SP_EXTENSION_TOOL_META, SP_EXTENSION_SCHEMAS
+    for name in (
+      "list_f4_pandas", "recover_dos_panda", "rebuild_pandad_tici",
+      "panda_recovery_hint", "build_panda_firmware",
+    ):
+      self.assertIn(name, SP_EXTENSION_TOOL_META)
+    schema_names = {s["function"]["name"] for s in SP_EXTENSION_SCHEMAS}
+    self.assertIn("recover_dos_panda", schema_names)
 
   def test_batch_compare_empty(self):
     from ai.tools.route_scoring_tools import batch_compare_routes_tune

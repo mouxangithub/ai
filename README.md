@@ -36,6 +36,7 @@ cd "$OPENPILOT_ROOT" && python3 -m ai.aid
 | [docs/INSTALL.md](docs/INSTALL.md) | 安装、更新、集成 openpilot |
 | [docs/TSK_AND_AID.md](docs/TSK_AND_AID.md) | TSK SecOC 与 aid 架构 |
 | [docs/COMMA_DEVICES.md](docs/COMMA_DEVICES.md) | C3 / C3X / C4 与 Panda 栈 |
+| [docs/PANDA_FLASH.md](docs/PANDA_FLASH.md) | C3 DOS / 黑熊刷机、op 助手工具 |
 | [docs/OVERVIEW.md](docs/OVERVIEW.md) | 功能与 API 概览 |
 
 ## 致谢与来源

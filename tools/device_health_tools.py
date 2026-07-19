@@ -97,6 +97,30 @@ def panda_status(get_state_reader=None) -> dict[str, Any]:
     except Exception as e:
       out["live_error"] = str(e)
 
+  try:
+    from ai.tools.panda_flash_tools import list_f4_pandas
+
+    usb = list_f4_pandas()
+    if usb.get("ok"):
+      out["usb_f4"] = usb.get("f4_pandas", [])
+      out["firmware_path"] = usb.get("firmware_path")
+      out["firmware_exists"] = usb.get("firmware_exists")
+  except Exception as e:
+    out["usb_scan_error"] = str(e)
+
+  try:
+    from ai.tsk.lib.panda_connect import tici_info
+
+    info = tici_info()
+    out["device_type"] = info.get("device_type")
+    out["panda_backend"] = info.get("panda_backend")
+    out["pandad_process"] = info.get("pandad_process")
+    out["use_tici_panda_stack"] = info.get("use_tici_panda_stack")
+    if info.get("device_type") == "tici" and info.get("use_tici_panda_stack"):
+      out["dos_note"] = "C3 DOS: F4 firmware is panda/board/obj/panda.bin.signed (not panda_tici)"
+  except Exception:
+    pass
+
   if shutil.which("lsusb"):
     out["lsusb"] = _run(["lsusb"])
   for dev in ("/dev/panda", "/dev/panda0"):
@@ -105,6 +129,8 @@ def panda_status(get_state_reader=None) -> dict[str, Any]:
       break
 
   if not out["pandas"] and not out.get("dev_path"):
-    out["hint"] = "Connect Panda or ensure manager is running for live pandaStates."
+    out["hint"] = "NO PANDA: run panda_recovery_hint → tsk_restart_pandad or recover_dos_panda (skill c3-dos-panda)."
+  elif not out["pandas"] and out.get("usb_f4"):
+    out["hint"] = "USB F4 seen but pandaStates empty: tsk_restart_pandad(confirm=true) or recover_dos_panda."
 
   return out

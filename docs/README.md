@@ -7,6 +7,7 @@
 | [INSTALL.md](INSTALL.md) | 一键安装、openpilot 集成、更新、卸载 |
 | [OVERVIEW.md](OVERVIEW.md) | Web 功能、API 端点、参数说明 |
 | [COMMA_DEVICES.md](COMMA_DEVICES.md) | C3 / C3X / C4、Panda / pandad 对照 |
+| [PANDA_FLASH.md](PANDA_FLASH.md) | C3 DOS / 黑熊 F4 刷机与 `recover_dos_panda` |
 
 ## 架构与来源
 

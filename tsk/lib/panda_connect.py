@@ -1,7 +1,8 @@
 """Panda USB access on comma devices — aligned with launch_chffrplus.sh / manager.py.
 
 Product naming (devicetree ``comma <type>``):
-  - **tici** — comma three (C3), internal panda F4 → ``panda_tici`` / ``pandad_tici`` when both packages exist
+  - **tici** — comma three (C3), internal panda F4 (DOS) → ``pandad_tici`` when both packages exist;
+    **F4 firmware file** is always ``panda/board/obj/panda.bin.signed`` (see ``ai/docs/PANDA_FLASH.md``)
   - **tizi** — comma threeX (C3X), internal panda H7 → ``panda`` / ``pandad`` (TICI_TRES)
   - **mici** — comma four (C4), internal panda H7 → ``panda`` / ``pandad`` (TICI_TRES)
 

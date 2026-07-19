@@ -221,6 +221,8 @@ def _event_triage(events: list[dict[str, Any]]) -> list[dict[str, str]]:
     "steerUnavailable": "转向不可用：SecOC / EPS 锁止 / LKAS 设置",
     "steerTempUnavailable": "转向暂时不可用：扭矩或锁止，查品牌技能",
     "invalidLkasSetting": "车内 LKAS 未开启或设置无效",
+    "pandaError": "Panda 通信异常：panda_status → panda_recovery_hint → recover_dos_panda（C3 DOS 用 panda/ 固件）",
+    "startupMaster": "主进程启动异常：grep_log manager|pandad",
   }
   out: list[dict[str, str]] = []
   seen: set[str] = set()
@@ -271,8 +273,17 @@ def trip_review(
       recommendations.append("查 LKAS 开关与品牌锁止说明（vehicle-adaptation 指南）")
   if not recommendations and not events:
     recommendations.append("当前无 critical events；可对比 snapshot_tune_state 做舒适/运动调优")
-  if tune.get("param_count", 0) > 0 and not recommendations:
+  if not events and tune.get("param_count", 0) > 0 and not recommendations:
     recommendations.append("调优项已快照；可 diff_params 预览 dp_* 或 SP 参数（Mads/Lagd/SCC 等）")
+
+  # Panda / sidebar NO PANDA heuristic (no dedicated cereal event on all forks)
+  try:
+    from ai.tools.panda_flash_tools import panda_recovery_hint
+    ph = panda_recovery_hint(get_state_reader=get_state_reader)
+    if ph.get("panda_states_count", 0) == 0 and ph.get("usb_f4"):
+      recommendations.insert(0, "侧栏可能 NO PANDA：panda_recovery_hint → recover_dos_panda(internal=true) 或 tsk_restart_pandad")
+  except Exception:
+    pass
 
   tune_suggestions = suggest_tune_from_review(events, tune, brand=brand or secoc.get("brand", ""))
 
