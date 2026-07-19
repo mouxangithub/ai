@@ -16,6 +16,8 @@ _SP_UI_ROOTS = (
 )
 _PARAMS_KEYS_H = _OP_ROOT / "common" / "params_keys.h"
 
+from ai.common.sp_param_aliases import DP_TO_SP_PARAM_ALIASES
+
 _FORBIDDEN_KEYS = frozenset({
   "AdbEnabled", "SshEnabled", "SecOCKey", "AlphaLongitudinalEnabled",
   "JoystickDebugMode", "LongitudinalManeuverMode",
@@ -317,6 +319,16 @@ def build_merged_catalog() -> dict[str, dict[str, Any]]:
       "summary": ui_meta.get("summary", key),
       "title": ui_meta.get("title", key),
     }, ui_meta)
+
+  for legacy, sp_key in DP_TO_SP_PARAM_ALIASES.items():
+    merged.pop(legacy, None)
+    if sp_key in merged:
+      entry = dict(merged[sp_key])
+      aliases = list(entry.get("legacy_aliases") or [])
+      if legacy not in aliases:
+        aliases.append(legacy)
+      entry["legacy_aliases"] = aliases
+      merged[sp_key] = entry
 
   return merged
 

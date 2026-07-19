@@ -281,8 +281,9 @@ class StateReader:
       return self._default_state()
 
   def _default_state(self) -> VehicleState:
+    from ai.common.storage import read_param_bool
     return VehicleState(
-      force_offroad=self._params.get_bool("dp_dev_go_off_road"),
+      force_offroad=read_param_bool(self._params, "OffroadMode", default=False),
       reader_unavailable=not self._healthy,
     )
 
@@ -424,7 +425,8 @@ class StateReader:
         min_enable_speed = _safe_float(cp, "minEnableSpeed")
 
       events = _parse_onroad_events(sm, has("onroadEvents"))
-      force_offroad = self._params.get_bool("dp_dev_go_off_road")
+      from ai.common.storage import read_param_bool
+      force_offroad = read_param_bool(self._params, "OffroadMode", default=False)
 
       return VehicleState(
         v_ego=v_ego,

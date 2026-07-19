@@ -141,12 +141,13 @@ def snapshot_tune_state(params: Params, brand: str = "") -> dict[str, Any]:
 
 def diff_params(params: Params, proposed: dict[str, Any]) -> dict[str, Any]:
   from ai.common.config_store import is_ai_param
+  from ai.common.sp_param_aliases import normalize_param_writes
   from ai.common.storage import read_param
 
   if not isinstance(proposed, dict):
     return {"ok": False, "error": "proposed must be an object"}
   diff: dict[str, Any] = {}
-  for key, new_val in proposed.items():
+  for key, new_val in normalize_param_writes(proposed).items():
     try:
       if is_ai_param(key):
         old = read_param(params, key)

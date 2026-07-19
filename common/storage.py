@@ -7,6 +7,7 @@ from typing import Any
 from openpilot.common.params import Params
 
 from ai.common.config_store import get_config_store, is_ai_param
+from ai.common.sp_param_aliases import resolve_sp_param_key
 from ai.tools.param_write import put_op_param
 
 
@@ -14,6 +15,7 @@ def read_param(params: Params | None, key: str, default: Any = None, *, block: b
   if is_ai_param(key):
     return get_config_store().get(key, default)
   p = params or Params()
+  key = resolve_sp_param_key(key)
   try:
     val = p.get(key, block=block)
   except Exception:
@@ -27,6 +29,7 @@ def read_param_bool(params: Params | None, key: str, default: bool = False) -> b
   if is_ai_param(key):
     return get_config_store().get_bool(key, default)
   p = params or Params()
+  key = resolve_sp_param_key(key)
   try:
     return p.get_bool(key, block=False)
   except Exception:
@@ -43,7 +46,7 @@ def write_param(params: Params | None, key: str, value: Any, *, block: bool = Fa
     get_config_store().put(key, value)
     return
   from ai.tools.param_write import put_op_param
-  put_op_param(params or Params(), key, value, block=block)
+  put_op_param(params or Params(), resolve_sp_param_key(key), value, block=block)
 
 
 def write_param_bool(params: Params | None, key: str, value: bool, *, block: bool = False) -> None:
@@ -51,11 +54,11 @@ def write_param_bool(params: Params | None, key: str, value: bool, *, block: boo
     get_config_store().put_bool(key, value)
     return
   p = params or Params()
-  p.put_bool(key, value, block=block)
+  p.put_bool(resolve_sp_param_key(key), value, block=block)
 
 
 def remove_param(params: Params | None, key: str) -> None:
   if is_ai_param(key):
     get_config_store().remove(key)
     return
-  (params or Params()).remove(key)
+  (params or Params()).remove(resolve_sp_param_key(key))

@@ -8,6 +8,7 @@ from typing import Any
 
 from ai.tools.catalog_builder import build_merged_catalog
 from ai.system.hardware_lite import lite_write_block_reason
+from ai.common.sp_param_aliases import normalize_param_writes, resolve_sp_param_key
 
 WRITE_TIERS = frozenset({
   "write_offroad_ui",
@@ -51,6 +52,7 @@ def is_redacted(key: str) -> bool:
 
 
 def can_write(key: str, *, admin: bool = False) -> tuple[bool, str]:
+  key = resolve_sp_param_key(key)
   lite_reason = lite_write_block_reason(key)
   if lite_reason:
     return False, lite_reason
@@ -80,6 +82,7 @@ def is_tune_param(key: str) -> bool:
 def validate_write_batch(writes: dict[str, Any], *, admin: bool = False) -> tuple[bool, str]:
   if not writes:
     return False, "No params to write."
+  writes = normalize_param_writes(writes)
   if not admin:
     tune_count = sum(1 for k in writes if is_tune_param(k))
     if tune_count > _MAX_TUNE_WRITES_PER_CALL:

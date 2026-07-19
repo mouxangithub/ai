@@ -13,6 +13,7 @@ AI = ROOT / "ai"
 PARAM_MAP = {
   "dp_dev_model_selected": "CarPlatformBundle",
   "dp_dev_beep": "SpDevBeep",
+  "dp_dev_go_off_road": "OffroadMode",
 }
 
 # User-facing text only — never touch `openpilot.` import paths
@@ -27,6 +28,7 @@ TEXT_REPLACEMENTS = [
   ("dp-brand-", "sp-brand-"),
   ("dp_dev_model_selected", "CarPlatformBundle"),
   ("dp_dev_beep", "SpDevBeep"),
+  ("dp_dev_go_off_road", "OffroadMode"),
   ("op助手", "SP助手"),
 ]
 

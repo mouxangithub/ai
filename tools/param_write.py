@@ -31,8 +31,9 @@ def put_op_param(params: Params, key: str, value: Any, *, block: bool = False) -
 
 def put_param(params: Params, key: str, value: Any, *, block: bool = False) -> None:
   from ai.common.config_store import is_ai_param, get_config_store
+  from ai.common.sp_param_aliases import resolve_sp_param_key
 
   if is_ai_param(key):
     get_config_store().put(key, value)
     return
-  put_op_param(params, key, value, block=block)
+  put_op_param(params, resolve_sp_param_key(key), value, block=block)
