@@ -31,6 +31,9 @@ SP_EXTENSION_TOOL_META: dict[str, dict[str, Any]] = {
   "rebuild_pandad_tici": {"label": "重编 pandad_tici", "group": "write", "default_enabled": True, "driving": False},
   "panda_recovery_hint": {"label": "Panda 恢复建议", "group": "read", "default_enabled": True, "driving": True},
   "build_panda_firmware": {"label": "编译 panda 固件", "group": "write", "default_enabled": True, "driving": False, "pc_only": False},
+  "github_runner_status": {"label": "GitHub Runner 状态", "group": "read", "default_enabled": True, "driving": True},
+  "github_runner_recovery_hint": {"label": "Runner 排查建议", "group": "read", "default_enabled": True, "driving": True},
+  "install_github_runner": {"label": "安装 GitHub Runner", "group": "write", "default_enabled": True, "driving": False},
 }
 
 SP_EXTENSION_SCHEMAS: list[dict[str, Any]] = [
@@ -60,6 +63,9 @@ SP_EXTENSION_SCHEMAS: list[dict[str, Any]] = [
   {"type": "function", "function": {"name": "build_panda_firmware", "description": "Offroad: scons panda/board to produce panda.bin.signed (F4 firmware, not panda_tici).", "parameters": {"type": "object", "properties": {"jobs": {"type": "integer"}}, "required": []}}},
   {"type": "function", "function": {"name": "recover_dos_panda", "description": "Offroad: flash F4 panda (C3 DOS internal or aux black panda) with panda/ firmware. Inline in ai — does NOT require tools/recover_dos_panda.py. NEVER use panda_tici firmware for F4. confirm=true required.", "parameters": {"type": "object", "properties": {"confirm": {"type": "boolean"}, "serial": {"type": "string"}, "external": {"type": "boolean", "description": "Flash first external F4 (aux black panda)"}, "internal": {"type": "boolean", "description": "Flash internal F4 (C3 DOS)"}, "build_firmware": {"type": "boolean", "description": "Run scons first if firmware missing"}}, "required": []}}},
   {"type": "function", "function": {"name": "rebuild_pandad_tici", "description": "Offroad: run tools/rebuild_pandad_tici.sh after git reset deleted pandad binary. confirm=true required.", "parameters": {"type": "object", "properties": {"confirm": {"type": "boolean"}}, "required": []}}},
+  {"type": "function", "function": {"name": "github_runner_status", "description": "Read C3 GitHub Actions self-hosted runner: install paths, EnableGithubRunner gates, systemd service name/state. See ai/docs/GITHUB_RUNNER.md.", "parameters": {"type": "object", "properties": {}, "required": []}}},
+  {"type": "function", "function": {"name": "github_runner_recovery_hint", "description": "When CI build is Pending or runner offline: recommended steps (params, systemd, install).", "parameters": {"type": "object", "properties": {}, "required": []}}},
+  {"type": "function", "function": {"name": "install_github_runner", "description": "Offroad: run release/ci/install_github_runner.sh on device. confirm=true and GitHub registration token required. Token never returned in logs.", "parameters": {"type": "object", "properties": {"token": {"type": "string"}, "repo_url": {"type": "string"}, "start_at_boot": {"type": "boolean"}, "confirm": {"type": "boolean"}}, "required": []}}},
 ]
 
 
@@ -175,6 +181,26 @@ def make_sp_extension_handlers(
     from ai.tools.panda_flash_tools import rebuild_pandad_tici
     return rebuild_pandad_tici(confirm=bool(args.get("confirm")))
 
+  def h_github_runner_status(_a):
+    from ai.tools.github_runner_tools import github_runner_status
+    return github_runner_status(p)
+
+  def h_github_runner_recovery_hint(_a):
+    from ai.tools.github_runner_tools import github_runner_recovery_hint
+    return github_runner_recovery_hint(p, get_state_reader=get_state_reader)
+
+  def h_install_github_runner(args):
+    err = stationary_check("run_shell")
+    if err:
+      return err
+    from ai.tools.github_runner_tools import install_github_runner_preview
+    return install_github_runner_preview(
+      token=str(args.get("token", "") or ""),
+      repo_url=str(args.get("repo_url", "") or ""),
+      start_at_boot=bool(args.get("start_at_boot")),
+      confirm=bool(args.get("confirm")),
+    )
+
   def h_get_torque_settings(_a):
     from ai.tools.sp_tune_groups import get_torque_settings
     return get_torque_settings(p)
@@ -264,4 +290,7 @@ def make_sp_extension_handlers(
     "build_panda_firmware": h_build_panda_firmware,
     "recover_dos_panda": h_recover_dos_panda,
     "rebuild_pandad_tici": h_rebuild_pandad_tici,
+    "github_runner_status": h_github_runner_status,
+    "github_runner_recovery_hint": h_github_runner_recovery_hint,
+    "install_github_runner": h_install_github_runner,
   }

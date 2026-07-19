@@ -359,8 +359,45 @@ class TestExtensionTools(unittest.TestCase):
       "dp-brand-subaru", "dp-brand-gm", "dp-brand-lexus", "dp-brand-ford",
       "dp-brand-nissan", "dp-brand-mazda", "dp-brand-chrysler", "dp-brand-tesla",
       "c3-dos-panda",
+      "github-runner",
     ):
       self.assertIn(sid, ids)
+
+  def test_github_runner_tools_preview(self):
+    from ai.tools.github_runner_tools import (
+      github_runner_status,
+      github_runner_recovery_hint,
+      install_github_runner_preview,
+      resolve_service_name,
+    )
+
+    status = github_runner_status()
+    self.assertTrue(status.get("ok"))
+    self.assertIn("service_name", status)
+    self.assertEqual(status.get("skill"), "github-runner")
+
+    hint = github_runner_recovery_hint()
+    self.assertTrue(hint.get("ok"))
+    self.assertEqual(hint.get("skill"), "github-runner")
+    self.assertIn("recommended_steps", hint)
+
+    preview = install_github_runner_preview(confirm=False)
+    self.assertTrue(preview.get("needs_confirmation"))
+
+    # resolve_service_name should not raise on PC
+    name = resolve_service_name()
+    self.assertTrue(name.startswith("actions.runner."))
+
+  def test_sp_extension_github_runner_tools_registered(self):
+    from ai.tools.sp_tool_extensions import SP_EXTENSION_TOOL_META, SP_EXTENSION_SCHEMAS
+    for name in (
+      "github_runner_status",
+      "github_runner_recovery_hint",
+      "install_github_runner",
+    ):
+      self.assertIn(name, SP_EXTENSION_TOOL_META)
+    schema_names = {s["function"]["name"] for s in SP_EXTENSION_SCHEMAS}
+    self.assertIn("github_runner_status", schema_names)
 
   def test_panda_flash_tools_preview(self):
     from ai.tools.panda_flash_tools import recover_dos_panda, panda_recovery_hint
@@ -379,6 +416,7 @@ class TestExtensionTools(unittest.TestCase):
     for name in (
       "list_f4_pandas", "recover_dos_panda", "rebuild_pandad_tici",
       "panda_recovery_hint", "build_panda_firmware",
+      "github_runner_status", "github_runner_recovery_hint", "install_github_runner",
     ):
       self.assertIn(name, SP_EXTENSION_TOOL_META)
     schema_names = {s["function"]["name"] for s in SP_EXTENSION_SCHEMAS}

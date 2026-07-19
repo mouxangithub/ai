@@ -1,5 +1,5 @@
 {
-  "version": 6,
+  "version": 7,
   "description": "Param safety catalog for sunnypilot SP助手. Tiers: read_always | write_offroad_ui | write_offroad_tune | write_offroad_dev | write_forbidden | read_redacted. Includes dp_* (dragonpilot fork) and sunnypilot keys.",
   "params": [
     {"key": "QuietMode", "tier": "write_offroad_ui", "section": "Device", "summary": "安静模式（减少提示音）"},
@@ -96,6 +96,10 @@
     {"key": "CarParams", "tier": "read_always", "section": "Vehicle", "summary": "车型参数"},
     {"key": "CarParamsCache", "tier": "read_always", "section": "Vehicle", "summary": "车型缓存"},
     {"key": "Version", "tier": "read_always", "section": "System", "summary": "软件版本"},
-    {"key": "DongleId", "tier": "read_redacted", "section": "System", "summary": "设备 ID"}
+    {"key": "DongleId", "tier": "read_redacted", "section": "System", "summary": "设备 ID"},
+    {"key": "EnableGithubRunner", "tier": "write_offroad_dev", "section": "Developer", "summary": "允许 manager 启停 GitHub Actions Runner（离路 + 电压/网络门控）"},
+    {"key": "GithubRunnerSufficientVoltage", "tier": "read_always", "section": "Developer", "summary": "电压>9V 时为 true；hardwared 写入，Runner 门控"},
+    {"key": "ShowAdvancedControls", "tier": "write_offroad_ui", "section": "Developer", "summary": "显示开发者高级控制（含 Runner 开关）"},
+    {"key": "NetworkMetered", "tier": "read_always", "section": "Network", "summary": "计量网络；为 true 时禁止启 Runner"}
   ]
 }

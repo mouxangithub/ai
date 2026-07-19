@@ -16,3 +16,11 @@
 6. 文档：`ai/docs/PANDA_FLASH.md`
 
 **F4 固件**：`panda/board/obj/panda.bin.signed`（非 `panda_tici`）。
+
+## GitHub Runner / prebuilt CI
+
+Actions **build** Pending 或用户问 prebuilt：
+
+1. `github_runner_status`
+2. `github_runner_recovery_hint`
+3. 技能 **`github-runner`**；文档 `ai/docs/GITHUB_RUNNER.md`

@@ -161,6 +161,22 @@ wiki: https://github.com/commaai/openpilot/wiki/Tuning""",
 
 用户口述 CP 界面项：先 fetch_dashy_settings，再映射 dp_*，勿假设 CP Param 存在。""",
   },
+  {
+    "id": "builtin_github_runner",
+    "title": "GitHub Runner / C3 prebuilt CI",
+    "tags": ["github", "runner", "ci", "prebuilt", "tici", "c3", "faq"],
+    "refresh": True,
+    "text": """C3 自建 GitHub Actions Runner 为 fork 编译 master-c3 → 发布 master-c3-prebuilt。
+
+安装：GitHub Actions → Runners → token → release/ci/install_github_runner.sh --token --repo
+标签须含 tici。数据目录 /data/github/runner；服务名在 runner/.service。
+
+GUI：开发者 → 显示高级控制项 → GitHub Runner Service（Param EnableGithubRunner）。
+manager 离路且电压>9V、非计量网络时 systemctl 启停；github_runner.sh 读 .service 服务名。
+
+工具：github_runner_status, github_runner_recovery_hint, install_github_runner。
+文档：ai/docs/GITHUB_RUNNER.md；技能 github-runner。""",
+  },
   *COMMA_DOCS_RAG,
 ]
 
