@@ -355,9 +355,9 @@ class TestExtensionTools(unittest.TestCase):
     from ai.skills.loader import list_skills
     ids = {s["id"] for s in list_skills()}
     for sid in (
-      "network-diagnostics", "post-tune-validation", "dp-brand-hyundai",
-      "dp-brand-subaru", "dp-brand-gm", "dp-brand-lexus", "dp-brand-ford",
-      "dp-brand-nissan", "dp-brand-mazda", "dp-brand-chrysler", "dp-brand-tesla",
+      "network-diagnostics", "post-tune-validation", "sp-brand-hyundai",
+      "sp-brand-subaru", "sp-brand-gm", "sp-brand-lexus", "sp-brand-ford",
+      "sp-brand-nissan", "sp-brand-mazda", "sp-brand-chrysler", "sp-brand-tesla",
       "c3-dos-panda",
       "github-runner",
     ):
@@ -410,11 +410,20 @@ class TestExtensionTools(unittest.TestCase):
     hint = panda_recovery_hint(get_state_reader=None)
     self.assertTrue(hint.get("ok"))
     self.assertEqual(hint.get("skill"), "c3-dos-panda")
+    self.assertIn("multi_panda", hint)
+
+    from ai.tools.panda_flash_tools import _analyze_multi_panda
+
+    multi = _analyze_multi_panda([
+      {"is_f4": True, "is_h7": False, "internal": True},
+      {"is_f4": False, "is_h7": True, "internal": False},
+    ])
+    self.assertEqual(multi.get("scenario"), "heterogeneous_f4_h7")
 
   def test_sp_extension_panda_tools_registered(self):
     from ai.tools.sp_tool_extensions import SP_EXTENSION_TOOL_META, SP_EXTENSION_SCHEMAS
     for name in (
-      "list_f4_pandas", "recover_dos_panda", "rebuild_pandad_tici",
+      "list_f4_pandas", "list_all_pandas", "recover_dos_panda", "rebuild_pandad_tici",
       "panda_recovery_hint", "build_panda_firmware",
       "github_runner_status", "github_runner_recovery_hint", "install_github_runner",
     ):

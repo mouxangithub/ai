@@ -98,11 +98,15 @@ def panda_status(get_state_reader=None) -> dict[str, Any]:
       out["live_error"] = str(e)
 
   try:
-    from ai.tools.panda_flash_tools import list_f4_pandas
+    from ai.tools.panda_flash_tools import list_all_pandas
 
-    usb = list_f4_pandas()
+    usb = list_all_pandas()
     if usb.get("ok"):
+      out["usb_all"] = usb.get("pandas", [])
       out["usb_f4"] = usb.get("f4_pandas", [])
+      out["usb_h7"] = usb.get("h7_pandas", [])
+      out["multi_panda"] = usb.get("multi_panda")
+      out["pandad_snapshot"] = usb.get("pandad")
       out["firmware_path"] = usb.get("firmware_path")
       out["firmware_exists"] = usb.get("firmware_exists")
   except Exception as e:
@@ -130,7 +134,19 @@ def panda_status(get_state_reader=None) -> dict[str, Any]:
 
   if not out["pandas"] and not out.get("dev_path"):
     out["hint"] = "NO PANDA: run panda_recovery_hint → tsk_restart_pandad or recover_dos_panda (skill c3-dos-panda)."
-  elif not out["pandas"] and out.get("usb_f4"):
-    out["hint"] = "USB F4 seen but pandaStates empty: tsk_restart_pandad(confirm=true) or recover_dos_panda."
+  elif not out["pandas"] and out.get("usb_all"):
+    multi = out.get("multi_panda") or {}
+    pandad = out.get("pandad_snapshot") or {}
+    if multi.get("count", 0) >= 2:
+      out["hint"] = (
+        "USB 可见多 Panda 但 pandaStates 空：查 pandad 是否崩溃循环 "
+        "(USBErrorBusy)；rebuild_pandad_tici(confirm=true) + reboot。"
+      )
+      if multi.get("heterogeneous_f4_h7"):
+        out["hint"] += " 场景：内置 F4 + 外接红熊 H7。"
+    elif pandad.get("possible_crash_loop"):
+      out["hint"] = "pandad 可能崩溃循环：grep_log USBErrorBusy → rebuild_pandad_tici(confirm=true)。"
+    elif out.get("usb_f4"):
+      out["hint"] = "USB F4 seen but pandaStates empty: tsk_restart_pandad(confirm=true) or recover_dos_panda."
 
   return out

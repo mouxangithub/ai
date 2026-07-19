@@ -45,8 +45,9 @@ CLI：`tools/recover_dos_panda.py`；op 助手技能：`c3-dos-panda`。
 | `get_tsk_manager_status` | 同上（嵌套在 `tici` 对象，历史命名） |
 | `get_host_environment` | `hardware_profile`（含 `comma_device` 别名）、`host_kind_label`、Panda MCU、进程状态 |
 | `device_health` | `board` = `device_type` |
-| `panda_status` | `pandas`, `usb_f4`, `firmware_path`, `dos_note` |
-| `list_f4_pandas` | `f4_pandas`, `internal`, `firmware_exists` |
+| `panda_status` | `pandas`, `usb_all`, `usb_f4`, `usb_h7`, `multi_panda`, `pandad_snapshot`, `firmware_path`, `dos_note` |
+| `list_all_pandas` | 全部 Panda、`hw_type_name`、`multi_panda.scenario`、`pandad` 进程 |
+| `list_f4_pandas` | `f4_pandas`, `internal`, `firmware_exists`（含 `list_all_pandas` 子集） |
 | `recover_dos_panda` | 刷 F4 固件（`confirm=true`） |
 
 ## TSK / 黑屏相关行为
@@ -55,6 +56,7 @@ CLI：`tools/recover_dos_panda.py`；op 助手技能：`c3-dos-panda`。
 - `tsk_restart_pandad` / 设置页「重启 pandad」：按 `pandad_module` 实际选择（可能为 `pandad` 或 `pandad_tici`）。
 - PC 开发（非 AGNOS）上 TSK 为 `dry_run`，无真实 panda；`panda_backend` 默认为 `panda`。
 - 刷 F4 固件后：建议 `rebuild_pandad_tici` + reboot（`updated` 可能删除编译产物）。
+- **C3 DOS + 外接红熊（F4 + H7 双 USB）**：需 `pandad_tici` 同时打开两只设备；详见 [`PANDA_FLASH.md`](PANDA_FLASH.md)「异构双 Panda」。
 
 ## 相关文档
 
@@ -103,4 +105,4 @@ CLI：`tools/recover_dos_panda.py`；op 助手技能：`c3-dos-panda`。
 
 - `sp-device-lite` — 硬件识别与 SpDevBeep
 - `engage-troubleshooting` — Lite 无 DM/声音时的排障顺序
-- `c3-dos-panda` — C3 DOS/黑熊刷机与 NO PANDA 恢复
+- `c3-dos-panda` — C3 DOS/黑熊/红熊多 Panda 刷机与 NO PANDA 恢复

@@ -49,6 +49,28 @@ def shutil_which(cmd: str) -> str | None:
   return which(cmd)
 
 
+def _hw_type_label(hw: bytes) -> str:
+  try:
+    from panda import Panda
+  except ImportError:
+    return hw.hex() if isinstance(hw, bytes) else str(hw)
+
+  labels = {
+    Panda.HW_TYPE_WHITE_PANDA: "WHITE_PANDA",
+    Panda.HW_TYPE_GREY_PANDA: "GREY_PANDA",
+    Panda.HW_TYPE_BLACK_PANDA: "BLACK_PANDA",
+    Panda.HW_TYPE_PEDAL: "PEDAL",
+    Panda.HW_TYPE_UNO: "UNO",
+    Panda.HW_TYPE_DOS: "DOS",
+    Panda.HW_TYPE_RED_PANDA: "RED_PANDA",
+    Panda.HW_TYPE_RED_PANDA_V2: "RED_PANDA_V2",
+    Panda.HW_TYPE_TRES: "TRES",
+    Panda.HW_TYPE_CUATRO: "CUATRO",
+    Panda.HW_TYPE_BODY: "BODY",
+  }
+  return labels.get(hw, hw.hex() if isinstance(hw, bytes) else str(hw))
+
+
 def _describe_panda(serial: str) -> dict[str, Any]:
   try:
     from panda import Panda
@@ -59,16 +81,97 @@ def _describe_panda(serial: str) -> dict[str, Any]:
     mcu = p.get_mcu_type().config.app_fn
     bootstub = p.bootstub
     p.close()
+    is_f4 = hw in Panda.F4_DEVICES
+    is_h7 = hw in Panda.H7_DEVICES
     return {
       "serial": serial,
       "internal": internal,
+      "role": "internal" if internal else "external",
       "hw_type": hw.hex() if isinstance(hw, bytes) else str(hw),
+      "hw_type_name": _hw_type_label(hw),
       "mcu": mcu,
       "bootstub": bootstub,
-      "is_f4": hw in Panda.F4_DEVICES,
+      "is_f4": is_f4,
+      "is_h7": is_h7,
     }
   except Exception as e:
     return {"serial": serial, "error": str(e)}
+
+
+def _analyze_multi_panda(entries: list[dict[str, Any]]) -> dict[str, Any]:
+  valid = [e for e in entries if "error" not in e]
+  f4 = [e for e in valid if e.get("is_f4")]
+  h7 = [e for e in valid if e.get("is_h7")]
+  internal = [e for e in valid if e.get("internal")]
+  external = [e for e in valid if not e.get("internal")]
+  scenario: str | None = None
+  if len(valid) >= 2:
+    if f4 and h7:
+      scenario = "heterogeneous_f4_h7"
+    elif len(h7) >= 2:
+      scenario = "dual_h7"
+    elif len(f4) >= 2:
+      scenario = "dual_f4"
+    else:
+      scenario = "multi_mixed"
+  return {
+    "count": len(valid),
+    "f4_count": len(f4),
+    "h7_count": len(h7),
+    "internal_count": len(internal),
+    "external_count": len(external),
+    "scenario": scenario,
+    "heterogeneous_f4_h7": scenario == "heterogeneous_f4_h7",
+    "needs_pandad_tici_dual_usb": scenario in ("heterogeneous_f4_h7", "dual_h7", "dual_f4"),
+  }
+
+
+def _pandad_process_snapshot() -> dict[str, Any]:
+  out: dict[str, Any] = {"running": False, "processes": [], "serials_in_cmdline": []}
+  if not shutil_which("pgrep"):
+    out["note"] = "pgrep unavailable"
+    return out
+  try:
+    proc = subprocess.run(
+      ["pgrep", "-af", "pandad"],
+      capture_output=True,
+      text=True,
+      timeout=5,
+    )
+    lines = [line.strip() for line in (proc.stdout or "").splitlines() if line.strip()]
+    out["processes"] = lines
+    out["running"] = bool(lines)
+    serials: list[str] = []
+    for line in lines:
+      for token in line.split():
+        if len(token) >= 20 and all(c in "0123456789abcdef" for c in token.lower()):
+          serials.append(token)
+    out["serials_in_cmdline"] = list(dict.fromkeys(serials))
+  except Exception as e:
+    out["error"] = str(e)
+
+  log_path = openpilot_root() / "data" / "log" / "manager.log"
+  if log_path.is_file():
+    try:
+      tail = log_path.read_text(encoding="utf-8", errors="replace")[-12000:]
+      crash_markers = (
+        "USBErrorBusy",
+        "pandad_tici",
+        "selfdrive.pandad_tici.pandad",
+        "exitcode -6",
+        "BOARDD_SKIP_FW_CHECK",
+      )
+      hits = [m for m in crash_markers if m in tail]
+      if hits:
+        out["recent_log_markers"] = hits
+        out["possible_crash_loop"] = (
+          not out.get("running")
+          or "USBErrorBusy" in hits
+          or "exitcode -6" in hits
+        )
+    except Exception:
+      pass
+  return out
 
 
 def pick_serial(serials: list[str], *, external: bool, internal: bool) -> str | None:
@@ -261,8 +364,8 @@ def execute_recover_dos_panda(
   return result
 
 
-def list_f4_pandas() -> dict[str, Any]:
-  """List connected F4 pandas (DOS/black) with internal/external hints."""
+def list_all_pandas() -> dict[str, Any]:
+  """List all USB pandas with MCU/hw_type, multi-panda scenario, and pandad process snapshot."""
   try:
     from panda import Panda
   except ImportError as e:
@@ -271,19 +374,56 @@ def list_f4_pandas() -> dict[str, Any]:
   serials = Panda.list()
   entries = [_describe_panda(s) for s in serials]
   f4 = [e for e in entries if e.get("is_f4")]
+  h7 = [e for e in entries if e.get("is_h7")]
+  multi = _analyze_multi_panda(entries)
+  pandad = _pandad_process_snapshot()
   fw = _fw_path()
   script = openpilot_root() / RECOVER_SCRIPT
+  hint = "F4/DOS 固件在 panda/，不要用 panda_tici 固件。刷机用 recover_dos_panda(confirm=true)。"
+  if multi.get("heterogeneous_f4_h7"):
+    hint += (
+      " 检测到内置 F4 + 外接 H7（红熊）：需 pandad_tici 双 USB 支持；"
+      "若 GUI Panda 否且 pgrep 无 pandad，先 rebuild_pandad_tici(confirm=true) 并查 manager.log 的 USBErrorBusy。"
+    )
+  elif multi.get("needs_pandad_tici_dual_usb"):
+    hint += " 双 Panda USB：确认 pgrep -af pandad 含两个 serial；崩溃时 rebuild_pandad_tici + 查 USBErrorBusy。"
+
   return {
     "ok": True,
     "serials": serials,
     "pandas": entries,
     "f4_pandas": f4,
+    "h7_pandas": h7,
+    "multi_panda": multi,
+    "pandad": pandad,
     "firmware_path": str(fw),
     "firmware_exists": fw.is_file(),
     "recover_script": str(script),
     "recover_script_present": script.is_file(),
     "flash_implementation": "inline (ai.tools.panda_flash_tools); script optional",
-    "hint": "F4/DOS 固件在 panda/，不要用 panda_tici 固件。刷机用 recover_dos_panda(confirm=true)。",
+    "hint": hint,
+  }
+
+
+def list_f4_pandas() -> dict[str, Any]:
+  """List connected F4 pandas (DOS/black) with internal/external hints."""
+  listing = list_all_pandas()
+  if not listing.get("ok"):
+    return listing
+  return {
+    "ok": True,
+    "serials": listing.get("serials", []),
+    "pandas": listing.get("pandas", []),
+    "f4_pandas": listing.get("f4_pandas", []),
+    "h7_pandas": listing.get("h7_pandas", []),
+    "multi_panda": listing.get("multi_panda"),
+    "pandad": listing.get("pandad"),
+    "firmware_path": listing.get("firmware_path"),
+    "firmware_exists": listing.get("firmware_exists"),
+    "recover_script": listing.get("recover_script"),
+    "recover_script_present": listing.get("recover_script_present"),
+    "flash_implementation": listing.get("flash_implementation"),
+    "hint": listing.get("hint"),
   }
 
 
@@ -428,7 +568,7 @@ def recover_dos_panda(
 
 def panda_recovery_hint(get_state_reader=None) -> dict[str, Any]:
   """Suggest recovery steps when pandaStates empty or sidebar shows NO PANDA."""
-  listing = list_f4_pandas()
+  listing = list_all_pandas()
   live: list[Any] = []
   if get_state_reader is not None:
     try:
@@ -440,28 +580,66 @@ def panda_recovery_hint(get_state_reader=None) -> dict[str, Any]:
     except Exception:
       pass
 
-  steps: list[str] = ["panda_status", "device_health", "grep_log pandad|panda|xhci"]
+  multi = listing.get("multi_panda") or {}
+  pandad = listing.get("pandad") or {}
+  usb_count = multi.get("count", 0)
+  scenario = multi.get("scenario")
+
+  steps: list[str] = ["panda_status", "list_all_pandas", "device_health", "grep_log pandad|panda|xhci|USBErrorBusy"]
+  diagnosis: list[str] = []
+
+  if usb_count >= 2 and not live:
+    diagnosis.append(f"USB 可见 {usb_count} 只 Panda 但 pandaStates 为空")
+    if scenario == "heterogeneous_f4_h7":
+      diagnosis.append("场景：内置 F4 (DOS) + 外接 H7 (红熊)，双 USB 非官方 SPI+H7 组合")
+    elif scenario:
+      diagnosis.append(f"多 Panda 场景：{scenario}")
+
+  if pandad.get("possible_crash_loop"):
+    diagnosis.append("manager.log 含 USBErrorBusy/exitcode -6，pandad 可能崩溃循环")
+    steps.extend([
+      "grep_log USBErrorBusy|exitcode -6|pandad_tici — 确认 pandad 崩溃",
+      "rebuild_pandad_tici(confirm=true) — offroad，修复双 USB libusb_open 后需重链二进制",
+      "reboot_device",
+    ])
+  elif usb_count >= 2 and not pandad.get("running"):
+    diagnosis.append("pgrep 无 pandad 进程，但 USB 已枚举多 Panda")
+    steps.append("rebuild_pandad_tici(confirm=true) — offroad")
+
   if not live:
     steps.extend([
       "tsk_restart_pandad(confirm=true) — offroad",
-      "若仍 NO PANDA：list_f4_pandas → recover_dos_panda(confirm=true)",
+      "若仍 NO PANDA：list_f4_pandas → recover_dos_panda(confirm=true)（仅 F4）",
       "C3 内置：recover_dos_panda(internal=true)；外接 aux 黑熊：external=true",
+      "外接红熊 (H7) 勿用 recover_dos_panda；由 pandad_tici 自动刷 panda_tici 固件",
       "无需 tools/recover_dos_panda.py，op 助手内联刷机",
     ])
+    if usb_count >= 2:
+      steps.append("验证：pgrep -af pandad 应含两个 serial（内置+外接）")
   try:
     from ai.tsk.lib.panda_connect import tici_info
 
     info = tici_info()
     device_type = info.get("device_type")
     if device_type == "tici" and info.get("use_tici_panda_stack"):
-      steps.append("C3 DOS：固件 panda/ 非 panda_tici；单内置走 DOS 快速路径不自动刷机")
+      steps.append("C3 DOS：F4 固件 panda/ 非 panda_tici；单内置走 DOS 快速路径不自动刷机")
+      if scenario == "heterogeneous_f4_h7":
+        steps.append(
+          "异构双 Panda：pandad_tici 须 set_aux_panda + 双 serial；"
+          "has_non_h7_panda 用于 BOARDD_SKIP_FW_CHECK（勿在 p.close() 后再读 hw_type）"
+        )
   except Exception:
     pass
 
   return {
     "ok": True,
     "panda_states_count": len(live),
+    "usb_pandas": listing.get("pandas", []),
     "usb_f4": listing.get("f4_pandas", []),
+    "usb_h7": listing.get("h7_pandas", []),
+    "multi_panda": multi,
+    "pandad": pandad,
+    "diagnosis": diagnosis,
     "firmware_exists": listing.get("firmware_exists"),
     "recover_script_present": listing.get("recover_script_present"),
     "recommended_steps": steps,

@@ -8,12 +8,13 @@
 
 侧栏 **NO PANDA** 或 `panda_status` 无 `pandaStates`：
 
-1. `panda_status` — 含 `usb_f4`、`firmware_path`、`dos_note`
-2. `panda_recovery_hint` — 下一步建议
-3. `list_f4_pandas` — 内置 vs 外接黑熊
-4. offroad 刷机：`recover_dos_panda(confirm=true)` — 技能 **`c3-dos-panda`**
-5. `rebuild_pandad_tici(confirm=true)` — `updated` 删二进制后
-6. 文档：`ai/docs/PANDA_FLASH.md`
+1. `panda_status` — 含 `usb_all`、`multi_panda`、`pandad_snapshot`、`firmware_path`
+2. `list_all_pandas` — 每只 Panda 的 `hw_type_name` / internal / mcu
+3. `panda_recovery_hint` — 双 Panda、USBErrorBusy 崩溃循环建议
+4. `list_f4_pandas` — 仅 F4（内置 vs 外接黑熊）
+5. offroad 刷 **F4**：`recover_dos_panda(confirm=true)` — 技能 **`c3-dos-panda`**
+6. 双 USB 崩溃 → `rebuild_pandad_tici(confirm=true)` — `updated` 或 pandad_tici 源码变更后
+7. 文档：`ai/docs/PANDA_FLASH.md`
 
 **F4 固件**：`panda/board/obj/panda.bin.signed`（非 `panda_tici`）。
 
