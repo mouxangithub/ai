@@ -43,7 +43,7 @@
 
 ### C. prebuilt 发布与车机更新
 
-1. PC：推 `master-c3` 或手动 Run workflow `sunnypilot-build-prebuilt.yaml`
+1. PC：推 `master-c3` 或手动 Run workflow `build.yaml`
 2. 等 `build`（C3）+ `publish`（云端）完成
 3. 车机：`git fetch && git reset --hard origin/master-c3-prebuilt`
 4. `test -f /data/openpilot/prebuilt` 或 `get_build_info`

@@ -16,7 +16,7 @@
 - 状态：`github_runner_status`、`github_runner_recovery_hint`
 - 文档：`ai/docs/GITHUB_RUNNER.md`；技能 `github-runner`
 - 用户手册：`release/ci/README.md`
-- 触发编译：推 `master-c3` 或 Actions → `sunnypilot-build-prebuilt.yaml`
+- 触发编译：推 `master-c3` 或 Actions → `build.yaml`
 - 车机安装产物：`git reset --hard origin/master-c3-prebuilt` + 确认 `prebuilt` 文件
 
 ## 知识库

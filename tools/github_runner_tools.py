@@ -12,7 +12,7 @@ from openpilot.common.params import Params
 RUNNER_REL = Path("release/ci/install_github_runner.sh")
 GITHUB_RUNNER_SH = Path("system/manager/github_runner.sh")
 DEFAULT_REPO = "https://github.com/mouxangithub/openpilot"
-WORKFLOW_PATH = ".github/workflows/sunnypilot-build-prebuilt.yaml"
+WORKFLOW_PATH = ".github/workflows/build.yaml"
 
 
 def _github_base_candidates() -> list[Path]:
