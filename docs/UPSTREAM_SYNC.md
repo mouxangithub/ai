@@ -27,7 +27,7 @@ sunnypilot/master
 ```
 
 1. **合并**：`upstream_sync_merge.sh` fetch upstream 并 merge。
-2. **冲突**：OpenCode 按 `.github/scripts/prompts/upstream_sync_*.txt` 解冲突并 commit。
+2. **冲突**：`opencode run` CLI 在当前分支解冲突（**不会**创建 `opencode/dispatch-*` 分支）；随后 workflow commit 并 push `master-c3-new`。
 3. **测试**：各仓跑 `test.sh`（openpilot 仅布局快检）。
 4. **推送**：`git push origin master-c3-new --force-with-lease`。
 5. **PR**：`master-c3-new` → `master-c3`，打 `ai-auto-review`、`upstream-sync`。
