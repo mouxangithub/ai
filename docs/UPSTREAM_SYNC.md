@@ -41,7 +41,7 @@ sunnypilot/master
 | panda | — | `workflow_dispatch` | opendbc dispatch |
 | openpilot | — | `workflow_dispatch` | panda dispatch |
 
-仅跑 openpilot 时：先确保 opendbc/panda 的 `master-c3-new` 已更新，再手动触发 openpilot 并勾选「更新子模块」。
+仅跑 openpilot 时：先确保 opendbc/panda 的 `master-c3-new` 已更新，再手动触发 openpilot 并勾选「更新子模块」。若子仓尚无 `master-c3-new`，openpilot 脚本会 **回退** 到 `master-c3` 并打 warning，不中断 workflow。
 
 ## GitHub 配置
 
