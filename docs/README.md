@@ -16,7 +16,10 @@
 |------|------|
 | [TSK_AND_AID.md](TSK_AND_AID.md) | aid 进程、TSK API、启动顺序；**含 TSK Web 来源说明** |
 | [VEHICLE_ADAPTATION_GUIDE.md](VEHICLE_ADAPTATION_GUIDE.md) | 新车适配方法论（技能/RAG 引用） |
+| [CAPABILITIES.md](CAPABILITIES.md) | 用户向：op助手能做什么 |
+| [PLUGIN_DEV.md](PLUGIN_DEV.md) | 插件开发 |
 | [AI_AGENT_ROADMAP.md](AI_AGENT_ROADMAP.md) | 能力路线图与工具矩阵（维护者参考） |
+| [SKILL_AUTHORING.md](SKILL_AUTHORING.md) | 技能编写 |
 
 ## 外部链接
 

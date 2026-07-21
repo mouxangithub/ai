@@ -66,6 +66,7 @@ from ai.system.host_env import get_host_environment
 from ai.tools.memory_store import get_memory, append_note, update_vehicle_profile, delete_note, format_memory_prompt, sync_vehicle_profile_from_state
 from ai.model_router import resolve_chat_config
 from ai.tools.scheduler import list_tasks, upsert_task, remove_task, run_due_tasks, ensure_default_scheduler_tasks
+from ai.tools.scheduler_actions import execute_scheduler_action
 from ai.skills.loader import build_skills_prompt, list_skills, load_enabled_skill_ids, save_enabled_skill_ids
 from ai.tools.write_pending import confirm_pending, list_pending
 from ai.tools.rag_store import (
@@ -744,6 +745,16 @@ async def _scheduler_execute_action(action: str, _payload: dict[str, Any]) -> st
     from ai.tools.git_tools import git_fetch
     res = git_fetch()
     return f"fetch ok={res.get('ok')}"
+  extra = await execute_scheduler_action(
+    action,
+    _payload,
+    params=_PARAMS,
+    get_state_reader=_get_state_reader,
+    notify_push=_notify_push,
+    append_note=append_note,
+  )
+  if extra:
+    return extra
   return f"unknown action {action}"
 
 

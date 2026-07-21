@@ -1,0 +1,96 @@
+name: OpenCode PR review
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review, labeled]
+    branches: [main, master]
+  issue_comment:
+    types: [created]
+  pull_request_review_comment:
+    types: [created]
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: read
+
+concurrency:
+  group: opencode-pr-${{ github.event.pull_request.number || github.event.issue.number || github.run_id }}
+  cancel-in-progress: true
+
+jobs:
+  ensure-label:
+    if: >-
+      github.event_name == 'pull_request'
+      && github.event.action == 'opened'
+      && github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    steps:
+      - name: Add ai-auto-review label
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh pr edit "${{ github.event.pull_request.number }}" \
+            --repo "${{ github.repository }}" \
+            --add-label "ai-auto-review" 2>/dev/null || \
+          gh api -X POST "repos/${{ github.repository }}/issues/${{ github.event.pull_request.number }}/labels" \
+            -f 'labels[]=ai-auto-review' || true
+
+  opencode-review:
+    if: >-
+      github.event_name == 'pull_request'
+      && github.event.pull_request.head.repo.full_name == github.repository
+      && contains(github.event.pull_request.labels.*.name, 'ai-auto-review')
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+      pull-requests: write
+      issues: read
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: OpenCode AI review
+        uses: anomalyco/opencode/github@latest
+        env:
+          OPENCODE_API_KEY: ${{ secrets.OPENCODE_API_KEY }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          model: ${{ vars.OPENCODE_MODEL || 'opencode/deepseek-v4-flash' }}
+          use_github_token: true
+          prompt: |
+            你是 op助手 Web/ai 仓 PR 审阅机器人。用简体中文审查。
+            关注：UI/文档正确性、回归、可维护性。
+            低风险 ui/docs/typo 改动可标为低风险。
+            结尾：风险等级、是否建议合并、人工关注点。
+            不要直接 merge。
+
+  opencode-on-comment:
+    if: >-
+      (github.event_name == 'issue_comment' || github.event_name == 'pull_request_review_comment')
+      && (contains(github.event.comment.body, '/oc') || contains(github.event.comment.body, '/opencode'))
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: write
+      pull-requests: write
+      issues: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: OpenCode (comment trigger)
+        uses: anomalyco/opencode/github@latest
+        env:
+          OPENCODE_API_KEY: ${{ secrets.OPENCODE_API_KEY }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          model: ${{ vars.OPENCODE_MODEL || 'opencode/deepseek-v4-flash' }}
+          use_github_token: true

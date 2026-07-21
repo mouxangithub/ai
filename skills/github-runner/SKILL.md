@@ -33,13 +33,19 @@
 6. 电压/网络：`GithubRunnerSufficientVoltage`、`NetworkMetered`（见 status 输出）
 7. 仍失败 → 对照 `ai/docs/GITHUB_RUNNER.md` 重装或 `--restore`
 
-### B. 未安装 — 首次部署
+### B. 未安装 — 用户发来 registration token 安装（首选）
 
-1. 指引用户获取 GitHub **registration token**（Actions → Runners → New）
-2. `install_github_runner` — 先 `confirm=false` 预览命令
-3. `confirm=true` + token 执行（**离路**、需 root）
-4. `github_runner_status` — 确认 `installed`、`systemd.running`、标签 `tici`
-5. PC：检查 `DEPLOY_STRATEGY`、workflow permissions（见文档）
+用户从 GitHub 复制 **registration token**（Settings → Actions → Runners → New self-hosted runner）并粘贴到对话：
+
+1. `github_runner_status` — 确认当前未安装或需 `--restore`
+2. `install_github_runner(token=<用户粘贴的token>, confirm=true)` — **直接执行** `release/ci/install_github_runner.sh`（离路、root、约 5–10 分钟）
+3. 若 UI 需二次确认：先 `confirm=false` 或走 `pending_id`，用户点确认后再 `confirm=true`
+4. 安装返回里的 `status_after_install` / 再调 `github_runner_status` — 看 `installed`、`systemd`、标签 `tici`
+5. 提示打开 `EnableGithubRunner`（`set_device_settings`）让 manager 接单
+
+**注意**：registration token ≠ PAT。PAT 用于 `set_github_actions_pat` 查/取消 workflow。
+
+已有 `.credentials` 仅换 token：`install_github_runner(restore=true, token=..., confirm=true)`
 
 ### C. prebuilt 发布与车机更新
 
@@ -71,6 +77,26 @@ cat /data/github/runner/.service
 systemctl status "$(cat /data/github/runner/.service)"
 cat /data/openpilot/release/ci/install_github_runner.sh | head
 ```
+
+### E. Prebuilt 发布闭环（workflow: prebuilt_release）
+
+1. `check_github_runner_health` → `github_runner_status`
+2. `trigger_github_workflow(confirm=true)` 或 PC push `master-c3`
+3. `wait_github_workflow(ref=master-c3)` — 完成可收到通知
+4. `prebuilt_branch_status` → `checkout_prebuilt_branch(confirm=true)`
+5. `ota_preflight_checklist` → 重启
+
+### D. GitHub Actions 远程管理（需 PAT）
+
+1. `github_actions_auth_status` — 是否已配置 PAT
+2. 未配置 → `set_github_actions_pat(token=..., confirm=true)`（scopes: repo + actions）
+3. `list_github_workflow_runs` — 最近运行；`status=in_progress` 看正在执行的
+4. `get_github_workflow_run(run_id=...)` — jobs、runner 名、标签
+5. `list_github_runners` — GitHub 侧 online/busy
+6. 取消卡死编译 → `cancel_github_workflow_run(run_id=..., confirm=true)`
+7. 仅停本地服务（不卸载）→ `stop_github_runner_service(confirm=true)`
+
+`github_runner_status` 在 PAT 有效时会附带 `github_api` 摘要（进行中 run、busy runner）。
 
 ## 相关技能
 

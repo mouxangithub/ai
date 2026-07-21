@@ -75,8 +75,11 @@ def create_pending(
   elif action in (
     "clear_model_cache", "cancel_osm_download", "manage_model_favorites",
     "trigger_sunnylink_backup", "trigger_sunnylink_restore", "set_sp_dev_beep",
+    "install_github_runner",
   ):
     ok, reason = True, ""
+    if action == "install_github_runner" and not str(payload.get("token", "") or "").strip():
+      ok, reason = False, "registration token required"
   elif action == "save_adaptation_draft":
     files = payload.get("files") or {}
     ok, reason = (True, "") if isinstance(files, dict) and files else (False, "files required")
@@ -245,6 +248,17 @@ def confirm_pending(params: Params, pending_id: str) -> dict[str, Any]:
   if action == "set_sp_dev_beep":
     from ai.tools.device_hw_tools import set_sp_dev_beep
     return set_sp_dev_beep(params, bool(payload.get("enabled")))
+
+  if action == "install_github_runner":
+    from ai.tools.github_runner_tools import install_github_runner_preview
+    return install_github_runner_preview(
+      token=str(payload.get("token", "") or ""),
+      repo_url=str(payload.get("repo_url", "") or ""),
+      start_at_boot=bool(payload.get("start_at_boot")),
+      restore=bool(payload.get("restore")),
+      confirm=True,
+      params=params,
+    )
 
   if action == "save_adaptation_draft":
     from ai.tools.adaptation import save_adaptation_draft

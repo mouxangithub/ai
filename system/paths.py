@@ -89,6 +89,11 @@ def ai_config_path() -> Path:
   return _path()
 
 
+def assistant_repo_root() -> Path:
+  from ai.common.repo_targets import assistant_repo_path
+  return assistant_repo_path()
+
+
 def path_summary() -> dict[str, Any]:
   root = openpilot_root()
   rd = routes_dir()
@@ -97,6 +102,7 @@ def path_summary() -> dict[str, Any]:
     "routes_dir": rd,
     "routes_dir_exists": os.path.isdir(rd),
     "ai_config_path": str(ai_config_path()),
+    "assistant_repo_root": str(assistant_repo_root()),
     "adaptation_drafts": str(adaptation_drafts_dir()),
     "env_overrides": {
       "OPENPILOT_ROOT": os.environ.get("OPENPILOT_ROOT") or os.environ.get("OP_ROOT"),

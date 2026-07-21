@@ -18,6 +18,9 @@ _EXTRA_DEFAULTS: dict[str, dict[str, str]] = {
   "ai_param_watchlist_baseline": {"param_type": "STRING", "default": ""},
 }
 
+_LEGACY_GITHUB_PAT_PARAM = "GithubActionsPat"
+_AI_GITHUB_PAT_KEY = "ai_github_actions_pat"
+
 _store: "AiConfigStore | None" = None
 _store_lock = threading.Lock()
 
@@ -148,11 +151,52 @@ class AiConfigStore:
         val = val.decode("utf-8", errors="replace")
       data[key] = str(val)
 
+  def _migrate_legacy_github_pat(self, data: dict[str, str]) -> None:
+    if data.get(_AI_GITHUB_PAT_KEY, "").strip():
+      return
+    legacy = _LEGACY_GITHUB_PAT_PARAM
+    params_dir = Path("/data/params/d")
+    if params_dir.is_dir():
+      legacy_file = params_dir / legacy
+      if legacy_file.is_file():
+        try:
+          text = legacy_file.read_text(encoding="utf-8", errors="replace").strip("\x00").strip()
+          if text:
+            data[_AI_GITHUB_PAT_KEY] = text
+            return
+        except OSError:
+          pass
+    try:
+      from openpilot.common.params_pyx import UnknownKeyName
+      from openpilot.common.params import Params
+    except Exception:
+      return
+    p = Params()
+    try:
+      val = p.get(legacy)
+    except UnknownKeyName:
+      return
+    except Exception:
+      return
+    if val is None:
+      return
+    if isinstance(val, bytes):
+      val = val.decode("utf-8", errors="replace")
+    text = str(val).strip()
+    if not text:
+      return
+    data[_AI_GITHUB_PAT_KEY] = text
+    try:
+      p.remove(legacy)
+    except Exception:
+      pass
+
   def _ensure_migrated(self, data: dict[str, str]) -> None:
     if self._migrated:
       return
     self._migrate_from_params_dir(data)
     self._migrate_from_params_api(data)
+    self._migrate_legacy_github_pat(data)
     self._migrated = True
     if data != self._load_disk():
       self._save_disk(data)

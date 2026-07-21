@@ -1,5 +1,5 @@
 {
-  "version": 1,
+  "version": 2,
   "plugins": [
     {
       "id": "core-extensions",
@@ -11,8 +11,57 @@
     {
       "id": "device-extras",
       "name": "设备健康插件",
-      "description": "device_health / panda_status / recover_dos_panda 设备与 Panda 诊断",
+      "description": "device_health / panda_status",
       "module": "ai.plugins.builtin.device_extras",
+      "enabled": true
+    },
+    {
+      "id": "github-ci",
+      "name": "GitHub CI",
+      "description": "Workflow 触发/等待/重跑、Runner 健康检查",
+      "module": "ai.plugins.builtin.github_ci",
+      "enabled": true
+    },
+    {
+      "id": "branch-ota",
+      "name": "Prebuilt / OTA",
+      "description": "prebuilt 分支状态、切换、OTA 预检",
+      "module": "ai.plugins.builtin.branch_ota",
+      "enabled": true
+    },
+    {
+      "id": "tsk-secoc",
+      "name": "TSK SecOC",
+      "description": "TSK 结构化失败诊断",
+      "module": "ai.plugins.builtin.tsk_secoc",
+      "enabled": true
+    },
+    {
+      "id": "sunnylink-cloud",
+      "name": "Sunnylink 云",
+      "description": "备份/恢复进度监视",
+      "module": "ai.plugins.builtin.sunnylink_cloud",
+      "enabled": true
+    },
+    {
+      "id": "route-analytics",
+      "name": "路线分析",
+      "description": "路线评分与批量对比工具分组",
+      "module": "ai.plugins.builtin.route_analytics",
+      "enabled": true
+    },
+    {
+      "id": "vehicle-adaptation",
+      "name": "车辆适配",
+      "description": "新车适配工具分组",
+      "module": "ai.plugins.builtin.vehicle_adaptation",
+      "enabled": true
+    },
+    {
+      "id": "git-github",
+      "name": "Git / Pull Request",
+      "description": "本地改代码 → 提交推送 → 创建/审阅/合并 PR",
+      "module": "ai.plugins.builtin.git_github",
       "enabled": true
     }
   ]

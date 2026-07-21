@@ -396,4 +396,41 @@ ITEMS = [
     "param_type": "STRING",
     "default": "",
   },
+  # GitHub PAT for Actions / PR tools (not openpilot Params).
+  {
+    "key": "ai_github_actions_pat",
+    "flags": "PERSISTENT | DONT_LOG",
+    "param_type": "STRING",
+    "default": "",
+  },
+  {
+    "key": "ai_assistant_repo_url",
+    "flags": "PERSISTENT",
+    "param_type": "STRING",
+    "default": "https://github.com/mouxangithub/ai",
+  },
+  {
+    "key": "ai_openpilot_repo_url",
+    "flags": "PERSISTENT",
+    "param_type": "STRING",
+    "default": "https://github.com/mouxangithub/openpilot",
+  },
+  {
+    "key": "ai_assistant_repo_path",
+    "flags": "PERSISTENT",
+    "param_type": "STRING",
+    "default": "",
+  },
+  {
+    "key": "ai_assistant_default_branch",
+    "flags": "PERSISTENT",
+    "param_type": "STRING",
+    "default": "main",
+  },
+  {
+    "key": "ai_openpilot_default_branch",
+    "flags": "PERSISTENT",
+    "param_type": "STRING",
+    "default": "master-c3",
+  },
 ]

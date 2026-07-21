@@ -1,0 +1,37 @@
+name: AI PR safe merge
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, labeled]
+    branches: [main, master]
+  pull_request_target:
+    types: [opened, synchronize, reopened, labeled]
+    branches: [main, master]
+
+permissions:
+  contents: write
+  pull-requests: write
+  statuses: read
+
+concurrency:
+  group: ai-safe-merge-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: false
+
+jobs:
+  safe-merge:
+    if: >-
+      github.event.pull_request.head.repo.full_name == github.repository
+      && contains(github.event.pull_request.labels.*.name, 'ai-safe-merge')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Rule-based safe squash merge
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          AI_REPO_KIND: assistant
+        run: python .github/scripts/ai_pr_safe_merge.py

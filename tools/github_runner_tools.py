@@ -142,7 +142,7 @@ def github_runner_status(params: Params | None = None) -> dict[str, Any]:
     and gates.get("GithubRunnerSufficientVoltage") is not False
   )
 
-  return {
+  out: dict[str, Any] = {
     "ok": True,
     "installed": installed,
     "install_markers": installed_markers,
@@ -170,6 +170,22 @@ def github_runner_status(params: Params | None = None) -> dict[str, Any]:
     "doc": "ai/docs/GITHUB_RUNNER.md",
     "skill": "github-runner",
   }
+  try:
+    from ai.tools.github_actions_tools import github_actions_auth_status, github_api_snapshot
+
+    auth = github_actions_auth_status(params)
+    out["github_actions_pat"] = {
+      "configured": auth.get("configured"),
+      "valid": auth.get("valid"),
+      "github_user": auth.get("github_user"),
+    }
+    if auth.get("configured") and auth.get("valid"):
+      snap = github_api_snapshot(params)
+      if snap:
+        out["github_api"] = snap
+  except Exception:
+    pass
+  return out
 
 
 def github_runner_recovery_hint(params: Params | None = None, *, get_state_reader=None) -> dict[str, Any]:
@@ -224,7 +240,8 @@ def github_runner_recovery_hint(params: Params | None = None, *, get_state_reade
 
   steps.extend([
     "CI Pending：GitHub Actions → sunnypilot prebuilt → 确认 build job 等待 tici runner",
-    "编译日志：/data/github/logs 或 Actions 网页",
+    "已配置 PAT：list_github_workflow_runs(status=in_progress)、list_github_runners",
+    "编译日志：/data/github/logs 或 Actions 网页 / get_github_workflow_run",
     "PC 触发：Actions → Run workflow（branch master-c3）",
     "文档：ai/docs/GITHUB_RUNNER.md；用户手册 release/ci/README.md",
   ])
@@ -252,53 +269,83 @@ def github_runner_recovery_hint(params: Params | None = None, *, get_state_reade
   }
 
 
+def _redact_token(text: str, token: str) -> str:
+  if not text or not token:
+    return text
+  return text.replace(token, "<REDACTED>")
+
+
 def install_github_runner_preview(
   *,
   token: str = "",
   repo_url: str = DEFAULT_REPO,
   start_at_boot: bool = False,
+  restore: bool = False,
   confirm: bool = False,
+  params: Params | None = None,
 ) -> dict[str, Any]:
   """Preview or run install_github_runner.sh (offroad, needs root). Never logs full token."""
   token = (token or "").strip()
   repo_url = (repo_url or DEFAULT_REPO).strip()
   script = Path("/data/openpilot") / RUNNER_REL
+  mode = "restore" if restore else "install"
   preview = {
+    "mode": mode,
     "script": str(script),
     "repo_url": repo_url,
     "start_at_boot": start_at_boot,
+    "restore": restore,
     "token_provided": bool(token),
     "command": (
       f"cd /data/openpilot && sudo ./release/ci/install_github_runner.sh "
-      f"--token <REDACTED> --repo {repo_url}"
+      + ("--restore " if restore else "")
+      + f"--token <REDACTED> --repo {repo_url}"
       + (" --start-at-boot" if start_at_boot else "")
     ),
     "doc": "ai/docs/GITHUB_RUNNER.md",
+    "hint": (
+      "GitHub → Settings → Actions → Runners → New self-hosted runner → 复制 registration token。"
+      "用户提供 token 并说「安装/确认」时，调用本工具且 confirm=true。"
+    ),
   }
   if not confirm:
+    hint = preview["hint"]
+    if token:
+      hint = "已收到 registration token。用户确认后请设 confirm=true 执行安装（约 5–10 分钟）。"
     return {
       "ok": True,
       "needs_confirmation": True,
       "preview": preview,
-      "hint": "Set confirm=true and provide registration token from GitHub Actions → Runners → New.",
+      "hint": hint,
     }
   if not token:
     return {"ok": False, "error": "token required when confirm=true"}
   if not script.is_file():
     return {"ok": False, "error": f"install script missing: {script}"}
   cmd = ["sudo", str(script), "--token", token, "--repo", repo_url]
+  if restore:
+    cmd.append("--restore")
   if start_at_boot:
     cmd.append("--start-at-boot")
   try:
     proc = subprocess.run(cmd, capture_output=True, text=True, timeout=600, cwd="/data/openpilot")
-    return {
+    stdout = _redact_token(proc.stdout or "", token)
+    stderr = _redact_token(proc.stderr or "", token)
+    result: dict[str, Any] = {
       "ok": proc.returncode == 0,
       "returncode": proc.returncode,
-      "stdout_tail": (proc.stdout or "")[-4000:],
-      "stderr_tail": (proc.stderr or "")[-2000:],
+      "stdout_tail": stdout[-4000:],
+      "stderr_tail": stderr[-2000:],
       "preview": {**preview, "token_provided": True},
-      "next": "github_runner_status",
+      "next_steps": [
+        "github_runner_status",
+        "若未自动接单：set_device_settings(EnableGithubRunner=true)",
+        "GitHub Actions 页确认 runner 标签含 tici",
+      ],
     }
+    if proc.returncode == 0:
+      result["status_after_install"] = github_runner_status(params)
+    return result
   except subprocess.TimeoutExpired:
     return {"ok": False, "error": "install timed out (600s)"}
   except Exception as e:

@@ -350,6 +350,136 @@ class TestExtensionTools(unittest.TestCase):
     self.assertTrue(res.get("ok"))
     self.assertTrue(any(p.get("id") == "core-extensions" for p in res.get("plugins", [])))
     self.assertTrue(any(p.get("id") == "device-extras" for p in res.get("plugins", [])))
+    self.assertTrue(any(p.get("id") == "github-ci" for p in res.get("plugins", [])))
+    self.assertTrue(any(p.get("id") == "git-github" for p in res.get("plugins", [])))
+    ids = {p.get("id") for p in res.get("plugins", [])}
+    self.assertGreaterEqual(len(ids), 9)
+
+  def test_git_github_plugin_tools(self):
+    from ai.plugins.builtin import git_github
+    self.assertIn("git_publish_pull_request", git_github.TOOL_META)
+    self.assertIn("report_bug_and_publish_pr", git_github.TOOL_META)
+    self.assertEqual(len(git_github.TOOL_SCHEMAS), 7)
+    from ai.tools.git_pr_tools import git_publish_pull_request, merge_github_pull_request
+    preview = git_publish_pull_request(title="test change", confirm=False)
+    self.assertTrue(preview.get("needs_confirmation") or preview.get("preview"))
+    self.assertEqual(preview.get("preview", {}).get("repo_target"), "openpilot")
+    assistant_preview = git_publish_pull_request(title="ai fix", repo_target="assistant", confirm=False)
+    self.assertEqual(assistant_preview.get("preview", {}).get("repo_target"), "assistant")
+    merge_preview = merge_github_pull_request(pull_number=1, confirm=False)
+    self.assertTrue(merge_preview.get("needs_confirmation") or merge_preview.get("ok") is False)
+
+  def test_repo_targets_merge_gates(self):
+    from ai.common.repo_targets import (
+      LABEL_SAFE_MERGE,
+      analyze_pr_files,
+      merge_allowed,
+      suggest_pr_labels,
+    )
+    files = [{"filename": "ai/tools/foo.py", "additions": 10, "deletions": 2}]
+    analysis = analyze_pr_files(files, repo_target="openpilot")
+    self.assertTrue(analysis.get("auto_merge_eligible"))
+    blocked = [{"filename": "selfdrive/controls.py", "additions": 1, "deletions": 0}]
+    self.assertFalse(analyze_pr_files(blocked, repo_target="openpilot").get("auto_merge_eligible"))
+    ok, _ = merge_allowed(
+      repo_target="openpilot",
+      head="ai/test",
+      base="master-c3",
+      files=files,
+      labels=[LABEL_SAFE_MERGE],
+    )
+    self.assertTrue(ok)
+    labels = suggest_pr_labels(repo_target="assistant", severity="ui")
+    self.assertIn(LABEL_SAFE_MERGE, labels)
+
+  def test_report_bug_preview(self):
+    from ai.tools.bug_report_tools import report_bug_and_publish_pr
+    preview = report_bug_and_publish_pr(
+      title="web button broken",
+      repro_steps="click",
+      actual="nothing",
+      confirm=False,
+    )
+    self.assertTrue(preview.get("needs_confirmation"))
+    self.assertEqual(preview.get("preview", {}).get("repo_target"), "assistant")
+
+  def test_add_pull_request_labels_mock(self):
+    from unittest.mock import patch
+    from ai.tools import github_api_client as api
+    with patch.object(api, "github_request") as req:
+      req.return_value = [{"name": "ai-auto-review"}]
+      out = api.add_pull_request_labels("tok", "o", "r", 3, ["ai-auto-review", "ai-safe-merge"])
+    self.assertTrue(out.get("ok"))
+
+  def test_github_api_pr_client_mock(self):
+    from unittest.mock import patch
+    from ai.tools import github_api_client as api
+
+    fake_pr = {
+      "number": 7,
+      "title": "feat: test",
+      "state": "open",
+      "head": {"ref": "ai/test"},
+      "base": {"ref": "master-c3"},
+      "user": {"login": "bot"},
+      "html_url": "https://github.com/o/r/pull/7",
+    }
+    with patch.object(api, "github_request") as req:
+      req.return_value = [fake_pr]
+      out = api.list_pull_requests("tok", "o", "r", state="open")
+    self.assertTrue(out.get("ok"))
+    self.assertEqual(out["pulls"][0]["number"], 7)
+
+    with patch.object(api, "github_request") as req:
+      req.return_value = fake_pr
+      created = api.create_pull_request(
+        "tok", "o", "r", title="t", head="ai/x", base="master-c3", body="b",
+      )
+    self.assertTrue(created.get("ok"))
+    self.assertIn("html_url", created)
+
+  def test_github_pat_config_store(self):
+    import tempfile
+    from pathlib import Path
+    from ai.common.config_store import reset_config_store_for_tests
+    from ai.tools.github_api_client import PAT_KEY, get_pat, set_pat
+
+    with tempfile.TemporaryDirectory() as td:
+      path = Path(td) / "config.json"
+      store = reset_config_store_for_tests(path)
+      self.assertIsNone(get_pat())
+      set_pat(None, "ghp_" + "x" * 36)
+      self.assertEqual(get_pat(), "ghp_" + "x" * 36)
+      raw = store.read_all()
+      self.assertIn(PAT_KEY, raw)
+      set_pat(None, None)
+      self.assertIsNone(get_pat())
+
+  def test_github_ci_plugin_tools(self):
+    from ai.plugins.builtin import github_ci
+    self.assertIn("trigger_github_workflow", github_ci.TOOL_META)
+    self.assertEqual(len(github_ci.TOOL_SCHEMAS), 4)
+    try:
+      from ai.tools.github_actions_tools import trigger_github_workflow, check_github_runner_health
+      preview = trigger_github_workflow(confirm=False)
+      self.assertTrue(preview.get("needs_confirmation"))
+      health = check_github_runner_health()
+      self.assertIn("healthy", health)
+    except ModuleNotFoundError:
+      self.skipTest("openpilot runtime not available")
+
+  def test_branch_tools_preview(self):
+    from ai.tools.branch_tools import checkout_prebuilt_branch, prebuilt_branch_status
+    preview = checkout_prebuilt_branch(confirm=False)
+    self.assertTrue(preview.get("needs_confirmation"))
+    status = prebuilt_branch_status()
+    self.assertTrue(status.get("ok"))
+    try:
+      from ai.tools.branch_tools import ota_preflight_checklist
+      pre = ota_preflight_checklist()
+      self.assertIn("checks", pre)
+    except ModuleNotFoundError:
+      self.skipTest("openpilot runtime not available")
 
   def test_skills_registry_has_new_entries(self):
     from ai.skills.loader import list_skills
@@ -360,6 +490,8 @@ class TestExtensionTools(unittest.TestCase):
       "sp-brand-nissan", "sp-brand-mazda", "sp-brand-chrysler", "sp-brand-tesla",
       "c3-dos-panda",
       "github-runner",
+      "c3-lite",
+      "konik-vs-comma",
     ):
       self.assertIn(sid, ids)
 
@@ -369,6 +501,14 @@ class TestExtensionTools(unittest.TestCase):
       github_runner_recovery_hint,
       install_github_runner_preview,
       resolve_service_name,
+    )
+    from ai.tools.github_api_client import parse_repo_url, summarize_workflow_run, summarize_job
+    from ai.tools.github_actions_tools import (
+      github_actions_auth_status,
+      set_github_actions_pat,
+      list_github_workflow_runs,
+      cancel_github_workflow_run,
+      stop_github_runner_service,
     )
 
     status = github_runner_status()
@@ -388,16 +528,67 @@ class TestExtensionTools(unittest.TestCase):
     name = resolve_service_name()
     self.assertTrue(name.startswith("actions.runner."))
 
+    owner, repo = parse_repo_url("https://github.com/mouxangithub/openpilot")
+    self.assertEqual(owner, "mouxangithub")
+    self.assertEqual(repo, "openpilot")
+
+    run = summarize_workflow_run({"id": 1, "status": "in_progress", "name": "build"})
+    self.assertEqual(run["id"], 1)
+    job = summarize_job({"id": 9, "status": "queued", "name": "build"})
+    self.assertEqual(job["runner_name"], None)
+
+    auth = github_actions_auth_status()
+    self.assertTrue(auth.get("ok"))
+    self.assertFalse(auth.get("configured"))
+
+    pat_preview = set_github_actions_pat(token="x", confirm=False)
+    self.assertTrue(pat_preview.get("needs_confirmation"))
+
+    runs_err = list_github_workflow_runs()
+    self.assertFalse(runs_err.get("ok"))
+    self.assertEqual(runs_err.get("error"), "github_pat_not_configured")
+
+    cancel_preview = cancel_github_workflow_run(run_id=123, confirm=False)
+    self.assertTrue(cancel_preview.get("needs_confirmation"))
+
+    stop_preview = stop_github_runner_service(confirm=False)
+    self.assertTrue(stop_preview.get("needs_confirmation"))
+
+  def test_github_api_client_mock(self):
+    from unittest.mock import patch
+    from ai.tools import github_api_client as api
+
+    fake_run = {"id": 42, "status": "in_progress", "name": "build", "head_branch": "master-c3"}
+    with patch.object(api, "github_request") as req:
+      req.return_value = {"workflow_runs": [fake_run], "total_count": 1}
+      out = api.list_workflow_runs("tok", "org", "repo", workflow="build.yaml")
+    self.assertTrue(out.get("ok"))
+    self.assertEqual(out["runs"][0]["id"], 42)
+    self.assertEqual(len(out["in_progress"]), 1)
+
+    with patch.object(api, "github_request") as req:
+      req.return_value = {"ok": False, "error": "github_api_error", "http_status": 401, "message": "Bad credentials"}
+      check = api.verify_token("bad")
+    self.assertFalse(check.get("valid"))
+
   def test_sp_extension_github_runner_tools_registered(self):
     from ai.tools.sp_tool_extensions import SP_EXTENSION_TOOL_META, SP_EXTENSION_SCHEMAS
     for name in (
       "github_runner_status",
       "github_runner_recovery_hint",
       "install_github_runner",
+      "github_actions_auth_status",
+      "set_github_actions_pat",
+      "list_github_workflow_runs",
+      "get_github_workflow_run",
+      "cancel_github_workflow_run",
+      "list_github_runners",
+      "stop_github_runner_service",
     ):
       self.assertIn(name, SP_EXTENSION_TOOL_META)
     schema_names = {s["function"]["name"] for s in SP_EXTENSION_SCHEMAS}
     self.assertIn("github_runner_status", schema_names)
+    self.assertIn("cancel_github_workflow_run", schema_names)
 
   def test_panda_flash_tools_preview(self):
     from ai.tools.panda_flash_tools import recover_dos_panda, panda_recovery_hint
@@ -426,6 +617,9 @@ class TestExtensionTools(unittest.TestCase):
       "list_f4_pandas", "list_all_pandas", "recover_dos_panda", "rebuild_pandad_tici",
       "panda_recovery_hint", "build_panda_firmware",
       "github_runner_status", "github_runner_recovery_hint", "install_github_runner",
+      "github_actions_auth_status", "set_github_actions_pat", "list_github_workflow_runs",
+      "get_github_workflow_run", "cancel_github_workflow_run", "list_github_runners",
+      "stop_github_runner_service",
     ):
       self.assertIn(name, SP_EXTENSION_TOOL_META)
     schema_names = {s["function"]["name"] for s in SP_EXTENSION_SCHEMAS}
@@ -512,10 +706,14 @@ class TestExtensionTools(unittest.TestCase):
     self.assertIn("ok", res)
 
   def test_workflows_post_tune(self):
-    from ai.tools.workflows import get_workflow
+    from ai.tools.workflows import get_workflow, list_workflows
     wf = get_workflow("post_tune_validation")
     self.assertIsNotNone(wf)
     self.assertIn("score_tune_session", " ".join(wf.get("steps", [])))
+    ids = {w["id"] for w in list_workflows()}
+    self.assertIn("prebuilt_release", ids)
+    self.assertIn("publish_pr", ids)
+    self.assertIn("pr_review_merge", ids)
 
 
 class TestTskGuidance(unittest.TestCase):

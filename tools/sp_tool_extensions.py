@@ -35,6 +35,13 @@ SP_EXTENSION_TOOL_META: dict[str, dict[str, Any]] = {
   "github_runner_status": {"label": "GitHub Runner 状态", "group": "read", "default_enabled": True, "driving": True},
   "github_runner_recovery_hint": {"label": "Runner 排查建议", "group": "read", "default_enabled": True, "driving": True},
   "install_github_runner": {"label": "安装 GitHub Runner", "group": "write", "default_enabled": True, "driving": False},
+  "github_actions_auth_status": {"label": "GitHub PAT 状态", "group": "read", "default_enabled": True, "driving": True},
+  "set_github_actions_pat": {"label": "配置 GitHub PAT", "group": "write", "default_enabled": True, "driving": False},
+  "list_github_workflow_runs": {"label": "Workflow 运行列表", "group": "read", "default_enabled": True, "driving": True},
+  "get_github_workflow_run": {"label": "Workflow 运行详情", "group": "read", "default_enabled": True, "driving": True},
+  "cancel_github_workflow_run": {"label": "取消 Workflow", "group": "write", "default_enabled": True, "driving": False},
+  "list_github_runners": {"label": "GitHub Runners 列表", "group": "read", "default_enabled": True, "driving": True},
+  "stop_github_runner_service": {"label": "停止 Runner 服务", "group": "write", "default_enabled": True, "driving": False},
 }
 
 SP_EXTENSION_SCHEMAS: list[dict[str, Any]] = [
@@ -67,7 +74,14 @@ SP_EXTENSION_SCHEMAS: list[dict[str, Any]] = [
   {"type": "function", "function": {"name": "rebuild_pandad_tici", "description": "Offroad: run tools/rebuild_pandad_tici.sh after git reset deleted pandad binary. confirm=true required.", "parameters": {"type": "object", "properties": {"confirm": {"type": "boolean"}}, "required": []}}},
   {"type": "function", "function": {"name": "github_runner_status", "description": "Read C3 GitHub Actions self-hosted runner: install paths, EnableGithubRunner gates, systemd service name/state. See ai/docs/GITHUB_RUNNER.md.", "parameters": {"type": "object", "properties": {}, "required": []}}},
   {"type": "function", "function": {"name": "github_runner_recovery_hint", "description": "When CI build is Pending or runner offline: recommended steps (params, systemd, install).", "parameters": {"type": "object", "properties": {}, "required": []}}},
-  {"type": "function", "function": {"name": "install_github_runner", "description": "Offroad: run release/ci/install_github_runner.sh on device. confirm=true and GitHub registration token required. Token never returned in logs.", "parameters": {"type": "object", "properties": {"token": {"type": "string"}, "repo_url": {"type": "string"}, "start_at_boot": {"type": "boolean"}, "confirm": {"type": "boolean"}}, "required": []}}},
+  {"type": "function", "function": {"name": "install_github_runner", "description": "Offroad: run release/ci/install_github_runner.sh on C3. User provides GitHub Actions registration token (Settings→Actions→Runners→New self-hosted runner — NOT a PAT). When user pastes token and asks to install, call with token=... and confirm=true after they approve. Token never logged or returned.", "parameters": {"type": "object", "properties": {"token": {"type": "string", "description": "One-time runner registration token from GitHub"}, "repo_url": {"type": "string"}, "restore": {"type": "boolean", "description": "Restore existing .credentials/.service with new token"}, "start_at_boot": {"type": "boolean"}, "confirm": {"type": "boolean"}}, "required": []}}},
+  {"type": "function", "function": {"name": "github_actions_auth_status", "description": "Check ai_github_actions_pat in config.json: configured/valid. Never returns token. See ai/docs/GITHUB_RUNNER.md.", "parameters": {"type": "object", "properties": {"repo_url": {"type": "string"}}, "required": []}}},
+  {"type": "function", "function": {"name": "set_github_actions_pat", "description": "Store or clear ai_github_actions_pat in config.json (classic/fine-grained PAT with repo+actions). confirm=true required. Empty token clears. Token never logged.", "parameters": {"type": "object", "properties": {"token": {"type": "string"}, "confirm": {"type": "boolean"}}, "required": []}}},
+  {"type": "function", "function": {"name": "list_github_workflow_runs", "description": "List GitHub Actions workflow runs (default build.yaml). Requires ai_github_actions_pat.", "parameters": {"type": "object", "properties": {"repo_url": {"type": "string"}, "workflow": {"type": "string"}, "status": {"type": "string", "description": "e.g. in_progress, queued, completed"}, "branch": {"type": "string"}, "per_page": {"type": "integer"}}, "required": []}}},
+  {"type": "function", "function": {"name": "get_github_workflow_run", "description": "Workflow run details and jobs by run_id. Requires ai_github_actions_pat.", "parameters": {"type": "object", "properties": {"run_id": {"type": "integer"}, "repo_url": {"type": "string"}}, "required": ["run_id"]}}},
+  {"type": "function", "function": {"name": "cancel_github_workflow_run", "description": "Cancel a workflow run on GitHub. confirm=true required. Requires ai_github_actions_pat with actions write.", "parameters": {"type": "object", "properties": {"run_id": {"type": "integer"}, "repo_url": {"type": "string"}, "confirm": {"type": "boolean"}}, "required": ["run_id"]}}},
+  {"type": "function", "function": {"name": "list_github_runners", "description": "List self-hosted runners from GitHub API (online/busy/labels) plus local install summary.", "parameters": {"type": "object", "properties": {"repo_url": {"type": "string"}}, "required": []}}},
+  {"type": "function", "function": {"name": "stop_github_runner_service", "description": "Offroad: sudo systemctl stop local runner service. Does not uninstall. confirm=true required.", "parameters": {"type": "object", "properties": {"confirm": {"type": "boolean"}}, "required": []}}},
 ]
 
 
@@ -200,12 +214,98 @@ def make_sp_extension_handlers(
     if err:
       return err
     from ai.tools.github_runner_tools import install_github_runner_preview
-    return install_github_runner_preview(
-      token=str(args.get("token", "") or ""),
-      repo_url=str(args.get("repo_url", "") or ""),
-      start_at_boot=bool(args.get("start_at_boot")),
-      confirm=bool(args.get("confirm")),
+
+    token = str(args.get("token", "") or "").strip()
+    repo_url = str(args.get("repo_url", "") or "")
+    start_at_boot = bool(args.get("start_at_boot"))
+    restore = bool(args.get("restore"))
+    confirm = bool(args.get("confirm"))
+
+    if confirm:
+      return install_github_runner_preview(
+        token=token,
+        repo_url=repo_url,
+        start_at_boot=start_at_boot,
+        restore=restore,
+        confirm=True,
+        params=p,
+      )
+
+    preview = install_github_runner_preview(
+      token=token,
+      repo_url=repo_url,
+      start_at_boot=start_at_boot,
+      restore=restore,
+      confirm=False,
+      params=p,
     )
+    if token and needs_confirm():
+      return create_pending(
+        p,
+        action="install_github_runner",
+        payload={
+          "token": token,
+          "repo_url": repo_url,
+          "start_at_boot": start_at_boot,
+          "restore": restore,
+        },
+        preview=preview.get("preview", preview),
+      )
+    return preview
+
+  def h_github_actions_auth_status(args):
+    from ai.tools.github_actions_tools import github_actions_auth_status
+    return github_actions_auth_status(p, repo_url=str(args.get("repo_url", "") or ""))
+
+  def h_set_github_actions_pat(args):
+    err = stationary_check("write_param")
+    if err:
+      return err
+    from ai.tools.github_actions_tools import set_github_actions_pat
+    return set_github_actions_pat(
+      token=str(args.get("token", "") or ""),
+      confirm=bool(args.get("confirm")),
+      params=p,
+    )
+
+  def h_list_github_workflow_runs(args):
+    from ai.tools.github_actions_tools import list_github_workflow_runs
+    return list_github_workflow_runs(
+      repo_url=str(args.get("repo_url", "") or ""),
+      workflow=str(args.get("workflow", "") or "build.yaml"),
+      status=str(args.get("status", "") or "") or None,
+      branch=str(args.get("branch", "") or "") or None,
+      per_page=int(args.get("per_page", 10) or 10),
+      params=p,
+    )
+
+  def h_get_github_workflow_run(args):
+    from ai.tools.github_actions_tools import get_github_workflow_run
+    return get_github_workflow_run(
+      run_id=int(args.get("run_id") or 0),
+      repo_url=str(args.get("repo_url", "") or ""),
+      params=p,
+    )
+
+  def h_cancel_github_workflow_run(args):
+    from ai.tools.github_actions_tools import cancel_github_workflow_run
+    return cancel_github_workflow_run(
+      run_id=int(args.get("run_id") or 0),
+      repo_url=str(args.get("repo_url", "") or ""),
+      confirm=bool(args.get("confirm")),
+      params=p,
+    )
+
+  def h_list_github_runners(args):
+    from ai.tools.github_actions_tools import list_github_runners
+    return list_github_runners(repo_url=str(args.get("repo_url", "") or ""), params=p)
+
+  def h_stop_github_runner_service(args):
+    err = stationary_check("run_shell")
+    if err:
+      return err
+    from ai.tools.github_actions_tools import stop_github_runner_service
+    return stop_github_runner_service(confirm=bool(args.get("confirm")), params=p)
 
   def h_get_torque_settings(_a):
     from ai.tools.sp_tune_groups import get_torque_settings
@@ -300,4 +400,11 @@ def make_sp_extension_handlers(
     "github_runner_status": h_github_runner_status,
     "github_runner_recovery_hint": h_github_runner_recovery_hint,
     "install_github_runner": h_install_github_runner,
+    "github_actions_auth_status": h_github_actions_auth_status,
+    "set_github_actions_pat": h_set_github_actions_pat,
+    "list_github_workflow_runs": h_list_github_workflow_runs,
+    "get_github_workflow_run": h_get_github_workflow_run,
+    "cancel_github_workflow_run": h_cancel_github_workflow_run,
+    "list_github_runners": h_list_github_runners,
+    "stop_github_runner_service": h_stop_github_runner_service,
   }

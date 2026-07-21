@@ -1,0 +1,25 @@
+name: ai tests
+
+on:
+  push:
+    branches: [main, master]
+    paths:
+      - "ai/**"
+      - ".github/workflows/ai-pr-automation.yml"
+  pull_request:
+    branches: [main, master]
+    paths:
+      - "ai/**"
+
+jobs:
+  pytest:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Run ai unit tests
+        run: |
+          python -m pytest ai/tests/test_tools.py -q -k "git_github or github_pat or repo_targets or report_bug" --tb=short || \
+          python -m unittest ai.tests.test_tools.AiToolsTests.test_git_github_plugin_tools ai.tests.test_tools.AiToolsTests.test_github_pat_config_store -v

@@ -25,6 +25,8 @@ VALID_ACTIONS = frozenset({
   "read_last_log", "read_usage", "read_tune_snapshot", "memory_ping", "snapshot_tune",
   "trip_review_offroad", "reindex_rag_wifi", "check_critical_events",
   "post_drive_review_offroad", "check_param_watchlist_offroad", "git_fetch_wifi",
+  "check_runner_health_offroad", "check_device_health_offroad", "check_github_ci_failed",
+  "ota_preflight_offroad",
 })
 VALID_TRIGGERS = frozenset({"interval", "on_offroad", "on_ignition", "on_wifi", "daily_at"})
 
@@ -141,17 +143,37 @@ def _should_run_daily_at(task: dict[str, Any], now: int) -> bool:
 
 
 def ensure_default_scheduler_tasks(params: Params) -> dict[str, Any]:
-  """Seed a few useful tasks when scheduler is empty."""
+  """Seed useful tasks; merge missing defaults by action name."""
   tasks = _load_tasks(params)
-  if tasks:
-    return {"ok": True, "seeded": 0, "reason": "tasks already exist"}
+  existing_actions = {t.get("action") for t in tasks}
   defaults = [
     {"name": "每日用量", "action": "read_usage", "trigger": "daily_at", "interval_minutes": 1440, "payload": {"hour": 9, "minute": 0}},
     {"name": "停车复盘", "action": "post_drive_review_offroad", "trigger": "on_offroad", "interval_minutes": 60, "payload": {}},
     {"name": "WiFi 拉取 Git", "action": "git_fetch_wifi", "trigger": "on_wifi", "interval_minutes": 60, "payload": {}},
     {"name": "参数漂移检查", "action": "check_param_watchlist_offroad", "trigger": "on_offroad", "interval_minutes": 60, "payload": {}},
+    {"name": "Runner/CI 健康", "action": "check_runner_health_offroad", "trigger": "on_offroad", "interval_minutes": 120, "payload": {"notify": True}},
+    {"name": "设备健康巡检", "action": "check_device_health_offroad", "trigger": "interval", "interval_minutes": 360, "payload": {}},
+    {"name": "CI 失败告警", "action": "check_github_ci_failed", "trigger": "on_wifi", "interval_minutes": 60, "payload": {}},
   ]
+  seeded = 0
+  if not tasks:
+    for spec in defaults:
+      upsert_task(
+        params,
+        task_id=None,
+        name=spec["name"],
+        action=spec["action"],
+        interval_minutes=spec["interval_minutes"],
+        enabled=True,
+        payload=spec.get("payload"),
+        trigger=spec["trigger"],
+      )
+      seeded += 1
+    return {"ok": True, "seeded": seeded}
+
   for spec in defaults:
+    if spec["action"] in existing_actions:
+      continue
     upsert_task(
       params,
       task_id=None,
@@ -162,7 +184,8 @@ def ensure_default_scheduler_tasks(params: Params) -> dict[str, Any]:
       payload=spec.get("payload"),
       trigger=spec["trigger"],
     )
-  return {"ok": True, "seeded": len(defaults)}
+    seeded += 1
+  return {"ok": True, "seeded": seeded, "merged": seeded > 0}
 
 
 def _should_run_interval(task: dict[str, Any], now: int) -> bool:

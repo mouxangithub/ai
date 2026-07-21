@@ -6,10 +6,16 @@ import subprocess
 from typing import Any
 
 from ai.system.paths import openpilot_root
+from ai.tools.git_repo_context import current_git_repo_target
+
+
+def _git_root():
+  from ai.common.repo_targets import resolve_repo_root
+  return resolve_repo_root(current_git_repo_target())
 
 
 def _git(args: list[str], *, timeout: int = 120) -> dict[str, Any]:
-  root = openpilot_root()
+  root = _git_root()
   try:
     proc = subprocess.run(
       ["git", "-C", str(root), *args],
@@ -51,7 +57,7 @@ def git_status() -> dict[str, Any]:
     "head": head.get("stdout") if head.get("ok") else None,
     "status_lines": lines[:200],
     "dirty_count": sum(1 for ln in lines if ln and not ln.startswith("##")),
-    "repo": str(openpilot_root()),
+    "repo": str(_git_root()),
   }
 
 
@@ -109,7 +115,7 @@ def git_list_branches(*, include_remote: bool = True, limit: int = 80) -> dict[s
     "current": current.get("stdout") if current.get("ok") else None,
     "local": local_branches[:lim],
     "remote": remote_branches[:lim],
-    "repo": str(openpilot_root()),
+    "repo": str(_git_root()),
   }
 
 
@@ -212,8 +218,26 @@ def git_push(
     return {"ok": False, "error": "invalid remote"}
   args = ["push", remote]
   b = _valid_branch_name(branch) if branch else None
-  if b:
-    args.append(b)
   if set_upstream and b:
     args = ["push", "-u", remote, b]
+  elif b:
+    args.append(b)
   return _git(args, timeout=300)
+
+
+def git_create_branch(*, branch: str, start_point: str = "") -> dict[str, Any]:
+  """Create and switch branch; uncommitted changes carry over (git checkout -b)."""
+  b = _valid_branch_name(branch)
+  if not b:
+    return {"ok": False, "error": "invalid branch name"}
+  exists = _git(["rev-parse", "--verify", b], timeout=10)
+  if exists.get("ok"):
+    return {"ok": False, "error": f"branch already exists: {b}"}
+  args = ["checkout", "-b", b]
+  sp = _valid_branch_name(start_point) if start_point else None
+  if sp:
+    args.append(sp)
+  res = _git(args, timeout=60)
+  if res.get("ok"):
+    res["branch"] = b
+  return res

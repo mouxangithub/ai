@@ -130,3 +130,37 @@ def get_backup_manager_status(get_state_reader=None) -> dict[str, Any]:
   except Exception as e:
     out["cereal_error"] = str(e)
   return out
+
+
+def sunnylink_backup_watch(params: Params | None = None) -> dict[str, Any]:
+  """Structured backup/restore progress with retry hints."""
+  params = params or Params()
+  sl = get_sunnylink_status(params)
+  bm = get_backup_manager_status()
+  issues: list[str] = []
+  if not sl.get("registered"):
+    issues.append("not_registered")
+  if sl.get("SunnylinkTempFault"):
+    issues.append("temp_fault")
+  if bm.get("last_error"):
+    issues.append("backup_manager_error")
+  if sl.get("backup_pending") and not bm.get("backup_progress"):
+    issues.append("backup_stalled")
+
+  next_steps = ["get_sunnylink_status", "get_backup_manager_status"]
+  if "not_registered" in issues:
+    next_steps.append("Settings → Sunnylink 配对")
+  if sl.get("backup_pending"):
+    next_steps.append("等待 backupManagerSP 或 trigger_sunnylink_backup(confirm=true)")
+  if bm.get("last_error"):
+    next_steps.append("检查网络后重试 trigger_sunnylink_backup")
+
+  return {
+    "ok": True,
+    "sunnylink": sl,
+    "backup_manager": bm,
+    "issues": issues,
+    "healthy": not issues,
+    "next_steps": next_steps,
+    "skill": "sunnylink-backup",
+  }

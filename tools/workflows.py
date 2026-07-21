@@ -164,6 +164,89 @@ WORKFLOWS: dict[str, dict[str, Any]] = {
     ],
     "prompt": "列出最近路线摘要，对 vEgo 或信号异常的路线深入分析。",
   },
+  "prebuilt_release": {
+    "name": "Prebuilt 发布闭环",
+    "mode": "execute",
+    "steps": [
+      "check_github_runner_health",
+      "github_runner_status",
+      "trigger_github_workflow(confirm=true) or user push master-c3",
+      "wait_github_workflow(ref=master-c3)",
+      "prebuilt_branch_status",
+      "checkout_prebuilt_branch(confirm=true)",
+      "ota_preflight_checklist",
+    ],
+    "prompt": (
+      "执行 prebuilt 发布闭环：确认 Runner 健康 → 触发/等待 build workflow → "
+      "检查 master-c3-prebuilt → 离路 checkout prebuilt 并验证 prebuilt 文件。"
+      "需要 ai_github_actions_pat（config.json）；写操作 confirm=true。"
+    ),
+  },
+  "dual_panda_recovery": {
+    "name": "双 Panda 恢复",
+    "mode": "execute",
+    "steps": [
+      "list_all_pandas",
+      "panda_status",
+      "panda_recovery_hint",
+      "若 F4 异常: recover_dos_panda",
+      "若 pandad 缺失: rebuild_pandad_tici(confirm=true)",
+      "tsk_restart_pandad if black screen",
+    ],
+    "prompt": "C3 内置 F4 + 外接 H7 双 Panda：先 list_all_pandas 识别场景，按 panda_recovery_hint 恢复。",
+  },
+  "sunnylink_backup_flow": {
+    "name": "Sunnylink 备份一条龙",
+    "mode": "execute",
+    "steps": [
+      "get_sunnylink_status",
+      "sunnylink_backup_watch",
+      "trigger_sunnylink_backup(confirm=true)",
+      "poll sunnylink_backup_watch until done",
+      "list_sunnylink_backups",
+    ],
+    "prompt": "离路执行 Sunnylink 云备份：检查注册状态 → 触发备份 → 监视进度 → 列出备份版本。",
+  },
+  "cloud_connect_compare": {
+    "name": "Comma vs Konik 选型",
+    "mode": "plan",
+    "steps": [
+      "comma_auth_status",
+      "konik_connect_status",
+      "network_diagnostics",
+      "对比上传路线/配对/隐私需求，给出建议",
+    ],
+    "prompt": "帮助用户选择 Comma Connect 或 Konik：对比配对状态、路线云、隐私与网络。",
+  },
+  "publish_pr": {
+    "name": "发布 Pull Request",
+    "mode": "execute",
+    "steps": [
+      "git_status + git_diff",
+      "github_actions_auth_status",
+      "git_publish_pull_request(confirm=true)",
+      "返回 PR URL，用户在 PC 上 review",
+    ],
+    "prompt": (
+      "车机/PC 离路改代码后发布 PR：先 git_status/git_diff 预览，确认 ai_github_actions_pat 已配置，"
+      "再 git_publish_pull_request(confirm=true) 自动建 ai/* 分支、commit、push、开 PR。"
+      "勿直接 push 到 master-c3。"
+    ),
+  },
+  "pr_review_merge": {
+    "name": "PR 审阅与合并",
+    "mode": "execute",
+    "steps": [
+      "get_github_pull_request",
+      "auto_review_pull_request(confirm=true)",
+      "可选 wait_github_workflow 等 CI",
+      "merge_github_pull_request(confirm=true) 仅 ai/* 且 CI 通过",
+    ],
+    "prompt": (
+      "审阅并可选合并 PR：先 get_github_pull_request 看 diff 摘要，"
+      "auto_review_pull_request 发评论；仅当 head 为 ai/* 分支、CI 绿、用户明确要求时才 merge_github_pull_request。"
+    ),
+  },
 }
 
 
