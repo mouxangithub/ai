@@ -1,8 +1,8 @@
 # 上游同步（sunnypilot → master-c3-new）
 
-从 **sunnypilot** 上游拉取 `master`，合并到 fork 的 `master-c3` 基底，输出分支 **`master-c3-new`** 并推送。你在车机/本地 checkout `master-c3-new` 自测通过后，再合并 PR 到 `master-c3`。
+从 **sunnypilot** 上游拉取 `master`，在 **`master-c3-new`** 分支上合并（以 `master-c3` 为只读基底），推送后开 **Draft PR**。你在车机自测通过后，**手动**合并 PR 到 `master-c3`。
 
-**不自动合并** openpilot 大同步 PR；子仓 opendbc/panda 可选用 `ai-safe-merge`（小范围、CI 绿时）。
+**CI 绝不会** push 或 merge 到 `master-c3`；带 `upstream-sync` 标签的 PR **禁止** `ai-safe-merge` 自动合并。
 
 ## 仓库与顺序
 
@@ -19,10 +19,10 @@
 ```
 sunnypilot/master
        │
-       ▼ merge 到 origin/master-c3 基底
+       ▼ 以 master-c3 为基底，仅在 master-c3-new 上合并
   master-c3-new  ──push──►  fork（供你自测）
        │
-       ▼ 开 PR → master-c3（标签 ai-auto-review + upstream-sync）
+       ▼ 开 Draft PR → master-c3（upstream-sync，不自动 merge）
   OpenCode 审阅 → 你测车 → 手动合并 master-c3
 ```
 
@@ -30,7 +30,7 @@ sunnypilot/master
 2. **冲突**：`opencode run` CLI 在当前分支解冲突（**不会**创建 `opencode/dispatch-*` 分支）；随后 workflow commit 并 push `master-c3-new`。
 3. **测试**：各仓跑 `test.sh`（openpilot 仅布局快检）。
 4. **推送**：`git push origin master-c3-new --force-with-lease`。
-5. **PR**：`master-c3-new` → `master-c3`，打 `ai-auto-review`、`upstream-sync`。
+5. **PR**：开 **Draft** PR（`master-c3-new` → `master-c3`），打 `ai-auto-review`、`upstream-sync`。
 6. **下游**：opendbc 成功 → dispatch panda → dispatch openpilot；openpilot 用 `upstream_sync_submodules.sh` 把子模块指到 `master-c3-new` tip。
 
 ## 触发方式
