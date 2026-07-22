@@ -767,5 +767,27 @@ class TestTskToolsMeta(unittest.TestCase):
       self.assertIn(name, EXTENSION_TOOL_META)
 
 
+class TestMadsDiagnostics(unittest.TestCase):
+  def test_diagnose_returns_structure(self):
+    try:
+      from openpilot.common.params import Params
+    except ModuleNotFoundError:
+      self.skipTest("openpilot runtime not available")
+    from ai.tools.mads_diagnostics_tools import diagnose_mads_lateral
+
+    res = diagnose_mads_lateral(Params(), None, user_scenario="MAIN+MADS LKAS故障")
+    self.assertTrue(res.get("ok"))
+    self.assertIn("fixes_ranked", res)
+    self.assertIn("mads_settings", res)
+    self.assertEqual(res.get("skill"), "mads-lateral-troubleshoot")
+
+  def test_dev_source_checks_mads_h(self):
+    from ai.tools.mads_diagnostics_tools import _dev_tree_has_main_latch
+
+    latch = _dev_tree_has_main_latch()
+    if latch is not None:
+      self.assertTrue(latch)
+
+
 if __name__ == "__main__":
   unittest.main()

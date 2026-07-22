@@ -47,6 +47,27 @@ Dragonpilot：用户在 Dashy Developer → SecOCKey Install 自行填入 32 位
 工具：get_vehicle_state, trip_review, read_params(CarParams), grep_log。""",
   },
   {
+    "id": "builtin_mads_lateral_triage",
+    "title": "MADS 横向 / LKAS 故障分诊",
+    "tags": ["mads", "lateral", "lkas", "toyota", "faq", "steer"],
+    "refresh": True,
+    "text": """用户报「控制不匹配：横向」「LKAS故障」「MAIN+MADS 不控横向」时：
+
+工具：diagnose_mads_lateral → get_mads_settings → read_onroad_events / trip_review → grep_log mads|lateral|LKAS
+
+两种报错勿混：
+- controlsMismatchLateral：Python mads.data_sample vs Panda controlsAllowedLateral。修 sunnypilot/mads/mads.py（禁 data_sample）+ pandad process_mads_heartbeat。不必刷 Panda。
+- steerTempUnavailable / steerUnavailable（UI: LKAS故障）：丰田 EPS LKA_STATE；MADS active 但 Panda 拦截 STEERING_LKA。修 opendbc mads.h mads_acc_main_lateral_latch（MAIN 电平保持，学 dp ALKA）并刷 Panda：python selfdrive/pandad/pandad.py
+
+故障链：MAIN 上升沿放行横向 → heartbeat 滞后撤权 → MAIN 仍亮无法再次请求 → 软件仍发 LKA → EPS 故障。
+
+丰田操作：巡航 MAIN（非 LDA）+ MADS 开 + MadsMainCruiseAllowed 开。默认 MadsSteeringMode=0 Remain Active。
+
+Dragonpilot 用 dp_lat_alka（lkas_on=acc_main_on），无 MADS heartbeat；本 fork 用 sunnypilot MADS，勿混为同一开关。
+
+技能：mads-lateral-troubleshoot""",
+  },
+  {
     "id": "builtin_adaptation_sop",
     "title": "车型适配人机协作 SOP",
     "tags": ["adaptation", "dbc", "fingerprint", "faq"],

@@ -70,6 +70,7 @@ TOOL_META: dict[str, dict[str, Any]] = {
   "list_model_bundles": {"label": "NN 模型列表", "group": "read", "default_enabled": True, "driving": True},
   "get_model_manager_status": {"label": "ModelManager 状态", "group": "read", "default_enabled": True, "driving": True},
   "get_mads_settings": {"label": "MADS 设置", "group": "read", "default_enabled": True, "driving": True},
+  "diagnose_mads_lateral": {"label": "MADS横向/LKAS排查", "group": "read", "default_enabled": True, "driving": True},
   "get_osm_status": {"label": "OSM 地图状态", "group": "read", "default_enabled": True, "driving": True},
   "list_osm_regions": {"label": "OSM 区域列表", "group": "read", "default_enabled": True, "driving": True},
   "list_scheduled_tasks": {"label": "定时任务列表", "group": "read", "default_enabled": True, "driving": True},
@@ -221,6 +222,7 @@ def build_tool_schemas() -> list[dict[str, Any]]:
     {"type": "function", "function": {"name": "clear_model_cache", "description": "Queue ModelManager cache clear (keeps active model).", "parameters": {"type": "object", "properties": {"confirm": {"type": "boolean"}}, "required": []}}},
     {"type": "function", "function": {"name": "manage_model_favorites", "description": "Add/remove/replace ModelManager_Favs refs (semicolon list).", "parameters": {"type": "object", "properties": {"add": {"type": "array", "items": {"type": "string"}}, "remove": {"type": "array", "items": {"type": "string"}}, "replace": {"type": "array", "items": {"type": "string"}}, "confirm": {"type": "boolean"}}, "required": []}}},
     {"type": "function", "function": {"name": "get_mads_settings", "description": "Read MADS toggles and steering-on-brake mode.", "parameters": {"type": "object", "properties": {}, "required": []}}},
+    {"type": "function", "function": {"name": "diagnose_mads_lateral", "description": "Triage MADS lateral issues: 控制不匹配横向, LKAS故障, MAIN+MADS. Returns symptoms, fix checklist, and whether Panda flash is needed.", "parameters": {"type": "object", "properties": {"brand": {"type": "string"}, "user_scenario": {"type": "string", "description": "User description e.g. MAIN+MADS LKAS fault"}}, "required": []}}},
     {"type": "function", "function": {"name": "set_mads_settings", "description": "Write MADS params (Mads, MadsMainCruiseAllowed, MadsUnifiedEngagementMode, MadsSteeringMode).", "parameters": {"type": "object", "properties": {"params": {"type": "object"}, "confirm": {"type": "boolean"}}, "required": ["params", "confirm"]}}},
     {"type": "function", "function": {"name": "get_osm_status", "description": "OSM offline map download status and selected region.", "parameters": {"type": "object", "properties": {}, "required": []}}},
     {"type": "function", "function": {"name": "list_osm_regions", "description": "List OSM countries or US states for map download.", "parameters": {"type": "object", "properties": {"region_type": {"type": "string", "enum": ["Country", "State"]}}, "required": []}}},
@@ -674,6 +676,17 @@ def make_handlers(
   def h_get_mads_settings(_a):
     from ai.tools.mads_tools import get_mads_settings
     return get_mads_settings(p)
+
+  def h_diagnose_mads_lateral(args):
+    from ai.tools.mads_diagnostics_tools import diagnose_mads_lateral
+    state = get_state_reader().update(timeout=0)
+    brand = (args.get("brand") or getattr(state, "brand", "") or "").strip()
+    return diagnose_mads_lateral(
+      p,
+      get_state_reader,
+      brand=brand,
+      user_scenario=str(args.get("user_scenario") or ""),
+    )
 
   def h_set_mads_settings(args):
     err = _stationary_check("write_param")
@@ -1541,6 +1554,7 @@ def make_handlers(
     "clear_model_cache": h_clear_model_cache,
     "manage_model_favorites": h_manage_model_favorites,
     "get_mads_settings": h_get_mads_settings,
+    "diagnose_mads_lateral": h_diagnose_mads_lateral,
     "set_mads_settings": h_set_mads_settings,
     "get_osm_status": h_get_osm_status,
     "list_osm_regions": h_list_osm_regions,

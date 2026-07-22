@@ -14,6 +14,7 @@
 | 车型平台 | `get_car_platform_bundle`, `list_car_platforms` | `select_car_platform` |
 | NN 模型 | `get_model_manager_status`, `list_model_bundles` | `select_model_bundle`, `refresh_model_list` |
 | MADS | `get_mads_settings` | `set_mads_settings` 或 `write_params` |
+| MADS 横向/LKAS 排查 | `diagnose_mads_lateral` | —（只读；见 mads-lateral-troubleshoot 技能） |
 | OSM 地图 | `get_osm_status`, `list_osm_regions` | `select_osm_region`, `trigger_osm_download` |
 | 通用调参 | `read_params`, `snapshot_tune_state` | `write_params`, `apply_sp_tune_preset` |
 

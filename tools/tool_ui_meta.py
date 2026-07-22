@@ -23,6 +23,7 @@ TOOL_DESCRIPTIONS: dict[str, str] = {
   "analyze_route_summary": "概括一条路线：时长、里程、主要事件等",
   "read_qlog_segment": "读取路线日志中的一小段原始数据",
   "trip_review": "对最近一次或指定行程做复盘分析",
+  "diagnose_mads_lateral": "排查 MADS 横向不匹配、LKAS 故障、MAIN+MADS 不控车",
   "list_tune_presets": "查看内置调优预设方案列表",
   "list_scheduled_tasks": "查看已配置的定时任务",
   "list_knowledge_docs": "列出知识库中的文档",

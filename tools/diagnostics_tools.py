@@ -218,8 +218,9 @@ def _event_triage(events: list[dict[str, Any]]) -> list[dict[str, str]]:
     "startupNoCar": "车型不在支持表：查 CARS.md 与 SecOC 列表",
     "startupNoControl": "无控制权限：查 dashcam 与支持级别",
     "dashcamMode": "行车记录仪模式：确认是否预期",
-    "steerUnavailable": "转向不可用：SecOC / EPS 锁止 / LKAS 设置",
-    "steerTempUnavailable": "转向暂时不可用：扭矩或锁止，查品牌技能",
+    "steerUnavailable": "转向不可用：SecOC / EPS 锁止 / LKAS 设置；MADS+MAIN 见 diagnose_mads_lateral",
+    "steerTempUnavailable": "转向暂时不可用：扭矩或锁止；MADS LKAS 故障见 diagnose_mads_lateral",
+    "controlsMismatchLateral": "MADS 横向不一致：diagnose_mads_lateral；常需禁 data_sample + 修 pandad heartbeat",
     "invalidLkasSetting": "车内 LKAS 未开启或设置无效",
     "pandaError": "Panda 通信异常：panda_status → panda_recovery_hint → recover_dos_panda（C3 DOS 用 panda/ 固件）",
     "startupMaster": "主进程启动异常：grep_log manager|pandad",
@@ -269,8 +270,12 @@ def trip_review(
   if "steerUnavailable" in event_names or "steerTempUnavailable" in event_names:
     if brand in ("volkswagen", "audi", "skoda", "seat"):
       recommendations.append("VAG：尝试 dp_vag_avoid_eps_lockout，降低低速横向增益")
+    elif str(tune.get("params", {}).get("Mads", "0")) == "1":
+      recommendations.append("MADS+LKAS：diagnose_mads_lateral；mads.h 改后须刷 Panda 固件")
     else:
       recommendations.append("查 LKAS 开关与品牌锁止说明（vehicle-adaptation 指南）")
+  if "controlsMismatchLateral" in event_names:
+    recommendations.append("MADS 横向不匹配：diagnose_mads_lateral（通常不必刷 Panda）")
   if not recommendations and not events:
     recommendations.append("当前无 critical events；可对比 snapshot_tune_state 做舒适/运动调优")
   if not events and tune.get("param_count", 0) > 0 and not recommendations:
@@ -341,6 +346,12 @@ def suggest_tune_from_review(
   event_names = {str(e.get("name", "")) for e in events}
 
   if "steerTempUnavailable" in event_names or "steerUnavailable" in event_names:
+    if str(params.get("Mads", "0")) == "1":
+      suggestions.append({
+        "reason": "LKAS 故障 + MADS 开启",
+        "action": "运行 diagnose_mads_lateral；确认 mads.h MAIN latch 已刷入 Panda",
+        "fork": "sunnypilot",
+      })
     if brand in ("volkswagen", "audi", "skoda", "seat") and str(params.get("dp_vag_avoid_eps_lockout", "0")) != "1":
       suggestions.append({
         "reason": "转向暂时不可用 + VAG",
@@ -353,6 +364,13 @@ def suggest_tune_from_review(
         "action": "考虑暂时关闭 dp_lat_alka 排查",
         "params": {"dp_lat_alka": "0"},
       })
+
+  if "controlsMismatchLateral" in event_names:
+    suggestions.append({
+      "reason": "MADS 横向控制不匹配",
+      "action": "diagnose_mads_lateral；确认 data_sample 已禁用且 pandad heartbeat 已恢复",
+      "fork": "sunnypilot",
+    })
 
   personality = str(params.get("LongitudinalPersonality", "1"))
   if personality == "0":
