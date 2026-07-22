@@ -6,7 +6,7 @@
   <title>op助手</title>
   <link rel="icon" type="image/svg+xml" href="/static/img/favicon.svg">
   <link rel="stylesheet" href="/static/css/ai.css?v=20260722j">
-  <link rel="stylesheet" href="/static/css/office-panel.css?v=20260722d">
+  <link rel="stylesheet" href="/static/css/office-panel.css?v=20260722l">
   <link rel="stylesheet" href="/static/css/canvas-panel.css?v=20260722j">
   <link rel="stylesheet" href="/static/vendor/xterm/xterm.css?v=20260722i">
 </head>
@@ -685,24 +685,28 @@
 
   <div id="sessionsBackdrop" class="sessions-backdrop" hidden></div>
 
-  <aside class="office-panel" id="officePanel" aria-hidden="true">
-    <header class="office-panel-head">
-      <div>
-        <h3 class="office-panel-title" id="officeTitle">OP 办公室</h3>
-        <p class="office-panel-desc" id="officeDesc">内置专员自动派活 · openpilot 研发助手</p>
+  <div id="officeModal" class="modal office-modal" hidden>
+    <div class="modal-backdrop" id="officeBackdrop"></div>
+    <div class="modal-content office-modal-content">
+      <div class="modal-header office-modal-header">
+        <div class="office-modal-head-text">
+          <h2 id="officeTitle">OP 办公室</h2>
+          <p class="settings-pane-desc" id="officeDesc">内置专员自动派活 · openpilot 研发助手</p>
+        </div>
+        <button type="button" id="officeCloseBtn" class="btn icon" aria-label="Close office">
+          <svg class="icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg>
+        </button>
       </div>
-      <button type="button" id="officeCloseBtn" class="btn icon" aria-label="Close office">
-        <svg class="icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg>
-      </button>
-    </header>
-    <div class="office-stats" id="officeStats"></div>
-    <div class="office-grid" id="officeGrid"></div>
-    <div class="office-tasks-wrap">
-      <div class="office-tasks-title" id="officeTasksTitle">任务动态</div>
-      <div id="officeTasks"></div>
+      <div class="modal-body office-modal-body">
+        <div class="office-stats" id="officeStats"></div>
+        <div class="office-grid" id="officeGrid"></div>
+        <div class="office-tasks-wrap">
+          <div class="office-tasks-title" id="officeTasksTitle">任务动态</div>
+          <div id="officeTasks"></div>
+        </div>
+      </div>
     </div>
-  </aside>
-  <div class="office-backdrop hidden" id="officeBackdrop"></div>
+  </div>
 
   <aside class="canvas-panel" id="canvasPanel" aria-hidden="true">
     <header class="canvas-panel-head">
@@ -836,11 +840,11 @@
   <script src="/static/js/web-sync-ws.js?v=20260722h"></script>
   <script src="/static/js/terminal-sidecar.js?v=20260722h"></script>
   <script src="/static/js/agents-panel.js?v=20260722h"></script>
-  <script src="/static/js/office-panel.js?v=20260722h"></script>
+  <script src="/static/js/office-panel.js?v=20260722l"></script>
   <script src="/static/js/command-queue.js?v=20260722h"></script>
   <script src="/static/js/canvas-panel.js?v=20260722h"></script>
   <script src="/static/js/terminal-panel.js?v=20260722h"></script>
-  <script src="/static/js/ai.js?v=20260722k"></script>
+  <script src="/static/js/ai.js?v=20260722l"></script>
   <script src="/static/js/cabana-panel.js?v=20260715aa"></script>
 </body>
 </html>

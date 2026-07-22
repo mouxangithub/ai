@@ -1,5 +1,5 @@
 /**
- * OP 办公室 — 内置专员可视化（马威斯风格简化版）
+ * OP 办公室 — 内置专员可视化（居中 modal）
  */
 const OfficePanel = (() => {
   let root = null;
@@ -12,6 +12,7 @@ const OfficePanel = (() => {
   let officeState = null;
   let usageTokens = 0;
   let onOpenCallback = null;
+  let onVisibilityChange = null;
   let open = false;
 
   const STATUS_LABEL = {
@@ -120,23 +121,23 @@ const OfficePanel = (() => {
       .replace(/>/g, '&gt;');
   }
 
-  function show() {
+  function setVisible(visible) {
     if (!root) return;
-    open = true;
-    root.classList.add('open');
-    root.setAttribute('aria-hidden', 'false');
-    backdrop?.classList.remove('hidden');
-    document.body.classList.add('office-open');
+    open = visible;
+    root.classList.toggle('is-open', visible);
+    if (visible) root.removeAttribute('hidden');
+    else root.setAttribute('hidden', '');
+    toggleBtn?.classList.toggle('active', visible);
+    onVisibilityChange?.(visible);
+  }
+
+  function show() {
+    setVisible(true);
     onOpenCallback?.();
   }
 
   function hide() {
-    if (!root) return;
-    open = false;
-    root.classList.remove('open');
-    root.setAttribute('aria-hidden', 'true');
-    backdrop?.classList.add('hidden');
-    document.body.classList.remove('office-open');
+    setVisible(false);
   }
 
   function toggle() {
@@ -145,13 +146,14 @@ const OfficePanel = (() => {
   }
 
   function init(opts = {}) {
-    root = opts.panel || document.getElementById('officePanel');
+    root = opts.modal || opts.panel || document.getElementById('officeModal');
     gridEl = opts.grid || document.getElementById('officeGrid');
     tasksEl = opts.tasks || document.getElementById('officeTasks');
     statsEl = opts.stats || document.getElementById('officeStats');
     backdrop = opts.backdrop || document.getElementById('officeBackdrop');
     toggleBtn = opts.toggleBtn || document.getElementById('officeBtn');
     const closeBtn = opts.closeBtn || document.getElementById('officeCloseBtn');
+    onVisibilityChange = opts.onVisibilityChange || null;
 
     toggleBtn?.addEventListener('click', toggle);
     closeBtn?.addEventListener('click', hide);

@@ -980,6 +980,7 @@ function syncBodyScrollLock() {
     cabanaOpen ||
     knowledgeOpen ||
     notificationsOpen ||
+    (typeof OfficePanel !== 'undefined' && OfficePanel.isOpen()) ||
     els.sessionsPanel?.classList.contains('open') ||
     els.settingsSidebar?.classList.contains('open') ||
     (els.writeConfirmModal && !els.writeConfirmModal.hidden) ||
@@ -4391,6 +4392,7 @@ function onOverlayKeydown(e) {
   if (usageDetailOpen) { closeUsageDetailModal(); return; }
   if (notificationsOpen) { closeNotificationsPanel(); return; }
   if (cabanaOpen) { closeCabanaModal(); return; }
+  if (typeof OfficePanel !== 'undefined' && OfficePanel.isOpen()) { OfficePanel.hide(); syncBodyScrollLock(); return; }
   if (els.settingsSidebar?.classList.contains('open')) { closeSettings(); return; }
   if (els.sessionsPanel?.classList.contains('open')) { closeSessionsDrawer(); }
 }
@@ -4755,6 +4757,7 @@ async function init() {
       onOpen: () => {
         if (typeof AgentsPanel !== 'undefined') AgentsPanel.refreshOfficeUsage();
       },
+      onVisibilityChange: () => syncBodyScrollLock(),
     });
   }
   if (typeof CommandQueue !== 'undefined') CommandQueue.bindUi();
