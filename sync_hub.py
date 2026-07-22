@@ -15,7 +15,12 @@ from ai.client import load_config_from_params
 from ai.common.storage import read_param
 from ai.embedding import load_embedding_config
 from ai.tools.notifications import list_notifications
-from ai.tools.session_store import get_sessions
+from ai.tools.session_store import get_sessions, session_state_version
+from ai.agents.config import agents_enabled_payload
+from ai.agents.office import office_snapshot
+from ai.agents.registry import list_agents
+from ai.sync_protocol import WS_PROTOCOL_VERSION, validate_ws_message
+from ai.device_trust import check_device_trust, touch_device
 
 
 def _mask_key(key: str) -> str:
@@ -72,6 +77,9 @@ class SyncHub:
     self._clients.discard(ws)
 
   async def broadcast(self, payload: dict[str, Any]) -> None:
+    ok, err = validate_ws_message(payload)
+    if not ok:
+      cloudlog.warning(f"aid: ws schema validation: {err}")
     msg = json.dumps(payload, ensure_ascii=False, default=str)
     dead: list[web.WebSocketResponse] = []
     async with self._lock:
@@ -165,7 +173,43 @@ async def notify_chat_status(job_id: str, session_id: str, job: dict[str, Any]) 
     "error": job.get("error"),
     "resolvedModel": job.get("resolvedModel"),
     "nextSince": job.get("eventSeq"),
+    "runId": job_id,
   })
+
+
+async def broadcast_office() -> None:
+  await HUB.broadcast({
+    "type": "office",
+    "ok": True,
+    "office": office_snapshot(),
+    "agents": list_agents(include_orchestrator=True),
+  })
+
+
+async def notify_canvas_artifact(session_id: str, artifact: dict[str, Any]) -> None:
+  await HUB.broadcast({
+    "type": "canvas",
+    "sessionId": session_id,
+    "artifact": artifact,
+  })
+
+
+async def notify_lifecycle(
+  job_id: str,
+  session_id: str,
+  phase: str,
+  extra: dict[str, Any] | None = None,
+) -> None:
+  payload: dict[str, Any] = {
+    "type": "lifecycle",
+    "phase": phase,
+    "runId": job_id,
+    "jobId": job_id,
+    "sessionId": session_id,
+  }
+  if extra:
+    payload.update(extra)
+  await HUB.broadcast(payload)
 
 
 def _hello_payload(request: web.Request, params: Params) -> dict[str, Any]:
@@ -174,10 +218,21 @@ def _hello_payload(request: web.Request, params: Params) -> dict[str, Any]:
   payload: dict[str, Any] = {
     "type": "hello",
     **get_sessions(params),
+    "stateVersion": session_state_version(),
+    "protocolVersion": WS_PROTOCOL_VERSION,
     "config": config_snapshot(params),
     "activeJobs": list_active_jobs(),
+    "agents": list_agents(include_orchestrator=True),
+    "agentsConfig": agents_enabled_payload(params),
+    "office": office_snapshot(),
     "notifications": list_notifications(unread_only=True).get("notifications", [])[:5],
+    "deviceTrust": check_device_trust(request, params),
   }
+  touch_device(
+    params,
+    payload["deviceTrust"].get("deviceId", ""),
+    payload["deviceTrust"].get("fingerprint", ""),
+  )
   get_reader = request.app.get("get_state_reader")
   if callable(get_reader):
     try:
@@ -195,10 +250,18 @@ async def ws_sync(request: web.Request) -> web.WebSocketResponse:
   HUB.add(ws)
   cloudlog.info(f"aid: sync ws connected ({HUB.client_count} clients)")
 
-  try:
+  connected = False
+  legacy_hello_sent = False
+
+  async def _send_hello() -> None:
+    nonlocal legacy_hello_sent
+    if legacy_hello_sent:
+      return
     hello = _hello_payload(request, params)
     await ws.send_str(json.dumps(hello, ensure_ascii=False, default=str))
+    legacy_hello_sent = True
 
+  try:
     async for msg in ws:
       if msg.type != web.WSMsgType.TEXT:
         if msg.type in (web.WSMsgType.CLOSE, web.WSMsgType.CLOSED, web.WSMsgType.ERROR):
@@ -207,10 +270,37 @@ async def ws_sync(request: web.Request) -> web.WebSocketResponse:
       try:
         data = json.loads(msg.data)
       except json.JSONDecodeError:
+        await ws.send_str(json.dumps({"type": "protocol_error", "error": "invalid JSON"}))
         continue
-      if data.get("type") == "ping":
-        await ws.send_str(json.dumps({"type": "pong"}))
-      elif data.get("type") == "resync":
+
+      ok, err = validate_ws_message(data, direction="inbound")
+      if not ok:
+        await ws.send_str(json.dumps({"type": "protocol_error", "error": err or "invalid message"}))
+        continue
+
+      msg_type = data.get("type")
+      if msg_type == "connect":
+        from ai.sync_protocol import negotiate_client_version
+        client_ver = int(data.get("protocolVersion") or 1)
+        ok_neg, neg_err = negotiate_client_version(client_ver)
+        await ws.send_str(json.dumps({
+          "type": "connect_ack",
+          "protocolVersion": WS_PROTOCOL_VERSION,
+          "ok": ok_neg,
+          "error": neg_err,
+        }))
+        if ok_neg:
+          connected = True
+          await _send_hello()
+        continue
+
+      if not connected and not legacy_hello_sent:
+        connected = True
+        await _send_hello()
+
+      if msg_type == "ping":
+        await ws.send_str(json.dumps({"type": "pong", "protocolVersion": WS_PROTOCOL_VERSION}))
+      elif msg_type == "resync":
         await ws.send_str(json.dumps(_hello_payload(request, params), ensure_ascii=False, default=str))
   finally:
     HUB.remove(ws)
@@ -219,4 +309,6 @@ async def ws_sync(request: web.Request) -> web.WebSocketResponse:
 
 
 def register_sync_routes(app: web.Application) -> None:
+  from ai.server.handlers.phase2 import api_sync_schema
   app.router.add_get("/api/ai/sync/ws", ws_sync)
+  app.router.add_get("/api/ai/sync/schema", api_sync_schema)

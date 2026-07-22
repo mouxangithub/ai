@@ -1,0 +1,121 @@
+.canvas-panel {
+  position: fixed;
+  top: 0;
+  right: 0;
+  width: min(420px, 92vw);
+  height: 100%;
+  background: var(--surface, #111);
+  border-left: 1px solid var(--border, #333);
+  transform: translateX(100%);
+  transition: transform 0.2s ease;
+  z-index: 120;
+  display: flex;
+  flex-direction: column;
+}
+.canvas-panel.open { transform: translateX(0); }
+.canvas-panel-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--border, #333);
+}
+.canvas-panel-title { margin: 0; font-size: 1rem; }
+.canvas-panel-desc { margin: 4px 0 0; font-size: 0.8rem; opacity: 0.75; }
+.canvas-list { flex: 1; overflow: auto; padding: 12px; }
+.canvas-item {
+  border: 1px solid var(--border, #333);
+  border-radius: 8px;
+  padding: 10px;
+  margin-bottom: 10px;
+  background: rgba(255,255,255,0.02);
+}
+.canvas-item header {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+  margin-bottom: 8px;
+  font-size: 0.85rem;
+}
+.canvas-kind {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  opacity: 0.7;
+  border: 1px solid currentColor;
+  border-radius: 4px;
+  padding: 1px 5px;
+}
+.canvas-pre {
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-size: 0.78rem;
+  max-height: 280px;
+  overflow: auto;
+  margin: 0;
+}
+.canvas-empty { opacity: 0.7; font-size: 0.9rem; padding: 8px; }
+.canvas-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.45);
+  z-index: 119;
+}
+.queue-mode-badge {
+  font-size: 0.72rem;
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--border, #444);
+  cursor: pointer;
+  user-select: none;
+}
+.queue-mode-badge[data-mode="steer"] { color: #f59e0b; }
+.queue-mode-badge[data-mode="followup"] { color: #60a5fa; }
+.queue-mode-badge[data-mode="collect"] { color: #34d399; }
+.fallback-models-list { display: flex; flex-direction: column; gap: 12px; }
+.fallback-row {
+  border: 1px solid var(--border, #333);
+  border-radius: 8px;
+  padding: 10px;
+  background: var(--surface, rgba(255, 255, 255, 0.02));
+}
+
+[data-theme="light"] .fallback-row {
+  background: var(--bg-elevated);
+  border-color: var(--border-strong);
+}
+.fallback-row-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+.fallback-row-index { font-size: 0.8rem; opacity: 0.7; }
+.canvas-filter-wrap { display: flex; align-items: center; gap: 6px; font-size: 0.8rem; }
+.canvas-md { font-size: 0.85rem; line-height: 1.5; max-height: 320px; overflow: auto; }
+.canvas-export { margin-left: auto; }
+.terminal-panel {
+  position: fixed; bottom: 0; left: 0; right: 0; height: min(50vh, 420px);
+  background: #0d1117; border-top: 1px solid #333; transform: translateY(100%);
+  transition: transform 0.2s ease; z-index: 130; display: flex; flex-direction: column;
+}
+.terminal-panel.open { transform: translateY(0); }
+.terminal-panel-head {
+  display: flex; justify-content: space-between; align-items: flex-start;
+  padding: 10px 14px; border-bottom: 1px solid #333;
+}
+.terminal-host { flex: 1; min-height: 0; padding: 4px 8px 8px; }
+.terminal-body { display: flex; flex: 1; min-height: 0; }
+.terminal-sidecar {
+  width: 220px; flex-shrink: 0; border-left: 1px solid #333; padding: 8px 10px;
+  overflow: auto; font-size: 0.78rem; color: #9ca3af;
+}
+.terminal-sidecar-title { margin: 0 0 8px; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.04em; color: #6b7280; }
+.terminal-sidecar-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.sidecar-item { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; }
+.sidecar-item code { font-size: 0.75rem; color: #e6edf3; }
+.sidecar-badge { font-size: 0.65rem; padding: 1px 5px; border-radius: 4px; }
+.sidecar-badge.running { background: #1f3a5f; color: #93c5fd; }
+.sidecar-badge.ok { background: #14532d; color: #86efac; }
+.sidecar-badge.err { background: #450a0a; color: #fca5a5; }
+.sidecar-agent { font-size: 0.65rem; opacity: 0.75; }
+.sidecar-empty { opacity: 0.6; font-style: italic; }
+.terminal-backdrop {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.35); z-index: 129;
+}

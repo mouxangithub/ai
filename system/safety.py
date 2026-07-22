@@ -46,8 +46,8 @@ ACTION_RULES: dict[str, ActionRule] = {
   "restart_service": ActionRule(ActionCategory.SERVICE_CONTROL, "Restart a software service"),
   "restart_ui": ActionRule(ActionCategory.SERVICE_CONTROL, "Restart the UI"),
 
-  # Shell
-  "shell": ActionRule(ActionCategory.SHELL_READ, "Run a shell command"),
+  # Shell diagnostics — allowed while driving (dangerous commands filtered in shell.py)
+  "shell": ActionRule(ActionCategory.READ_ONLY, "Run a shell command (no vehicle control)"),
 
   # Service / power (allowed in open mode)
   "reboot_now": ActionRule(ActionCategory.SERVICE_CONTROL, "Reboot the device"),

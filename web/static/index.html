@@ -5,8 +5,10 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>op助手</title>
   <link rel="icon" type="image/svg+xml" href="/static/img/favicon.svg">
-  <link rel="stylesheet" href="/static/css/ai.css?v=20260715f0">
-  <link rel="stylesheet" href="/static/css/cabana-panel.css?v=20260710z">
+  <link rel="stylesheet" href="/static/css/ai.css?v=20260722j">
+  <link rel="stylesheet" href="/static/css/office-panel.css?v=20260722d">
+  <link rel="stylesheet" href="/static/css/canvas-panel.css?v=20260722j">
+  <link rel="stylesheet" href="/static/vendor/xterm/xterm.css?v=20260722i">
 </head>
 <body>
   <div id="appSplash" class="app-splash" role="status" aria-live="polite" aria-busy="true">
@@ -52,6 +54,7 @@
             <div class="chat-header-titles">
               <h1 class="chat-title">op<span>助手</span></h1>
               <span class="model-badge" id="modelBadge">—</span>
+              <span class="active-agent-badge hidden" id="activeAgentBadge"></span>
             </div>
           </div>
         </div>
@@ -64,12 +67,23 @@
           <button type="button" id="themeBtn" class="btn icon" title="Theme" aria-label="Theme">
             <svg class="icon-svg theme-icon-dark" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
           </button>
+          <button type="button" id="terminalToggleBtn" class="btn icon" title="Web 终端" aria-label="Terminal">
+            <svg class="icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M4 17 10 11 4 5"/><path d="M12 19h8"/></svg>
+          </button>
+          <button type="button" id="canvasToggleBtn" class="btn icon" title="可视化输出" aria-label="Canvas">
+            <svg class="icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><rect x="3" y="4" width="18" height="14" rx="2"/><path d="M8 20h8"/></svg>
+            <span class="badge hidden" id="canvasBadge"></span>
+          </button>
+          <button type="button" id="officeBtn" class="btn icon" title="OP 办公室" aria-label="OP Office">
+            <svg class="icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+          </button>
           <button type="button" id="cabanaBtn" class="btn icon" title="CAN 分析" aria-label="CAN analysis">
             <svg class="icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M5 12h2l2-5 4 10 2-5h4"/></svg>
           </button>
           <button type="button" id="settingsBtn" class="btn icon" title="设置" aria-label="Settings">
             <svg class="icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>
           </button>
+          <span class="queue-mode-badge hidden" id="queueModeBadge" title="行驶队列模式">抢占</span>
           <div class="status-pill loading" id="statusPill" aria-live="polite"></div>
         </div>
       </header>
@@ -232,6 +246,7 @@
       <div class="settings-tabs-scroll">
         <div class="settings-tabs" id="settingsTabs" role="tablist">
           <button type="button" class="settings-tab active" data-tab="model" id="tabModel" role="tab">模型</button>
+          <button type="button" class="settings-tab" data-tab="agents" id="tabAgents" role="tab">专员</button>
           <button type="button" class="settings-tab" data-tab="knowledge" id="tabKnowledge" role="tab">知识库</button>
           <button type="button" class="settings-tab" data-tab="secoc" id="tabSecoc" role="tab" data-i18n="tabSecoc">SecOC</button>
           <button type="button" class="settings-tab" data-tab="scheduler" id="tabScheduler" role="tab">定时</button>
@@ -252,9 +267,7 @@
               <label class="field">
                 <span class="field-label" id="modelLabel">模型</span>
                 <div class="model-field">
-                  <select id="modelSelect"></select>
-                  <input type="text" id="modelInput" class="hidden" placeholder="model-id">
-                  <button type="button" id="modelModeBtn" class="btn small">手动</button>
+                  <div id="mainModelCombobox" class="model-combobox-host"></div>
                 </div>
               </label>
               <label class="field"><span class="field-label" id="apiKeyLabel">API Key</span>
@@ -278,6 +291,13 @@
               </label>
               <label class="field hidden" id="baseUrlField"><span class="field-label" id="baseUrlLabel">Base URL</span><input type="text" id="baseUrlInput"></label>
             </div>
+          </section>
+
+          <section class="settings-card" id="fallbackModelsSection">
+            <header class="settings-card-head">
+              <h3 class="settings-card-title">备用模型（Failover）</h3>
+            </header>
+            <div class="settings-card-body" id="fallbackModelsRoot"></div>
           </section>
 
           <section class="settings-card settings-card-compact" id="usageSection">
@@ -308,6 +328,18 @@
 
           <label class="field settings-lang-field"><span id="langLabel" data-i18n="langLabel">界面语言</span><select id="langSelect" class="toolbar-select"><option value="en">English</option><option value="zh">中文</option><option value="ja">日本語</option><option value="ko">한국어</option></select></label>
           <label class="field settings-lang-field"><span id="timezoneLabel" data-i18n="timezoneLabel">时区</span><select id="timezoneSelect" class="toolbar-select"></select></label>
+        </div>
+
+        <!-- 内置专员 -->
+        <div class="settings-pane" id="paneAgents" role="tabpanel">
+          <p class="settings-pane-lead" id="agentsPaneDesc">启用或禁用内置专员。主调度 OP 始终在线，多域问题将自动编排分工。</p>
+          <section class="settings-card">
+            <header class="settings-card-head settings-card-head-row">
+              <h3 class="settings-card-title" id="agentsSectionTitle">内置专员</h3>
+              <button type="button" id="agentsSaveBtn" class="btn small primary">保存</button>
+            </header>
+            <div class="settings-card-body agents-settings-list" id="agentsSettingsList"></div>
+          </section>
         </div>
 
         <!-- 知识库 / Embedding -->
@@ -341,9 +373,7 @@
               <label class="field">
                 <span class="field-label" id="embeddingModelLabel" data-i18n="embeddingModelLabel">Embedding 模型</span>
                 <div class="model-field">
-                  <select id="embeddingModelSelect"></select>
-                  <input type="text" id="embeddingModelInput" class="hidden" data-i18n-placeholder="embeddingModelPlaceholder" placeholder="如 BAAI/bge-m3" autocomplete="off" spellcheck="false">
-                  <button type="button" id="embeddingModelModeBtn" class="btn small">手动</button>
+                  <div id="embeddingModelCombobox" class="model-combobox-host"></div>
                 </div>
               </label>
             </div>
@@ -654,6 +684,71 @@
   </div>
 
   <div id="sessionsBackdrop" class="sessions-backdrop" hidden></div>
+
+  <aside class="office-panel" id="officePanel" aria-hidden="true">
+    <header class="office-panel-head">
+      <div>
+        <h3 class="office-panel-title" id="officeTitle">OP 办公室</h3>
+        <p class="office-panel-desc" id="officeDesc">内置专员自动派活 · openpilot 研发助手</p>
+      </div>
+      <button type="button" id="officeCloseBtn" class="btn icon" aria-label="Close office">
+        <svg class="icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg>
+      </button>
+    </header>
+    <div class="office-stats" id="officeStats"></div>
+    <div class="office-grid" id="officeGrid"></div>
+    <div class="office-tasks-wrap">
+      <div class="office-tasks-title" id="officeTasksTitle">任务动态</div>
+      <div id="officeTasks"></div>
+    </div>
+  </aside>
+  <div class="office-backdrop hidden" id="officeBackdrop"></div>
+
+  <aside class="canvas-panel" id="canvasPanel" aria-hidden="true">
+    <header class="canvas-panel-head">
+      <div>
+        <h3 class="canvas-panel-title">可视化输出</h3>
+        <p class="canvas-panel-desc">调参报告、图表与结构化结果</p>
+      </div>
+      <label class="canvas-filter-wrap">
+        <span>筛选</span>
+        <select id="canvasFilter">
+          <option value="all">全部</option>
+          <option value="report">报告</option>
+          <option value="chart">图表</option>
+          <option value="tune">调参</option>
+          <option value="markdown">Markdown</option>
+          <option value="html">HTML</option>
+        </select>
+      </label>
+      <button type="button" id="canvasCloseBtn" class="btn icon" aria-label="Close canvas">
+        <svg class="icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg>
+      </button>
+    </header>
+    <div class="canvas-list" id="canvasList"></div>
+  </aside>
+  <div class="canvas-backdrop hidden" id="canvasBackdrop"></div>
+
+  <aside class="terminal-panel" id="terminalPanel" aria-hidden="true">
+    <header class="terminal-panel-head">
+      <div>
+        <h3 class="terminal-panel-title">Web 终端</h3>
+        <p class="terminal-panel-desc">行驶中可用诊断 Shell；禁止控车命令</p>
+      </div>
+      <button type="button" id="terminalCloseBtn" class="btn icon" aria-label="Close terminal">
+        <svg class="icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg>
+      </button>
+    </header>
+    <div class="terminal-body">
+      <div class="terminal-host" id="terminalHost"></div>
+      <aside class="terminal-sidecar" id="terminalSidecar" aria-label="Tool sidecar">
+        <h4 class="terminal-sidecar-title">工具活动</h4>
+        <ul class="terminal-sidecar-list" id="terminalSidecarList"></ul>
+      </aside>
+    </div>
+  </aside>
+  <div class="terminal-backdrop hidden" id="terminalBackdrop"></div>
+
   <div id="settingsBackdrop" class="settings-backdrop" hidden></div>
 
   <div class="toast" id="toast" aria-hidden="true" role="status"></div>
@@ -691,7 +786,7 @@
         </label>
         <label class="field">
           <span class="field-label" id="onboardingModelLabel">模型</span>
-          <input type="text" id="onboardingModel" placeholder="deepseek-v4-flash">
+          <div id="onboardingModelCombobox" class="model-combobox-host"></div>
         </label>
         <p class="field-hint" id="onboardingResult"></p>
       </div>
@@ -726,11 +821,26 @@
   <script src="/static/js/i18n.js?v=20260715ab"></script>
   <script src="/static/js/theme.js?v=20260715h"></script>
   <script src="/static/js/markdown.js"></script>
-  <script src="/static/js/sessions.js?v=20260715m"></script>
-  <script src="/static/js/local-prefs.js?v=20260715n"></script>
+  <script src="/static/js/sessions.js?v=20260722k"></script>
+  <script src="/static/vendor/xterm/xterm.js?v=20260722i"></script>
+  <script src="/static/vendor/xterm/addon-fit.js?v=20260722i"></script>
+  <script src="/static/js/session-sync.js?v=20260722k"></script>
+  <script src="/static/js/model-combobox.js?v=20260722j"></script>
+  <script src="/static/js/local-prefs.js?v=20260722k"></script>
   <script src="/static/js/quick-actions.js?v=20260715h"></script>
   <script src="/static/js/tsk-panel.js?v=20260715ab"></script>
-  <script src="/static/js/ai.js?v=20260715f0"></script>
+  <script src="/static/js/web-chat-jobs.js?v=20260722h"></script>
+  <script src="/static/js/web-api.js?v=20260722h"></script>
+  <script src="/static/js/web-config.js?v=20260722h"></script>
+  <script src="/static/js/fallback-models.js?v=20260722h"></script>
+  <script src="/static/js/web-sync-ws.js?v=20260722h"></script>
+  <script src="/static/js/terminal-sidecar.js?v=20260722h"></script>
+  <script src="/static/js/agents-panel.js?v=20260722h"></script>
+  <script src="/static/js/office-panel.js?v=20260722h"></script>
+  <script src="/static/js/command-queue.js?v=20260722h"></script>
+  <script src="/static/js/canvas-panel.js?v=20260722h"></script>
+  <script src="/static/js/terminal-panel.js?v=20260722h"></script>
+  <script src="/static/js/ai.js?v=20260722k"></script>
   <script src="/static/js/cabana-panel.js?v=20260715aa"></script>
 </body>
 </html>

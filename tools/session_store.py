@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import threading
 import time
 from typing import Any
 
@@ -13,6 +14,12 @@ from ai.common.storage import read_param, write_param
 SESSIONS_KEY = "ai_web_sessions"
 MAX_SESSIONS = 30
 MAX_MESSAGES_PER_SESSION = 100
+_SESSION_WRITE_LOCK = threading.Lock()
+_STATE_VERSION = 0
+
+
+def session_state_version() -> int:
+  return _STATE_VERSION
 
 
 def _load(params: Params) -> dict[str, Any]:
@@ -67,36 +74,47 @@ def get_sessions(params: Params | None = None) -> dict[str, Any]:
   data["activeId"] = active_id
   if "savedAt" not in data:
     data["savedAt"] = 0
+  data["stateVersion"] = int(data.get("stateVersion") or _STATE_VERSION or data.get("savedAt") or 0)
   data["ok"] = True
   return data
 
 
 def save_sessions(params: Params, payload: dict[str, Any]) -> dict[str, Any]:
-  sessions = payload.get("sessions") or []
-  if not isinstance(sessions, list):
-    return {"ok": False, "error": "sessions must be a list"}
-  trimmed = []
-  for s in sessions[:MAX_SESSIONS]:
-    msgs = (s.get("messages") or [])[-MAX_MESSAGES_PER_SESSION:]
-    if not msgs:
-      continue
-    updated_at = s.get("updatedAt")
-    try:
-      updated_at = int(updated_at) if updated_at is not None else int(time.time())
-    except (TypeError, ValueError):
-      updated_at = int(time.time())
-    entry = {**s, "messages": msgs, "updatedAt": updated_at}
-    if not _session_has_content(entry):
-      continue
-    trimmed.append(entry)
-  trimmed.sort(key=lambda x: x.get("updatedAt") or 0, reverse=True)
-  active_id = payload.get("activeId")
-  if active_id and not any(s.get("id") == active_id for s in trimmed):
-    active_id = trimmed[0].get("id") if trimmed else None
-  data = {
-    "sessions": trimmed,
-    "activeId": active_id,
-    "savedAt": int(time.time()),
-  }
-  write_param(params, SESSIONS_KEY, json.dumps(data, ensure_ascii=False))
-  return {"ok": True, "count": len(trimmed), "activeId": active_id, "savedAt": data["savedAt"]}
+  global _STATE_VERSION
+  with _SESSION_WRITE_LOCK:
+    sessions = payload.get("sessions") or []
+    if not isinstance(sessions, list):
+      return {"ok": False, "error": "sessions must be a list"}
+    trimmed = []
+    for s in sessions[:MAX_SESSIONS]:
+      msgs = (s.get("messages") or [])[-MAX_MESSAGES_PER_SESSION:]
+      if not msgs:
+        continue
+      updated_at = s.get("updatedAt")
+      try:
+        updated_at = int(updated_at) if updated_at is not None else int(time.time())
+      except (TypeError, ValueError):
+        updated_at = int(time.time())
+      entry = {**s, "messages": msgs, "updatedAt": updated_at}
+      if not _session_has_content(entry):
+        continue
+      trimmed.append(entry)
+    trimmed.sort(key=lambda x: x.get("updatedAt") or 0, reverse=True)
+    active_id = payload.get("activeId")
+    if active_id and not any(s.get("id") == active_id for s in trimmed):
+      active_id = trimmed[0].get("id") if trimmed else None
+    data = {
+      "sessions": trimmed,
+      "activeId": active_id,
+      "savedAt": int(time.time()),
+    }
+    _STATE_VERSION += 1
+    data["stateVersion"] = _STATE_VERSION
+    write_param(params, SESSIONS_KEY, json.dumps(data, ensure_ascii=False))
+    return {
+      "ok": True,
+      "count": len(trimmed),
+      "activeId": active_id,
+      "savedAt": data["savedAt"],
+      "stateVersion": data["stateVersion"],
+    }

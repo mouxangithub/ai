@@ -77,6 +77,33 @@ def _resolve_args(command_name: str, args: tuple[str, ...]) -> tuple[str, ...]:
   return tuple(resolved)
 
 
+_VEHICLE_CONTROL_RE = re.compile(
+  "|".join([
+    r"car\.(send|control|apply)",
+    r"\b(steer|steering).{0,40}\b(angle|torque|cmd|command)",
+    r"\bthrottle\b.{0,20}\b(cmd|command|set)",
+    r"\bbrake\b.{0,20}\b(cmd|command|press)",
+    r"\bpanda\.(set|control|send)",
+    r"\bcontrolsd\b",
+    r"\bactuator\b",
+    r"sendcan|can\.send",
+  ]),
+  re.IGNORECASE,
+)
+
+
+def assert_shell_safe(command: str) -> str | None:
+  cmd = (command or "").strip()
+  if not cmd:
+    return "command is empty"
+  if _VEHICLE_CONTROL_RE.search(cmd):
+    return (
+      "Refused: command may control steering/brake/throttle. "
+      "Diagnostics shell is allowed while driving; vehicle control is forbidden."
+    )
+  return None
+
+
 def run_command(command_name: str) -> dict[str, Any]:
   """Run a whitelisted command and return its output."""
   allowed = ALLOWED_COMMANDS.get(command_name)
@@ -137,6 +164,9 @@ def run_shell_command(
   command = (command or "").strip()
   if not command:
     return {"ok": False, "error": "command is required", "stdout": "", "stderr": ""}
+  blocked = assert_shell_safe(command)
+  if blocked:
+    return {"ok": False, "error": blocked, "stdout": "", "stderr": ""}
   from ai.system.paths import openpilot_root
 
   workdir = cwd or str(openpilot_root())

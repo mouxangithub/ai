@@ -1,11 +1,11 @@
 /**
  * Multi-session chat storage for op助手.
- * Sessions appear in the list only after the user sends the first message.
+ * Gateway mode: in-memory only — server (Params + WS) is the source of truth.
  */
 const SessionStore = (() => {
-  const STORAGE_KEY = 'openpilot-op-sessions-v1';
-  const LEGACY_KEY = 'openpilot-op-assistant-v2';
-  const LEGACY_KEY2 = 'openpilot-ai-chat-v1';
+  const LEGACY_KEY = 'openpilot-op-sessions-v1';
+  const LEGACY_KEY2 = 'openpilot-op-assistant-v2';
+  const LEGACY_KEY3 = 'openpilot-op-ai-chat-v1';
   const MAX_SESSIONS = 50;
 
   let sessions = [];
@@ -58,57 +58,56 @@ const SessionStore = (() => {
       activeId = sessions[0]?.id ?? null;
     }
     resolveActiveId();
-    persist();
   }
 
-  function load() {
-    try {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      if (raw) {
-        const data = JSON.parse(raw);
-        sessions = Array.isArray(data.sessions) ? data.sessions : [];
-        activeId = data.activeId ?? null;
-        pruneEmptySessions();
-        persist();
-        return;
-      }
-    } catch {}
-
+  /** Gateway mode: start empty; hydrate from WS hello / GET /api/ai/sessions. */
+  function init() {
     sessions = [];
     activeId = null;
-    const legacy = readLegacyHistory();
-    if (legacy.length) {
-      const id = uid();
-      sessions = [{
-        id,
-        title: legacyTitle(legacy),
-        messages: legacy,
-        mode: 'chat',
-        updatedAt: Date.now(),
-      }];
-      activeId = id;
-      persist();
-    }
   }
 
-  function readLegacyHistory() {
-    for (const key of [LEGACY_KEY, LEGACY_KEY2]) {
+  /** One-time export for migrating browser localStorage → server. */
+  function readLegacyLocalSnapshot() {
+    for (const key of [LEGACY_KEY, LEGACY_KEY2, LEGACY_KEY3]) {
       try {
         const raw = localStorage.getItem(key);
-        if (raw) return JSON.parse(raw);
+        if (!raw) continue;
+        const data = JSON.parse(raw);
+        if (data?.sessions?.length) {
+          return {
+            sessions: data.sessions,
+            activeId: data.activeId ?? null,
+            storageKey: key,
+          };
+        }
+        if (Array.isArray(data) && data.length) {
+          return {
+            sessions: [{
+              id: uid(),
+              title: legacyTitle(data),
+              messages: data,
+              mode: 'chat',
+              updatedAt: Date.now(),
+            }],
+            activeId: null,
+            storageKey: key,
+          };
+        }
       } catch {}
     }
-    return [];
+    return null;
+  }
+
+  function clearLegacyLocalStorage(keys) {
+    for (const key of keys || [LEGACY_KEY, LEGACY_KEY2, LEGACY_KEY3]) {
+      try { localStorage.removeItem(key); } catch {}
+    }
   }
 
   function legacyTitle(messages) {
     const first = messages.find((m) => m.role === 'user');
     const text = typeof first?.content === 'string' ? first.content : '';
     return (text || '历史对话').slice(0, 40);
-  }
-
-  function persist() {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({ sessions, activeId }));
   }
 
   function list() {
@@ -127,12 +126,10 @@ const SessionStore = (() => {
   function setActive(id) {
     if (id == null) {
       activeId = null;
-      persist();
       return;
     }
     if (!sessions.some((s) => s.id === id)) return;
     activeId = id;
-    persist();
   }
 
   function createSession(title) {
@@ -147,11 +144,9 @@ const SessionStore = (() => {
     sessions.unshift(session);
     activeId = id;
     while (sessions.length > MAX_SESSIONS) sessions.pop();
-    persist();
     return session;
   }
 
-  /** Create a session when the user sends the first message (not before). */
   function ensureSessionOnSend(previewText) {
     const existing = getActive();
     if (existing) return existing;
@@ -159,10 +154,8 @@ const SessionStore = (() => {
     return createSession(title);
   }
 
-  /** Draft mode: no active session until the user sends a message. */
   function startDraft() {
     activeId = null;
-    persist();
   }
 
   function remove(id) {
@@ -171,7 +164,6 @@ const SessionStore = (() => {
       activeId = sessions[0]?.id ?? null;
     }
     resolveActiveId();
-    persist();
   }
 
   function updateMessages(id, messages, title) {
@@ -185,14 +177,12 @@ const SessionStore = (() => {
       const text = typeof user?.content === 'string' ? user.content : '';
       if (text) s.title = text.slice(0, 40);
     }
-    persist();
   }
 
   function setMode(id, mode) {
     const s = sessions.find((x) => x.id === id);
     if (!s) return;
     s.mode = mode;
-    persist();
   }
 
   function getMode(id) {
@@ -204,7 +194,6 @@ const SessionStore = (() => {
     if (!s) return;
     if (jobId) s.activeJobId = jobId;
     else delete s.activeJobId;
-    persist();
   }
 
   function getActiveJobId(id) {
@@ -248,12 +237,13 @@ const SessionStore = (() => {
       activeId = sessions[0]?.id ?? null;
     }
     resolveActiveId();
-    persist();
     return sessions.length > 0;
   }
 
   return {
-    load,
+    init,
+    readLegacyLocalSnapshot,
+    clearLegacyLocalStorage,
     list,
     listWithContent,
     getActive,

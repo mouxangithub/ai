@@ -48,11 +48,11 @@ const els = {
   sessionsBackdrop: $('#sessionsBackdrop'),
   sessionList: $('#sessionList'),
   newSessionBtn: $('#newSessionBtn'),
-  modelBadge: $('#modelBadge'),
+  activeAgentBadge: $('#activeAgentBadge'),
+  officeBtn: $('#officeBtn'),
+  agentsSettingsList: $('#agentsSettingsList'),
+  agentsSaveBtn: $('#agentsSaveBtn'),
   providerSelect: $('#providerSelect'),
-  modelSelect: $('#modelSelect'),
-  modelInput: $('#modelInput'),
-  modelModeBtn: $('#modelModeBtn'),
   apiKeyInput: $('#apiKeyInput'),
   baseUrlField: $('#baseUrlField'),
   baseUrlInput: $('#baseUrlInput'),
@@ -111,7 +111,6 @@ const els = {
   onboardingBackdrop: $('#onboardingBackdrop'),
   onboardingProvider: $('#onboardingProvider'),
   onboardingApiKey: $('#onboardingApiKey'),
-  onboardingModel: $('#onboardingModel'),
   onboardingTestBtn: $('#onboardingTestBtn'),
   onboardingSaveBtn: $('#onboardingSaveBtn'),
   onboardingResult: $('#onboardingResult'),
@@ -125,9 +124,6 @@ const els = {
   ragReindexBtn: $('#ragReindexBtn'),
   ragVectorStatus: $('#ragVectorStatus'),
   embeddingModeSelect: $('#embeddingModeSelect'),
-  embeddingModelSelect: $('#embeddingModelSelect'),
-  embeddingModelInput: $('#embeddingModelInput'),
-  embeddingModelModeBtn: $('#embeddingModelModeBtn'),
   embeddingProviderSelect: $('#embeddingProviderSelect'),
   embeddingApiKeyInput: $('#embeddingApiKeyInput'),
   embeddingBaseUrlInput: $('#embeddingBaseUrlInput'),
@@ -176,13 +172,14 @@ const FALLBACK_PROVIDER_LABELS = {
 let modelCatalog = {};
 let defaults = {};
 let models = [];
-let modelManual = false;
+let mainModelCombo = null;
+let embeddingModelCombo = null;
+let onboardingModelCombo = null;
 let embeddingProviders = [];
 let embeddingProviderLabels = {};
 let embeddingModelCatalog = {};
 let embeddingSameModeCatalog = {};
 let embeddingModels = [];
-let embeddingModelManual = false;
 const FALLBACK_EMBEDDING_PROVIDERS = ['siliconflow', 'openrouter', 'openai', 'bigmodel', 'qwen', 'custom'];
 const FALLBACK_EMBEDDING_PROVIDER_LABELS = {
   siliconflow: '硅基流动 SiliconFlow',
@@ -200,19 +197,119 @@ let savedConfig = {};
 let schedActionManual = false;
 let abortController = null;
 let streamSessionId = null;
-let _chatJobPollTimer = null;
-let _activeChatJobId = null;
 let _sessionPullTimer = null;
-let _syncWs = null;
-let _syncWsConnected = false;
-let _syncWsReconnectTimer = null;
-let _syncWsFallbackTimer = null;
-const _chatJobContexts = new Map();
 let _suppressSessionPush = false;
 let _syncWsGotHello = false;
+let _gatewayHydrated = false;
 let _statusPollTimer = null;
 const CHAT_MODE = 'unlimited';
 let pendingWorkflow = '';
+let _lastStateVersion = 0;
+
+function getAbortController() { return abortController; }
+function setAbortController(v) { abortController = v; }
+function getStreamSessionId() { return streamSessionId; }
+function setStreamSessionId(v) { streamSessionId = v; }
+function consumePendingWorkflow() {
+  const w = pendingWorkflow;
+  pendingWorkflow = '';
+  return w;
+}
+
+function initChatJobs() {
+  if (typeof ChatJobs === 'undefined') return;
+  ChatJobs.init({
+    api,
+    els,
+    t,
+    SessionStore,
+    chatMode: CHAT_MODE,
+    getState: () => state,
+    getAbortController,
+    setAbortController,
+    getStreamSessionId,
+    setStreamSessionId,
+    consumePendingWorkflow,
+    isSyncWsConnected,
+    syncSessionsToDevice,
+    getCurrentMessages,
+    prepareMessagesForApi,
+    normalizeStoredMessage,
+    appendAssistantMessage,
+    showAssistantLoading,
+    markLiveStreamUi,
+    hideAssistantLoading,
+    finishAssistant,
+    endChatStream,
+    commitAssistantMessage,
+    savePartialAssistant,
+    renderStoredMessages,
+    formatApiError,
+    showToast,
+    reconcileStreamUi,
+    handleAgentStreamEvent,
+    scrollToBottom,
+    renderToolCall,
+    updateToolCallsSummary,
+    updateToolCallResult,
+    renderUsage,
+    loadUsage,
+    syncThinkingBlock,
+    updateModelBadge,
+    clearLiveStreamChrome,
+    getLiveStreamUi,
+    getLastAssistantUi,
+    hydrateAssistantUi,
+    assistantMessageHasContent,
+    isLocallyStreaming,
+    isChatUiLocked,
+  });
+}
+
+async function streamAssistantResponse(messages) {
+  if (typeof ChatJobs !== 'undefined') return ChatJobs.stream(messages);
+}
+
+async function attachToChatJob(sessionId, jobId, initialData) {
+  if (typeof ChatJobs !== 'undefined') return ChatJobs.attach(sessionId, jobId, initialData);
+}
+
+async function syncActiveSessionStreaming() {
+  if (typeof ChatJobs !== 'undefined') return ChatJobs.syncActiveSession();
+}
+
+async function handleSyncWsChatEvent(payload) {
+  if (typeof ChatJobs !== 'undefined') return ChatJobs.handleSyncWsEvent(payload);
+}
+
+function findChatJobCtx(jobId, sessionId) {
+  if (typeof ChatJobs !== 'undefined') return ChatJobs.findCtx(jobId, sessionId);
+  return null;
+}
+
+function abortActiveChat() {
+  if (typeof ChatJobs !== 'undefined') ChatJobs.abortActive();
+}
+
+function applyBuiltinAgents(data) {
+  if (typeof AgentsPanel !== 'undefined') AgentsPanel.applyBuiltinAgents(data);
+}
+
+function renderAgentsSettings() {
+  if (typeof AgentsPanel !== 'undefined') AgentsPanel.renderAgentsSettings();
+}
+
+async function saveAgentsSettings() {
+  if (typeof AgentsPanel !== 'undefined') await AgentsPanel.saveAgentsSettings();
+}
+
+function handleAgentStreamEvent(data) {
+  if (typeof AgentsPanel !== 'undefined') AgentsPanel.handleStreamEvent(data);
+}
+
+function currentActiveAgentId() {
+  return typeof AgentsPanel !== 'undefined' ? AgentsPanel.getCurrentAgentId() : 'op';
+}
 
 const MAX_IMAGES_PER_MESSAGE = 9;
 const MAX_IMAGE_DIMENSION = 1280;
@@ -420,7 +517,8 @@ function applyTranslations() {
   if (webPinHint) webPinHint.textContent = t('webPinHint');
   if (els.apiKeyInput) els.apiKeyInput.placeholder = t('apiKeyPlaceholder');
   if (els.baseUrlInput) els.baseUrlInput.placeholder = t('baseUrlPlaceholder');
-  if (els.modelInput) els.modelInput.placeholder = t('modelPlaceholder');
+  mainModelCombo?.setPlaceholder(t('modelPlaceholder'));
+  embeddingModelCombo?.setPlaceholder(t('embeddingModelPlaceholder', 'BAAI/bge-m3'));
   if (els.systemPromptInput) els.systemPromptInput.placeholder = t('systemPromptPlaceholder');
   if (els.schedName) els.schedName.placeholder = t('schedNamePlaceholder');
   if (els.ragTitle) els.ragTitle.placeholder = t('ragTitlePlaceholder');
@@ -449,7 +547,6 @@ function applyTranslations() {
   if (devPassportTitle) devPassportTitle.textContent = t('devPassportTitle', 'Tune passport');
   applySecocPaneI18n();
   bindPasswordReveals();
-  if (els.modelModeBtn) els.modelModeBtn.textContent = t('manual');
 }
 
 function updateThemeIcon() {
@@ -468,64 +565,15 @@ function updateThemeIcon() {
 }
 
 async function api(method, path, body, opts = {}) {
-  const ac = opts.timeoutMs ? new AbortController() : null;
-  let timer;
-  const fetchOpts = { method, headers: getApiHeaders() };
-  if (ac) fetchOpts.signal = ac.signal;
-  if (body) {
-    fetchOpts.headers['Content-Type'] = 'application/json';
-    fetchOpts.body = JSON.stringify(body);
-  }
-  if (ac) timer = setTimeout(() => ac.abort(), opts.timeoutMs);
-  try {
-    const res = await fetch(path, fetchOpts);
-    if (res.status === 401 && pinRequired) {
-      const ok = await promptForPin();
-      if (ok) return api(method, path, body, opts);
-    }
-    const text = await res.text();
-    let data;
-    try { data = JSON.parse(text); } catch { data = { ok: false, error: text }; }
-    return { status: res.status, data };
-  } catch (e) {
-    if (e?.name === 'AbortError') {
-      return { status: 0, data: { ok: false, error: 'request timeout' } };
-    }
-    throw e;
-  } finally {
-    if (timer) clearTimeout(timer);
-  }
+  return WebApi.api(method, path, body, opts);
 }
 
 function getApiHeaders() {
-  const h = {};
-  const pin = sessionStorage.getItem('ai-web-pin');
-  if (pin) h['X-AI-Pin'] = pin;
-  return h;
+  return WebApi.getApiHeaders();
 }
 
 function promptForPin() {
-  return new Promise((resolve) => {
-    if (!els.pinModal) return resolve(false);
-    els.pinModal.hidden = false;
-    syncBodyScrollLock();
-    els.pinModalInput.value = '';
-    const done = (ok) => {
-      els.pinModal.hidden = true;
-      syncBodyScrollLock();
-      els.pinModalOk.removeEventListener('click', onOk);
-      resolve(ok);
-    };
-    const onOk = () => {
-      const v = els.pinModalInput.value.trim();
-      if (!v) return done(false);
-      sessionStorage.setItem('ai-web-pin', v);
-      reconnectSyncWebSocket();
-      refreshSessionViewFromRemote().catch(() => {});
-      done(true);
-    };
-    els.pinModalOk.addEventListener('click', onOk);
-  });
+  return WebApi.promptForPin();
 }
 
 function showToast(msg, type = 'info') {
@@ -558,6 +606,7 @@ function saveCurrentMessages(messages) {
   const session = SessionStore.getActive();
   if (!session) return;
   SessionStore.updateMessages(session.id, messages.slice(-200));
+  if (typeof SessionSync !== 'undefined') SessionSync.markLocalDirty();
   renderSessionList();
   scheduleSessionSync();
 }
@@ -566,7 +615,7 @@ let _sessionSyncTimer = null;
 function scheduleSessionSync() {
   if (_suppressSessionPush) return;
   clearTimeout(_sessionSyncTimer);
-  _sessionSyncTimer = setTimeout(syncSessionsToDevice, 800);
+  _sessionSyncTimer = setTimeout(syncSessionsToDevice, 400);
 }
 
 function flushSessionSyncOnUnload() {
@@ -600,64 +649,39 @@ async function syncSessionsToDevice() {
       sessions,
       activeId: sessions.length ? activeId : null,
     });
-    if (data?.ok && data.savedAt) {
-      try { localStorage.setItem('openpilot-op-sessions-sync-at', String(data.savedAt)); } catch {}
+    if (data?.ok) {
+      if (typeof SessionSync !== 'undefined') {
+        SessionSync.setServerSyncMeta(data);
+        SessionSync.clearLocalDirty();
+      }
     }
   } catch {}
 }
 
-function pickSessionMessages(a, b) {
-  const aMsgs = a.messages || [];
-  const bMsgs = b.messages || [];
-  if (aMsgs.length !== bMsgs.length) {
-    return aMsgs.length > bMsgs.length ? aMsgs : bMsgs;
-  }
-  return (a.updatedAt || 0) >= (b.updatedAt || 0) ? aMsgs : bMsgs;
-}
-
-function mergeSessionRecords(remoteSessions, localSessions) {
-  const byId = new Map();
-  const normalize = (s) => ({
-    ...s,
-    mode: s.mode || 'chat',
-    messages: Array.isArray(s.messages) ? s.messages : [],
-    updatedAt: Number(s.updatedAt) || 0,
-  });
-
-  for (const rs of remoteSessions) {
-    const n = normalize(rs);
-    if (!SessionStore.sessionHasContent(n)) continue;
-    byId.set(rs.id, n);
-  }
-  for (const ls of localSessions) {
-    const n = normalize(ls);
-    if (!SessionStore.sessionHasContent(n)) continue;
-    const prev = byId.get(ls.id);
-    if (!prev) {
-      byId.set(ls.id, n);
-      continue;
-    }
-    const messages = pickSessionMessages(
-      { messages: ls.messages, updatedAt: ls.updatedAt || 0 },
-      { messages: prev.messages, updatedAt: prev.updatedAt || 0 },
+function mergeSessionRecords(remoteSessions, localSessions, opts = {}) {
+  if (typeof SessionSync !== 'undefined') {
+    return SessionSync.mergeSessionRecords(
+      remoteSessions,
+      localSessions,
+      SessionStore.sessionHasContent,
+      opts,
     );
-    const localNewer = (ls.updatedAt || 0) > (prev.updatedAt || 0);
-    const newer = localNewer ? ls : prev;
-    byId.set(ls.id, {
-      ...prev,
-      mode: prev.mode || ls.mode || 'chat',
-      messages,
-      title: localNewer && ls.title ? ls.title : (prev.title || ls.title),
-      updatedAt: Math.max(ls.updatedAt || 0, prev.updatedAt || 0),
-      activeJobId: newer.activeJobId || prev.activeJobId || ls.activeJobId || null,
-    });
   }
-
-  return [...byId.values()].sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
+  return remoteSessions;
 }
 
 async function applyRemoteSessionsData(data) {
   if (!data?.ok) return false;
+
+  if (typeof SessionSync !== 'undefined' && SessionSync.shouldSkipRemoteMerge({
+    data,
+    isLocallyStreaming,
+    hasActiveChatJob: () => Boolean(
+      (typeof ChatJobs !== 'undefined' && ChatJobs.getActiveJobId() && abortController)
+    ),
+  })) {
+    return false;
+  }
 
   _suppressSessionPush = true;
   try {
@@ -668,13 +692,18 @@ async function applyRemoteSessionsData(data) {
   const remoteSessions = (Array.isArray(data.sessions) ? data.sessions : [])
     .filter((s) => SessionStore.sessionHasContent(s));
   const localSessions = SessionStore.listWithContent();
-  const remoteSavedAt = Number(data.savedAt) || 0;
-  const localSavedAt = Number(localStorage.getItem('openpilot-op-sessions-sync-at')) || 0;
   const localHasContent = localSessions.length > 0;
+
+  const remoteAuthoritative = typeof SessionSync !== 'undefined'
+    && SessionSync.shouldTakeRemoteAuthoritative(data)
+    && !isLocallyStreaming()
+    && !(typeof ChatJobs !== 'undefined' && ChatJobs.getActiveJobId() && abortController);
 
   let merged = [];
   if (remoteSessions.length || localSessions.length) {
-    merged = mergeSessionRecords(remoteSessions, localSessions);
+    merged = mergeSessionRecords(remoteSessions, localSessions, {
+      remoteAuthoritative,
+    });
   }
 
   if (!merged.length) {
@@ -682,25 +711,19 @@ async function applyRemoteSessionsData(data) {
     return false;
   }
 
-  let activeId = null;
-  if (!localHasContent && remoteSessions.length) {
-    activeId = data.activeId && merged.some((s) => s.id === data.activeId)
-      ? data.activeId
-      : merged[0].id;
-  } else if (remoteSavedAt > localSavedAt && data.activeId && merged.some((s) => s.id === data.activeId)) {
-    activeId = data.activeId;
-  } else if (localActiveBefore && merged.some((s) => s.id === localActiveBefore)) {
-    activeId = localActiveBefore;
-  } else if (data.activeId && merged.some((s) => s.id === data.activeId)) {
-    activeId = data.activeId;
-  } else {
-    activeId = merged[0].id;
-  }
+  const activeId = typeof SessionSync !== 'undefined'
+    ? SessionSync.pickActiveId({
+      merged,
+      data,
+      localHasContent,
+      remoteSessions,
+      localActiveBefore,
+    })
+    : merged[0].id;
 
   SessionStore.importMerged(merged, activeId);
-  if (remoteSavedAt) {
-    try { localStorage.setItem('openpilot-op-sessions-sync-at', String(remoteSavedAt)); } catch {}
-  }
+  if (typeof SessionSync !== 'undefined') SessionSync.setServerSyncMeta(data);
+  _gatewayHydrated = true;
 
   const messagesChanged = JSON.stringify(getCurrentMessages()) !== prevMessagesJson;
   const activeChanged = prevActiveId !== SessionStore.activeId;
@@ -734,7 +757,7 @@ async function refreshSessionViewFromRemote() {
   const sessionsChanged = await loadSessionsFromDevice();
   const configChanged = await pullConfigFromDevice();
   renderSessionList();
-  if (_activeChatJobId && abortController) {
+  if ((typeof ChatJobs !== 'undefined' && ChatJobs.getActiveJobId()) && abortController) {
     updateLiveAssistantFromSession();
     return;
   }
@@ -767,14 +790,54 @@ function aiSyncWsUrl() {
   return url;
 }
 
+function isSyncWsConnected() {
+  return typeof SyncWsClient !== 'undefined' && SyncWsClient.isConnected();
+}
+
 function sendSyncWs(payload) {
-  if (_syncWs?.readyState === WebSocket.OPEN) {
-    _syncWs.send(JSON.stringify(payload));
+  if (typeof SyncWsClient !== 'undefined') SyncWsClient.send(payload);
+}
+
+function reconnectSyncWebSocket() {
+  if (typeof SyncWsClient !== 'undefined') SyncWsClient.reconnect();
+}
+
+function connectSyncWebSocket() {
+  if (typeof SyncWsClient === 'undefined') return;
+  SyncWsClient.connect({
+    onMessage: handleSyncWsMessage,
+    onFallback: scheduleSyncWsFallback,
+  });
+}
+
+function scheduleSyncWsFallback() {
+  refreshSessionViewFromRemote().catch(() => {});
+}
+
+function startSyncWebSocket() {
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') {
+      connectSyncWebSocket();
+      refreshSessionViewFromRemote().catch(() => {});
+    } else if (typeof SyncWsClient !== 'undefined') SyncWsClient.close();
+  });
+  connectSyncWebSocket();
+  setInterval(() => {
+    if (isSyncWsConnected()) sendSyncWs({ type: 'ping' });
+  }, 25000);
+  if (typeof SyncWsClient !== 'undefined') {
+    SyncWsClient.startFallbackPolling(() => {
+      refreshSessionViewFromRemote().catch(() => {});
+      if (typeof ChatJobs !== 'undefined') ChatJobs.resumePolling();
+    }, 15000);
   }
 }
 
 async function handleSyncWsSessions(data) {
-  const locallyAttached = isLocallyStreaming() || Boolean(_activeChatJobId && abortController);
+  if (typeof SessionSync !== 'undefined') SessionSync.setServerSyncMeta(data);
+  const locallyAttached = isLocallyStreaming() || Boolean(
+    (typeof ChatJobs !== 'undefined' && ChatJobs.getActiveJobId()) && abortController
+  );
   const changed = await applyRemoteSessionsData(data);
   renderSessionList();
   if (locallyAttached) {
@@ -789,10 +852,21 @@ async function handleSyncWsSessions(data) {
 
 async function handleSyncWsHello(data) {
   _syncWsGotHello = true;
+  if (typeof SessionSync !== 'undefined') SessionSync.setServerSyncMeta(data);
+  const remoteVersion = Number(data.stateVersion || data.savedAt || 0);
+  if (_lastStateVersion && remoteVersion && remoteVersion < _lastStateVersion) {
+    sendSyncWs({ type: 'resync' });
+  } else if (remoteVersion) {
+    _lastStateVersion = Math.max(_lastStateVersion, remoteVersion);
+  }
+  applyBuiltinAgents(data);
   if (data.driving !== undefined || data.state) applyStatusFromPayload(data);
   if (data.notifications) handleWsNotifications(data);
   if (data.sessions) await handleSyncWsSessions(data);
   if (data.config) await applyRemoteConfigData(data.config);
+  if (data.deviceTrust?.needsPairing && typeof DeviceTrust !== 'undefined') {
+    DeviceTrust.ensureTrusted(api, promptForPin).catch(() => {});
+  }
   if (Array.isArray(data.activeJobs) && data.activeJobs.length) {
     await syncActiveSessionStreaming();
   }
@@ -819,73 +893,17 @@ function handleWsNotifications(data) {
   if (notificationsOpen) renderNotifications(items);
 }
 
-async function finalizeChatJobCtx(jobId, sessionId, ctx, status, payload = {}) {
-  _chatJobContexts.delete(jobId);
-  const streamActive = ctx.streamActive;
-  clearLiveStreamChrome(ctx.ui);
-  if (status === 'done' && streamActive()) {
-    finishAssistant(ctx.ui, ctx.assistantMessage, sessionId);
-  } else if (status === 'error' && streamActive()) {
-    ctx.assistantMessage.content = formatApiError(payload.error || 'Error');
-    finishAssistant(ctx.ui, ctx.assistantMessage, sessionId);
-  } else if (status === 'cancelled' && streamActive() && ctx.ui.wrapper?.isConnected) {
-    ctx.ui.wrapper.remove();
-  } else if (status === 'done' && SessionStore.activeId === sessionId) {
-    endChatStream(sessionId);
-    commitAssistantMessage(sessionId, normalizeStoredMessage({
-      role: 'assistant',
-      ...(payload.assistant || ctx.assistantMessage),
-    }));
-    renderStoredMessages();
-    SessionStore.clearActiveJobId(sessionId);
-    syncSessionsToDevice().catch(() => {});
-    return;
-  }
-  SessionStore.clearActiveJobId(sessionId);
-  endChatStream(sessionId);
-  syncSessionsToDevice().catch(() => {});
-}
-
-async function handleSyncWsChatEvent(payload) {
-  const { jobId, sessionId, event, status } = payload;
-  let ctx = findChatJobCtx(jobId, sessionId);
-  if (ctx && !_chatJobContexts.has(jobId)) {
-    registerChatJobCtx(jobId, sessionId, ctx);
-  }
-  if (!ctx && SessionStore.activeId === sessionId) {
-    SessionStore.setActiveJobId(sessionId, jobId);
-    await attachToChatJob(sessionId, jobId, {
-      assistant: payload.assistant,
-      events: event ? [event] : [],
-      nextSince: payload.nextSince || 0,
-      status: status || 'running',
-    });
-    ctx = findChatJobCtx(jobId, sessionId);
-  }
-  if (!ctx) return;
-
-  if (event) {
-    const seq = event._seq || 0;
-    if (seq <= (ctx.lastSeq || 0)) return;
-    ctx.lastSeq = seq;
-    const result = await handleChatStreamEvent(event, ctx);
-    if (result === 'error') {
-      await finalizeChatJobCtx(jobId, sessionId, ctx, 'error', payload);
-      return;
-    }
-    if (ctx.streamActive()) savePartialAssistant(sessionId, ctx.assistantMessage);
-  }
-
-  if (['done', 'error', 'cancelled'].includes(status)) {
-    await finalizeChatJobCtx(jobId, sessionId, ctx, status, payload);
-  }
-}
-
 async function handleSyncWsMessage(data) {
   if (!data?.type) return;
   switch (data.type) {
     case 'hello':
       await handleSyncWsHello(data);
+      break;
+    case 'connect_ack':
+      if (!data.ok) console.warn('sync connect_ack', data.error);
+      break;
+    case 'protocol_error':
+      console.warn('sync protocol_error', data.error);
       break;
     case 'sessions':
       await handleSyncWsSessions(data);
@@ -906,87 +924,22 @@ async function handleSyncWsMessage(data) {
     case 'chat_status':
       await handleSyncWsChatEvent(data);
       break;
+    case 'office':
+      applyBuiltinAgents(data);
+      break;
+    case 'canvas':
+      if (typeof CanvasPanel !== 'undefined') CanvasPanel.handleWs(data);
+      break;
+    case 'lifecycle':
+      if (data.phase === 'stuck' && typeof showToast === 'function') {
+        showToast('聊天任务可能卡住，请稍后重试');
+      }
+      break;
     case 'pong':
       break;
     default:
       break;
   }
-}
-
-function reconnectSyncWebSocket() {
-  clearTimeout(_syncWsReconnectTimer);
-  if (_syncWs) {
-    try { _syncWs.close(); } catch {}
-    _syncWs = null;
-  }
-  _syncWsConnected = false;
-  connectSyncWebSocket();
-}
-
-function connectSyncWebSocket() {
-  if (_syncWs && (_syncWs.readyState === WebSocket.OPEN || _syncWs.readyState === WebSocket.CONNECTING)) {
-    return;
-  }
-  clearTimeout(_syncWsReconnectTimer);
-  try {
-    _syncWs = new WebSocket(aiSyncWsUrl());
-  } catch {
-    scheduleSyncWsFallback();
-    return;
-  }
-
-  _syncWs.onopen = () => {
-    _syncWsConnected = true;
-    if (_syncWsFallbackTimer) {
-      clearInterval(_syncWsFallbackTimer);
-      _syncWsFallbackTimer = null;
-    }
-    sendSyncWs({ type: 'resync' });
-  };
-
-  _syncWs.onmessage = (ev) => {
-    try {
-      handleSyncWsMessage(JSON.parse(ev.data));
-    } catch (e) {
-      console.warn('sync ws parse error', e);
-    }
-  };
-
-  _syncWs.onclose = () => {
-    _syncWsConnected = false;
-    _syncWs = null;
-    _syncWsReconnectTimer = setTimeout(connectSyncWebSocket, 3000);
-    scheduleSyncWsFallback();
-  };
-
-  _syncWs.onerror = () => {
-    try { _syncWs?.close(); } catch {}
-  };
-}
-
-function scheduleSyncWsFallback() {
-  if (_syncWsFallbackTimer) return;
-  refreshSessionViewFromRemote().catch(() => {});
-  _syncWsFallbackTimer = setInterval(() => {
-    if (_syncWsConnected || document.visibilityState !== 'visible') return;
-    refreshSessionViewFromRemote().catch(() => {});
-    for (const [jobId, ctx] of _chatJobContexts.entries()) {
-      if (!ctx._pollActive) pollChatJob(jobId, ctx.sessionId, ctx);
-    }
-  }, 15000);
-}
-
-function startSyncWebSocket() {
-  document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'visible') {
-      connectSyncWebSocket();
-      refreshSessionViewFromRemote().catch(() => {});
-    } else if (_syncWs) _syncWs.close();
-  });
-  connectSyncWebSocket();
-  setInterval(() => {
-    if (_syncWsConnected) sendSyncWs({ type: 'ping' });
-  }, 25000);
 }
 
 function normalizeStoredMessage(msg) {
@@ -1148,7 +1101,7 @@ function toggleNotificationsPanel() {
 function startNotificationsPolling() {
   if (notificationsPollTimer) return;
   notificationsPollTimer = setInterval(() => {
-    if (_syncWsConnected || document.visibilityState !== 'visible') return;
+    if (isSyncWsConnected() || document.visibilityState !== 'visible') return;
     loadNotifications().catch(() => {});
   }, 120000);
 }
@@ -1372,45 +1325,12 @@ function showAssistantLoading(ui) {
   ui.loading.classList.remove('hidden');
 }
 
-function findChatJobCtx(jobId, sessionId) {
-  let ctx = _chatJobContexts.get(jobId);
-  if (ctx) return ctx;
-  const pendingKey = `pending:${sessionId}`;
-  ctx = _chatJobContexts.get(pendingKey);
-  if (ctx) return ctx;
-  for (const [, candidate] of _chatJobContexts.entries()) {
-    if (candidate.sessionId === sessionId) return candidate;
-  }
-  return null;
-}
-
-function registerChatJobCtx(jobId, sessionId, ctx) {
-  const pendingKey = `pending:${sessionId}`;
-  _chatJobContexts.delete(pendingKey);
-  _chatJobContexts.set(jobId, ctx);
-}
-
-function abortActiveChat() {
-  const jobId = _activeChatJobId || SessionStore.getActiveJobId(SessionStore.activeId);
-  if (jobId) {
-    api('DELETE', `/api/ai/chat/jobs/${encodeURIComponent(jobId)}`).catch(() => {});
-    SessionStore.clearActiveJobId(SessionStore.activeId);
-    syncSessionsToDevice().catch(() => {});
-  }
-  if (abortController) {
-    if (typeof abortController.abort === 'function') abortController.abort();
-    else abortController.cancelled = true;
-  }
-  endChatStream(streamSessionId);
-}
-
 function endChatStream(sessionId) {
   if (sessionId && streamSessionId === sessionId) streamSessionId = null;
   abortController = null;
-  _activeChatJobId = null;
-  if (_chatJobPollTimer) {
-    clearTimeout(_chatJobPollTimer);
-    _chatJobPollTimer = null;
+  if (typeof ChatJobs !== 'undefined') {
+    ChatJobs.setActiveJobId(null);
+    ChatJobs.endPoll();
   }
   els.messages?.querySelectorAll('.assistant-wrapper[data-live-stream="1"]').forEach((el) => {
     clearLiveStreamChrome(wrapperToAssistantUi(el));
@@ -1563,6 +1483,7 @@ function toggleSessionsPanel() {
 const SETTINGS_TAB_PANES = {
   api: 'paneModel',
   model: 'paneModel',
+  agents: 'paneAgents',
   knowledge: 'paneKnowledge',
   secoc: 'paneSecoc',
   scheduler: 'paneScheduler',
@@ -1616,6 +1537,7 @@ function activateSettingsTab(name) {
   if (tabName === 'scheduler') loadSchedulerPanel();
   if (tabName === 'dev') renderDevPane();
   if (tabName === 'model') loadUsage();
+  if (tabName === 'agents') renderAgentsSettings();
   if (tabName === 'secoc' && typeof TskPanel !== 'undefined') TskPanel.startPoll();
 }
 
@@ -2766,7 +2688,8 @@ function savePartialAssistant(sessionId, assistantMessage) {
     msgs.push(partial);
   }
   SessionStore.updateMessages(sessionId, msgs.slice(-200));
-  if (!_syncWsConnected) scheduleSessionSync();
+  if (typeof SessionSync !== 'undefined') SessionSync.markLocalDirty();
+  scheduleSessionSync();
 }
 
 function hydrateAssistantUi(ui, assistantMessage) {
@@ -2798,239 +2721,6 @@ function hydrateAssistantUi(ui, assistantMessage) {
   }
 }
 
-async function handleChatStreamEvent(data, ctx) {
-  const ui = reconcileStreamUi(ctx);
-  const { assistantMessage, streamActive } = ctx;
-  if (!streamActive()) return 'stop';
-
-  if (data.type === 'error') {
-    hideAssistantLoading(ui);
-    ui.content.textContent = formatApiError(data.error);
-    assistantMessage.content = ui.content.textContent;
-    return 'error';
-  }
-
-  if (data.type === 'reasoning') {
-    hideAssistantLoading(ui);
-    if (!ctx.thinkingStarted) {
-      ctx.thinkingStarted = true;
-      ui.thinking.classList.remove('hidden');
-      ui.thinkingLabel.textContent = t('thinkingActive', 'Thinking…');
-    }
-    assistantMessage.reasoning_content += data.delta;
-    ui.thinkingBody.textContent += data.delta;
-    scrollToBottom();
-  }
-
-  if (data.type === 'content') {
-    hideAssistantLoading(ui);
-    if (ctx.thinkingStarted) {
-      ui.thinking.classList.add('collapsed');
-      ui.thinkingLabel.textContent = t('thinking', 'Thinking');
-    }
-    ctx.contentStarted = true;
-    assistantMessage.content += data.delta;
-    ui.content.textContent += data.delta;
-    scrollToBottom();
-  }
-
-  if (data.type === 'tool_call') {
-    hideAssistantLoading(ui);
-    if (ctx.thinkingStarted) {
-      ui.thinking.classList.add('collapsed');
-      ui.thinkingLabel.textContent = t('thinking', 'Thinking');
-    } else {
-      ui.thinking.classList.add('hidden');
-    }
-    ui.toolsBlock.classList.remove('hidden');
-    renderToolCall(ui.toolsList, data.id, data.name, data.arguments, null);
-    updateToolCallsSummary(ui.toolsBlock);
-    if (!assistantMessage.tool_calls.some((tc) => tc.id === data.id)) {
-      assistantMessage.tool_calls.push({
-        id: data.id,
-        type: 'function',
-        function: { name: data.name, arguments: data.arguments },
-      });
-    }
-  }
-
-  if (data.type === 'tool_result') {
-    hideAssistantLoading(ui);
-    let result = data.result;
-    if (result?.needs_confirmation && result.pending_id) {
-      const { data: confirmed } = await api('POST', '/api/ai/write/confirm', { pending_id: result.pending_id });
-      result = confirmed;
-    }
-    assistantMessage.tool_results[data.id] = result;
-    updateToolCallResult(ui.toolsList, data.id, result);
-  }
-
-  if (data.type === 'usage') {
-    renderUsage(ui.wrapper, data.usage);
-    if (els.settingsSidebar?.classList.contains('open')) loadUsage();
-  }
-
-  if (data.type === 'done') {
-    hideAssistantLoading(ui);
-    syncThinkingBlock(ui, assistantMessage);
-    if (data.resolvedModel) updateModelBadge(data.resolvedModel);
-  }
-
-  return 'continue';
-}
-
-function watchChatJob(jobId, sessionId, ctx) {
-  ctx.lastSeq = Math.max(ctx.lastSeq || 0, ctx.since || 0);
-  ctx.since = ctx.lastSeq;
-  ctx._pollActive = false;
-  registerChatJobCtx(jobId, sessionId, ctx);
-  if (!_syncWsConnected) pollChatJob(jobId, sessionId, ctx);
-}
-
-function pollChatJob(jobId, sessionId, ctx) {
-  if (_syncWsConnected) return;
-  ctx._pollActive = true;
-  let since = ctx.since || 0;
-  let finished = false;
-
-  const poll = async () => {
-    if (finished) return;
-    const streamActive = ctx.streamActive;
-    if (!streamActive() && SessionStore.getActiveJobId(sessionId) !== jobId) {
-      finished = true;
-      return;
-    }
-
-    try {
-      const { data } = await api('GET', `/api/ai/chat/jobs/${encodeURIComponent(jobId)}?since=${since}`);
-      if (!data?.ok) {
-        if (!streamActive()) finished = true;
-        else _chatJobPollTimer = setTimeout(poll, 1000);
-        return;
-      }
-
-      for (const ev of data.events || []) {
-        since = Math.max(since, ev._seq || since);
-        const result = await handleChatStreamEvent(ev, ctx);
-        if (result === 'error') {
-          finished = true;
-          _chatJobContexts.delete(jobId);
-          if (streamActive()) finishAssistant(ctx.ui, ctx.assistantMessage, sessionId);
-          SessionStore.clearActiveJobId(sessionId);
-          endChatStream(sessionId);
-          syncSessionsToDevice().catch(() => {});
-          return;
-        }
-        if (result === 'stop') {
-          finished = true;
-          return;
-        }
-      }
-
-      if (streamActive()) savePartialAssistant(sessionId, ctx.assistantMessage);
-
-      if (['done', 'error', 'cancelled'].includes(data.status)) {
-        finished = true;
-        _chatJobContexts.delete(jobId);
-        if (data.status === 'done' && streamActive()) {
-          finishAssistant(ctx.ui, ctx.assistantMessage, sessionId);
-        } else if (data.status === 'error' && streamActive()) {
-          ctx.assistantMessage.content = formatApiError(data.error || 'Error');
-          finishAssistant(ctx.ui, ctx.assistantMessage, sessionId);
-        } else if (data.status === 'cancelled' && streamActive() && ctx.ui.wrapper?.isConnected) {
-          ctx.ui.wrapper.remove();
-        }
-        SessionStore.clearActiveJobId(sessionId);
-        endChatStream(sessionId);
-        syncSessionsToDevice().catch(() => {});
-        return;
-      }
-
-      _chatJobPollTimer = setTimeout(poll, 400);
-    } catch {
-      if (!finished) _chatJobPollTimer = setTimeout(poll, 1000);
-    }
-  };
-
-  poll();
-}
-
-async function streamAssistantResponse(messages) {
-  const sessionId = SessionStore.activeId;
-  streamSessionId = sessionId;
-  abortController = { cancelled: false };
-  els.sendBtn.textContent = t('stop', 'Stop');
-
-  const streamActive = () => (
-    SessionStore.activeId === sessionId
-    && abortController
-    && !abortController.cancelled
-  );
-
-  const hasImages = messages.some(
-    (m) => m.role === 'user' && Array.isArray(m.content) && m.content.some((p) => p.type === 'image_url'),
-  );
-  const useTools = !hasImages;
-  const maxToolRounds = 'infinite';
-  const workflowId = pendingWorkflow;
-  pendingWorkflow = '';
-
-  const ui = appendAssistantMessage();
-  showAssistantLoading(ui);
-  markLiveStreamUi(ui);
-  const assistantMessage = { role: 'assistant', content: '', reasoning_content: '', tool_calls: [], tool_results: {} };
-
-  const ctx = {
-    ui,
-    assistantMessage,
-    sessionId,
-    streamActive,
-    thinkingStarted: false,
-    contentStarted: false,
-    since: 0,
-  };
-  _chatJobContexts.set(`pending:${sessionId}`, ctx);
-
-  try {
-    const { data: startData } = await api('POST', '/api/ai/chat/jobs', {
-      sessionId,
-      messages: prepareMessagesForApi(messages),
-      tools: useTools,
-      mode: CHAT_MODE,
-      workflow: workflowId || undefined,
-      maxToolRounds,
-    });
-
-    if (!startData?.ok || !startData.jobId) {
-      _chatJobContexts.delete(`pending:${sessionId}`);
-      if (!streamActive()) return;
-      hideAssistantLoading(ui);
-      ui.content.textContent = formatApiError(startData?.error || 'Failed to start chat job');
-      assistantMessage.content = ui.content.textContent;
-      finishAssistant(ui, assistantMessage, sessionId);
-      endChatStream(sessionId);
-      return;
-    }
-
-    const jobId = startData.jobId;
-    _activeChatJobId = jobId;
-    SessionStore.setActiveJobId(sessionId, jobId);
-    syncSessionsToDevice().catch(() => {});
-    watchChatJob(jobId, sessionId, ctx);
-  } catch (err) {
-    _chatJobContexts.delete(`pending:${sessionId}`);
-    if (streamActive()) {
-      hideAssistantLoading(ui);
-      ui.content.textContent = `Error: ${err.message}`;
-      assistantMessage.content = ui.content.textContent;
-      finishAssistant(ui, assistantMessage, sessionId);
-    } else if (ui.wrapper?.isConnected) {
-      ui.wrapper.remove();
-    }
-    endChatStream(sessionId);
-  }
-}
-
 function commitAssistantMessage(sessionId, assistantMessage) {
   if (sessionId && SessionStore.activeId !== sessionId) return;
   const history = getCurrentMessages();
@@ -3041,129 +2731,6 @@ function commitAssistantMessage(sessionId, assistantMessage) {
     history.push(normalized);
   }
   saveCurrentMessages(history);
-}
-
-async function attachToChatJob(sessionId, jobId, initialData) {
-  if (_activeChatJobId === jobId && abortController) return;
-  if (isLocallyStreaming(sessionId) && findChatJobCtx(jobId, sessionId)) return;
-
-  const messages = getCurrentMessages();
-  const last = messages[messages.length - 1];
-  let ui;
-  let assistantMessage;
-
-  if (last?.role === 'assistant' && assistantMessageHasContent(last)) {
-    ui = getLiveStreamUi() || getLastAssistantUi() || appendAssistantMessage();
-    assistantMessage = normalizeStoredMessage({ ...last });
-    hydrateAssistantUi(ui, assistantMessage);
-  } else if (last?.role === 'user') {
-    ui = getLiveStreamUi() || appendAssistantMessage();
-    if (!getLiveStreamUi()) showAssistantLoading(ui);
-    assistantMessage = {
-      role: 'assistant',
-      content: '',
-      reasoning_content: '',
-      tool_calls: [],
-      tool_results: {},
-      ...(initialData?.assistant || {}),
-    };
-    if (initialData?.assistant) {
-      hydrateAssistantUi(ui, assistantMessage);
-    }
-  } else if (last?.role === 'assistant') {
-    ui = getLiveStreamUi() || appendAssistantMessage();
-    if (!getLiveStreamUi()) showAssistantLoading(ui);
-    assistantMessage = {
-      role: 'assistant',
-      content: '',
-      reasoning_content: '',
-      tool_calls: [],
-      tool_results: {},
-      ...(initialData?.assistant || {}),
-    };
-    if (initialData?.assistant) {
-      hydrateAssistantUi(ui, assistantMessage);
-    }
-  } else {
-    return;
-  }
-
-  markLiveStreamUi(ui);
-  streamSessionId = sessionId;
-  abortController = { cancelled: false };
-  _activeChatJobId = jobId;
-  if (els.sendBtn) els.sendBtn.textContent = t('stop', 'Stop');
-
-  const since = initialData?.nextSince || 0;
-
-  const streamCtx = {
-    ui,
-    assistantMessage,
-    sessionId,
-    streamActive: () => (
-      SessionStore.activeId === sessionId
-      && abortController
-      && !abortController.cancelled
-    ),
-    thinkingStarted: Boolean(assistantMessage.reasoning_content),
-    contentStarted: Boolean(assistantMessage.content),
-    since,
-    lastSeq: since,
-  };
-
-  if (initialData?.events?.length) {
-    for (const ev of initialData.events) {
-      const seq = ev._seq || 0;
-      if (seq <= streamCtx.lastSeq) continue;
-      streamCtx.lastSeq = seq;
-      await handleChatStreamEvent(ev, streamCtx);
-    }
-  }
-
-  watchChatJob(jobId, sessionId, streamCtx);
-}
-
-async function syncActiveSessionStreaming() {
-  const sessionId = SessionStore.activeId;
-  if (!sessionId) return;
-  if (isChatUiLocked()) return;
-
-  let jobId = SessionStore.getActiveJobId(sessionId);
-  if (!jobId) {
-    const { data: listData } = await api('GET', `/api/ai/chat/jobs?sessionId=${encodeURIComponent(sessionId)}`);
-    jobId = listData?.jobs?.[0]?.id;
-    if (jobId) SessionStore.setActiveJobId(sessionId, jobId);
-  }
-  if (!jobId) return;
-  if (_activeChatJobId === jobId && abortController) return;
-
-  const { data } = await api('GET', `/api/ai/chat/jobs/${encodeURIComponent(jobId)}?since=0`);
-  if (!data?.ok) {
-    SessionStore.clearActiveJobId(sessionId);
-    return;
-  }
-
-  if (data.status === 'done') {
-    commitAssistantMessage(sessionId, normalizeStoredMessage({
-      role: 'assistant',
-      content: '',
-      reasoning_content: '',
-      tool_calls: [],
-      tool_results: {},
-      ...(data.assistant || {}),
-    }));
-    SessionStore.clearActiveJobId(sessionId);
-    renderStoredMessages();
-    syncSessionsToDevice().catch(() => {});
-    return;
-  }
-
-  if (data.status !== 'running') {
-    SessionStore.clearActiveJobId(sessionId);
-    return;
-  }
-
-  await attachToChatJob(sessionId, jobId, data);
 }
 
 function finishAssistant(ui, assistantMessage, sessionId) {
@@ -3194,7 +2761,7 @@ function updateToolCallsSummary(toolsBlock) {
   }
 }
 
-function renderToolCall(container, id, name, args, result) {
+function renderToolCall(container, id, name, args, result, agentId) {
   const existing = container.querySelector(`[data-tool-id="${id}"]`);
   if (existing) {
     if (result !== undefined && result !== null) {
@@ -3202,11 +2769,16 @@ function renderToolCall(container, id, name, args, result) {
     }
     return;
   }
+  const aid = agentId || currentActiveAgentId() || 'op';
+  const meta = typeof OfficePanel !== 'undefined' ? OfficePanel.agentMeta(aid) : null;
+  const tag = meta && aid !== 'op'
+    ? `<span class="tool-agent-tag">${meta.icon} ${escapeHtml(meta.name)}</span>`
+    : '';
   const div = document.createElement('div');
   div.className = 'tool-call collapsed';
   div.dataset.toolId = id;
   div.innerHTML = `
-    <div class="tool-call-header"><span class="tool-icon">🔧</span><span class="tool-name">${escapeHtml(name)}</span><span class="chevron">▶</span></div>
+    <div class="tool-call-header">${tag}<span class="tool-icon">🔧</span><span class="tool-name">${escapeHtml(name)}</span><span class="chevron">▶</span></div>
     <div class="tool-call-body">
       <div class="tool-section"><label>${t('toolArgs', 'Arguments')}</label><pre class="tool-args"></pre></div>
       <div class="tool-section tool-result-section${result !== undefined && result !== null ? '' : ' hidden'}"><label>${t('toolResult', 'Result')}</label><pre class="tool-result"></pre></div>
@@ -3327,10 +2899,60 @@ function formatJson(value) {
 // Settings / config
 // ---------------------------------------------------------------------------
 
+function getMainModelValue() {
+  return mainModelCombo?.getValue()?.trim() || '';
+}
+
+function getEmbeddingModelValue() {
+  return embeddingModelCombo?.getValue()?.trim() || '';
+}
+
+function initModelCombos() {
+  if (typeof ModelCombobox === 'undefined') return;
+  const labels = () => ({
+    placeholder: t('modelPlaceholder', 'model-id'),
+    emptyLabel: t('noModels', 'No models loaded'),
+    loadingLabel: t('loadingModels', 'Loading...'),
+  });
+  mainModelCombo = ModelCombobox.mount('#mainModelCombobox', {
+    ...labels(),
+    onChange: () => {
+      persistConfigDraft();
+      refreshUsageForCurrentModel();
+    },
+    onInput: () => {
+      persistConfigDraft();
+      refreshUsageForCurrentModel();
+    },
+  });
+  embeddingModelCombo = ModelCombobox.mount('#embeddingModelCombobox', {
+    ...labels(),
+    placeholder: t('embeddingModelPlaceholder', 'BAAI/bge-m3'),
+    onChange: persistConfigDraft,
+    onInput: persistConfigDraft,
+  });
+  onboardingModelCombo = ModelCombobox.mount('#onboardingModelCombobox', {
+    placeholder: 'deepseek-v4-flash',
+    emptyLabel: t('noModels', 'No models loaded'),
+    loadingLabel: t('loadingModels', 'Loading...'),
+  });
+  if (typeof FallbackModels !== 'undefined') {
+    FallbackModels.mount('#fallbackModelsRoot', {
+      getProvider: () => els.providerSelect?.value || 'opencode-zen',
+      providers,
+    });
+    document.getElementById('fallbackModelsRoot')?.addEventListener('fallbackchange', () => {
+      persistConfigDraft();
+      configSaveState = 'dirty';
+      showUnsavedConfigWarning();
+    });
+  }
+}
+
 function getConfigPayload() {
   return {
     provider: els.providerSelect.value,
-    model: modelManual ? els.modelInput.value.trim() : els.modelSelect.value,
+    model: getMainModelValue(),
     apiKey: els.apiKeyInput.value.trim(),
     baseUrl: els.baseUrlInput.value.trim(),
     systemPrompt: els.systemPromptInput.value.trim(),
@@ -3343,11 +2965,10 @@ function getConfigPayload() {
     timezone: els.timezoneSelect?.value || 'Asia/Shanghai',
     embeddingMode: els.embeddingModeSelect?.value || 'same',
     embeddingProvider: els.embeddingProviderSelect?.value || 'siliconflow',
-    embeddingModel: embeddingModelManual
-      ? (els.embeddingModelInput?.value?.trim() || '')
-      : (els.embeddingModelSelect?.value || els.embeddingModelInput?.value?.trim() || ''),
+    embeddingModel: getEmbeddingModelValue(),
     embeddingApiKey: els.embeddingApiKeyInput?.value?.trim() || '',
     embeddingBaseUrl: els.embeddingBaseUrlInput?.value?.trim() || '',
+    modelFallbacks: typeof FallbackModels !== 'undefined' ? FallbackModels.getRows() : [],
   };
 }
 
@@ -3426,8 +3047,7 @@ function persistConfigDraft() {
 function bindConfigPersistence() {
   const fields = [
     els.providerSelect,
-    els.modelSelect,
-    els.modelInput,
+    mainModelCombo?.input,
     els.apiKeyInput,
     els.baseUrlInput,
     els.systemPromptInput,
@@ -3439,8 +3059,7 @@ function bindConfigPersistence() {
     els.timezoneSelect,
     els.embeddingModeSelect,
     els.embeddingProviderSelect,
-    els.embeddingModelSelect,
-    els.embeddingModelInput,
+    embeddingModelCombo?.input,
     els.embeddingApiKeyInput,
     els.embeddingBaseUrlInput,
   ].filter(Boolean);
@@ -3488,16 +3107,7 @@ async function applySavedModelSelection(savedModel) {
     applyDefaultModelForProvider();
     return;
   }
-  if (!modelManual) {
-    const found = models.find((m) => (m.id || m) === target);
-    if (found) {
-      els.modelSelect.value = target;
-      setModelMode(false);
-      return;
-    }
-  }
-  setModelMode(true);
-  els.modelInput.value = target;
+  mainModelCombo?.setValue(target, { silent: true });
 }
 
 function canFetchModelsFromForm() {
@@ -3518,21 +3128,29 @@ function primeModelsFromCatalog(provider) {
   renderModelSelect();
 }
 
+function primeModelsFromCacheOrCatalog(provider) {
+  const pid = provider || els.providerSelect?.value;
+  if (models.length) return;
+  const cache = LocalPrefs.getModelsCache(pid);
+  if (cache?.models?.length) {
+    models = cache.models;
+    renderModelSelect();
+    return;
+  }
+  primeModelsFromCatalog(pid);
+}
+
 async function ensureModelsLoaded(savedModel, opts = {}) {
   const refresh = opts.refresh !== false;
   const provider = els.providerSelect?.value;
   const target = savedModel || defaults[provider] || '';
-  if (!models.length) {
-    primeModelsFromCatalog(provider);
-  }
-  if (refresh && canFetchModelsFromForm()) {
-    await fetchModels({ savedModel: target });
-  } else {
-    await applySavedModelSelection(target);
-  }
-  const current = modelManual ? els.modelInput?.value?.trim() : els.modelSelect?.value;
+  primeModelsFromCacheOrCatalog(provider);
+  await applySavedModelSelection(target);
   if (savedConfig?.model) updateModelBadgeFromSaved();
-  else updateModelBadge(current || target);
+  else updateModelBadge(getMainModelValue() || target);
+  if (refresh && canFetchModelsFromForm()) {
+    fetchModels({ savedModel: target }).catch(() => {});
+  }
 }
 
 function providerDisplayName(id) {
@@ -3584,48 +3202,19 @@ function embeddingCatalogForProvider(provider, sameMode = false) {
 }
 
 function renderEmbeddingModelSelect() {
-  if (!els.embeddingModelSelect) return;
-  if (!embeddingModels.length) {
-    els.embeddingModelSelect.innerHTML = `<option value="">${t('noModels', 'No models loaded')}</option>`;
-    return;
-  }
-  const current = els.embeddingModelSelect.value || els.embeddingModelInput?.value || '';
-  els.embeddingModelSelect.innerHTML = embeddingModels.map((m) => {
-    const id = m.id || m;
-    return `<option value="${id}">${id}</option>`;
-  }).join('');
-  if (current) els.embeddingModelSelect.value = current;
-}
-
-function setEmbeddingModelMode(manual) {
-  embeddingModelManual = manual;
-  els.embeddingModelSelect?.classList.toggle('hidden', manual);
-  els.embeddingModelInput?.classList.toggle('hidden', !manual);
-  if (els.embeddingModelModeBtn) {
-    els.embeddingModelModeBtn.textContent = manual ? t('dropdown', 'Dropdown') : t('manual', 'Manual');
-  }
+  embeddingModelCombo?.setOptions(embeddingModels);
 }
 
 function applyEmbeddingModelSelection(savedModel) {
   const provider = getActiveEmbeddingProvider();
-  const separate = els.embeddingModeSelect?.value === 'separate';
   const target = savedModel || embeddingDefaults[provider] || '';
   if (!target) {
-    if (embeddingModels.length && !embeddingModelManual) {
-      els.embeddingModelSelect.value = embeddingModels[0].id || embeddingModels[0];
+    if (embeddingModels.length) {
+      embeddingModelCombo?.setValue(embeddingModels[0].id || embeddingModels[0], { silent: true });
     }
     return;
   }
-  if (!embeddingModelManual) {
-    const found = embeddingModels.find((m) => (m.id || m) === target);
-    if (found) {
-      els.embeddingModelSelect.value = target;
-      setEmbeddingModelMode(false);
-      return;
-    }
-  }
-  setEmbeddingModelMode(true);
-  if (els.embeddingModelInput) els.embeddingModelInput.value = target;
+  embeddingModelCombo?.setValue(target, { silent: true });
 }
 
 function refreshEmbeddingModels() {
@@ -3633,8 +3222,8 @@ function refreshEmbeddingModels() {
   const provider = getActiveEmbeddingProvider();
   embeddingModels = embeddingCatalogForProvider(provider, !separate);
   renderEmbeddingModelSelect();
-  if (!embeddingModelManual && els.embeddingModelSelect && !els.embeddingModelSelect.value && embeddingModels.length) {
-    els.embeddingModelSelect.value = embeddingModels[0].id || embeddingModels[0];
+  if (!getEmbeddingModelValue() && embeddingModels.length) {
+    embeddingModelCombo?.setValue(embeddingModels[0].id || embeddingModels[0], { silent: true });
   }
 }
 
@@ -3657,12 +3246,8 @@ function applyDefaultModelForProvider() {
   const provider = els.providerSelect.value;
   const defaultModel = defaults[provider];
   if (!defaultModel) return;
-  if (modelManual) {
-    if (!els.modelInput.value.trim()) {
-      els.modelInput.value = defaultModel;
-    }
-  } else if (!els.modelSelect.value) {
-    els.modelSelect.value = defaultModel;
+  if (!getMainModelValue()) {
+    mainModelCombo?.setValue(defaultModel, { silent: true });
   }
 }
 
@@ -3710,9 +3295,6 @@ function applyConfigToForm(c) {
     renderTimezoneSelect(c.timezone || 'Asia/Shanghai');
   }
   if (els.embeddingModeSelect) els.embeddingModeSelect.value = c.embeddingMode || 'same';
-  if (els.embeddingModelInput) {
-    els.embeddingModelInput.value = c.embeddingModel || '';
-  }
   if (els.embeddingProviderSelect) {
     const ep = c.embeddingProvider || 'siliconflow';
     if (embeddingProviders.includes(ep)) els.embeddingProviderSelect.value = ep;
@@ -3723,7 +3305,12 @@ function applyConfigToForm(c) {
   onEmbeddingModeChange();
   onProviderChange();
   refreshEmbeddingModels();
+  if (c.model) mainModelCombo?.setValue(c.model, { silent: true });
   applyEmbeddingModelSelection(c.embeddingModel || embeddingDefaults[getActiveEmbeddingProvider()] || '');
+  if (typeof FallbackModels !== 'undefined') {
+    FallbackModels.setRows(c.modelFallbacks || []);
+    FallbackModels.setProviders(providers);
+  }
 }
 
 async function loadBootstrap() {
@@ -3772,9 +3359,24 @@ async function loadBootstrap() {
     LocalPrefs.setServerToolDefaults(data.tools);
   }
   pinRequired = !!data.pinRequired;
+  if (typeof WebApi !== 'undefined') {
+    WebApi.configure({
+      pinRequired,
+      els: {
+        pinModal: els.pinModal,
+        pinModalInput: els.pinModalInput,
+        pinModalOk: els.pinModalOk,
+      },
+      onPinSuccess: () => {
+        reconnectSyncWebSocket();
+        refreshSessionViewFromRemote().catch(() => {});
+      },
+    });
+  }
   hostEnvironment = data.hostEnvironment || hostEnvironment;
   applyHeaderChrome();
   applyStatusPill(data);
+  applyBuiltinAgents(data);
   if (data.notifications) {
     updateNotificationsBadge((data.notifications || []).filter((i) => !i.read).length);
   }
@@ -3796,7 +3398,10 @@ async function loadBootstrap() {
 
   const savedModel = savedConfig?.model || defaults[provider] || '';
   const gotLiveModels = data.modelsSource === 'api' && Array.isArray(data.models) && data.models.length > 0;
-  await ensureModelsLoaded(savedModel, { refresh: !gotLiveModels });
+  await ensureModelsLoaded(savedModel, { refresh: false });
+  if (!gotLiveModels && canFetchModelsFromForm()) {
+    fetchModels({ savedModel }).catch(() => {});
+  }
   refreshEmbeddingModels();
   applyEmbeddingModelSelection(savedConfig?.embeddingModel || '');
 
@@ -3814,34 +3419,30 @@ async function loadConfig() {
 
   const c = savedConfig;
   const savedModel = c.model || defaults[c.provider] || '';
-  if (canFetchModelsFromForm()) {
-    await fetchModels();
+  primeModelsFromCacheOrCatalog(c.provider);
+  if (savedModel) {
     await applySavedModelSelection(savedModel);
-  } else if (savedModel) {
-    await applySavedModelSelection(savedModel);
-    renderModelSelect();
   } else {
     applyDefaultModelForProvider();
     renderModelSelect();
   }
 
   showConfigureHint();
-  await loadUsage();
+  loadUsage().catch(() => {});
+  if (canFetchModelsFromForm()) {
+    fetchModels({ savedModel }).catch(() => {});
+  }
 }
 
-function setModelMode(manual) {
-  modelManual = manual;
-  els.modelSelect.classList.toggle('hidden', manual);
-  els.modelInput.classList.toggle('hidden', !manual);
-  els.modelModeBtn.textContent = manual ? t('dropdown', 'Dropdown') : t('manual', 'Manual');
-  refreshUsageForCurrentModel();
-  persistConfigDraft();
+function renderModelSelect() {
+  mainModelCombo?.setOptions(models);
 }
 
 async function fetchModels(opts = {}) {
-  const savedModel = opts.savedModel ?? (modelManual ? els.modelInput?.value?.trim() : els.modelSelect?.value) ?? '';
+  const savedModel = opts.savedModel ?? getMainModelValue() ?? '';
+  const provider = els.providerSelect.value;
   if (!canFetchModelsFromForm()) {
-    models = catalogModelsForProvider(els.providerSelect.value);
+    models = catalogModelsForProvider(provider);
     renderModelSelect();
     if (savedModel) await applySavedModelSelection(savedModel);
     else applyDefaultModelForProvider();
@@ -3849,7 +3450,13 @@ async function fetchModels(opts = {}) {
     return;
   }
 
-  els.modelSelect.innerHTML = `<option value="">${t('loadingModels', 'Loading...')}</option>`;
+  if (!models.length) {
+    primeModelsFromCacheOrCatalog(provider);
+    if (savedModel) await applySavedModelSelection(savedModel);
+  }
+
+  const showSpinner = !models.length;
+  if (showSpinner) mainModelCombo?.setLoading(true);
   const payload = getConfigPayload();
   const { data } = await api('POST', '/api/ai/models', {
     provider: payload.provider,
@@ -3869,6 +3476,7 @@ async function fetchModels(opts = {}) {
       models = cat;
     }
   }
+  mainModelCombo?.setLoading(false);
   renderModelSelect();
   if (savedModel) await applySavedModelSelection(savedModel);
   if (!data.ok && data.error) {
@@ -3877,19 +3485,6 @@ async function fetchModels(opts = {}) {
   } else {
     showConfigureHint();
   }
-}
-
-function renderModelSelect() {
-  if (models.length === 0) {
-    els.modelSelect.innerHTML = `<option value="">${t('noModels', 'No models loaded')}</option>`;
-    return;
-  }
-  const current = els.modelSelect.value || els.modelInput.value;
-  els.modelSelect.innerHTML = models.map(m => {
-    const id = m.id || m;
-    return `<option value="${id}">${id}</option>`;
-  }).join('');
-  if (current) els.modelSelect.value = current;
 }
 
 function onProviderChange() {
@@ -3905,10 +3500,11 @@ function onProviderChange() {
   applyCatalogModelsIfNeeded();
   if (els.embeddingModeSelect?.value === 'same') {
     refreshEmbeddingModels();
-    if (!embeddingModelManual && els.embeddingModelSelect && !els.embeddingModelSelect.value) {
+    if (!getEmbeddingModelValue()) {
       applyEmbeddingModelSelection(embeddingDefaults[provider] || '');
     }
   }
+  if (typeof FallbackModels !== 'undefined') FallbackModels.setProviders(providers);
 }
 
 function onEmbeddingModeChange() {
@@ -3919,7 +3515,7 @@ function onEmbeddingModeChange() {
     els.embeddingBaseUrlField?.classList.toggle('hidden', !isCustom);
   }
   refreshEmbeddingModels();
-  applyEmbeddingModelSelection(els.embeddingModelInput?.value || els.embeddingModelSelect?.value || '');
+  applyEmbeddingModelSelection(getEmbeddingModelValue());
 }
 
 function onEmbeddingProviderChange() {
@@ -4092,6 +3688,11 @@ function applyStatusPill(data) {
     ? `\n环境: ${formatEnvKindLabel(env)}${hp.panda_mcu ? ` · MCU ${hp.panda_mcu}` : ''}${hp.panda_backend ? ` · ${hp.panda_backend}` : ''} · ${env.platform || ''}`
     : '';
   pill.title = (title || pill.textContent) + envLine;
+  const queueBadge = document.getElementById('queueModeBadge');
+  if (queueBadge) {
+    queueBadge.classList.toggle('hidden', !data.driving);
+    if (typeof CommandQueue !== 'undefined') CommandQueue.renderBadge();
+  }
 }
 
 function renderHostEnvCard(env) {
@@ -4462,6 +4063,30 @@ async function runForkAnalyzePipeline({ force = false } = {}) {
   }
 }
 
+async function refreshOnboardingModels() {
+  const provider = els.onboardingProvider?.value || 'opencode-zen';
+  const apiKey = els.onboardingApiKey?.value?.trim() || '';
+  const catalog = catalogModelsForProvider(provider);
+  if (!apiKey) {
+    onboardingModelCombo?.setOptions(catalog);
+    return;
+  }
+  onboardingModelCombo?.setLoading(true);
+  const { data } = await api('POST', '/api/ai/models', {
+    provider,
+    apiKey,
+    baseUrl: '',
+    model: onboardingModelCombo?.getValue() || '',
+  });
+  let list = catalog;
+  if (data.ok && Array.isArray(data.models) && data.models.length) {
+    list = data.models;
+    LocalPrefs.setModelsCache(provider, list);
+  }
+  onboardingModelCombo?.setLoading(false);
+  onboardingModelCombo?.setOptions(list);
+}
+
 function openOnboardingWizard() {
   if (!els.onboardingModal) return;
   const sel = els.onboardingProvider;
@@ -4470,10 +4095,10 @@ function openOnboardingWizard() {
     const cur = els.providerSelect?.value || providers[0];
     if (providers.includes(cur)) sel.value = cur;
   }
-  if (els.onboardingModel) {
-    const p = sel?.value || 'opencode-zen';
-    els.onboardingModel.value = defaults[p] || modelCatalog[p]?.[0] || 'deepseek-v4-flash';
-  }
+  const p = sel?.value || 'opencode-zen';
+  const defaultModel = defaults[p] || modelCatalog[p]?.[0] || 'deepseek-v4-flash';
+  onboardingModelCombo?.setValue(defaultModel, { silent: true });
+  refreshOnboardingModels().catch(() => {});
   if (els.onboardingResult) els.onboardingResult.textContent = '';
   els.onboardingModal.hidden = false;
 }
@@ -4485,7 +4110,7 @@ function closeOnboardingWizard() {
 async function saveOnboardingWizard() {
   const provider = els.onboardingProvider?.value || 'opencode-zen';
   const apiKey = els.onboardingApiKey?.value?.trim() || '';
-  const model = els.onboardingModel?.value?.trim() || '';
+  const model = onboardingModelCombo?.getValue()?.trim() || '';
   if (!apiKey || !model) {
     if (els.onboardingResult) els.onboardingResult.textContent = t('onboardingMissing', '请填写 API Key 和模型');
     return;
@@ -4506,7 +4131,7 @@ async function saveOnboardingWizard() {
 async function testOnboardingWizard() {
   const provider = els.onboardingProvider?.value || 'opencode-zen';
   const apiKey = els.onboardingApiKey?.value?.trim() || '';
-  const model = els.onboardingModel?.value?.trim() || '';
+  const model = onboardingModelCombo?.getValue()?.trim() || '';
   if (els.onboardingResult) els.onboardingResult.textContent = t('testing', '测试中…');
   const { data } = await api('POST', '/api/ai/test_connection', { provider, apiKey, model });
   if (els.onboardingResult) {
@@ -4612,10 +4237,10 @@ async function loadStatus() {
 
 function startStatusPolling() {
   const tick = async () => {
-    if (!_syncWsConnected && document.visibilityState === 'visible') {
+    if (!isSyncWsConnected() && document.visibilityState === 'visible') {
       await loadStatus().catch(() => {});
     }
-    const ms = _syncWsConnected ? 120000 : 15000;
+    const ms = isSyncWsConnected() ? 120000 : 15000;
     _statusPollTimer = setTimeout(tick, ms);
   };
   clearTimeout(_statusPollTimer);
@@ -4664,9 +4289,7 @@ function emptyUsageBucket() {
 
 function getCurrentModelKey() {
   const provider = els.providerSelect?.value?.trim();
-  const model = modelManual
-    ? els.modelInput?.value?.trim()
-    : els.modelSelect?.value?.trim();
+  const model = getMainModelValue();
   if (!provider || !model) return '';
   return `${provider}::${model}`;
 }
@@ -5005,11 +4628,15 @@ function bindUiEvents() {
   els.onboardingBackdrop?.addEventListener('click', closeOnboardingWizard);
   els.onboardingTestBtn?.addEventListener('click', () => testOnboardingWizard());
   els.onboardingSaveBtn?.addEventListener('click', () => saveOnboardingWizard());
-  els.onboardingProvider?.addEventListener('change', () => {
+  els.onboardingProvider?.addEventListener('change', async () => {
     const p = els.onboardingProvider.value;
-    if (els.onboardingModel && !els.onboardingModel.value) {
-      els.onboardingModel.value = defaults[p] || '';
+    if (!onboardingModelCombo?.getValue()) {
+      onboardingModelCombo?.setValue(defaults[p] || '', { silent: true });
     }
+    await refreshOnboardingModels().catch(() => {});
+  });
+  els.onboardingApiKey?.addEventListener('change', () => {
+    refreshOnboardingModels().catch(() => {});
   });
   els.settingsBtn?.addEventListener('click', () => openSettings());
   els.settingsSidebarClose?.addEventListener('click', () => closeSettings());
@@ -5018,20 +4645,18 @@ function bindUiEvents() {
   els.sessionsCloseBtn?.addEventListener('click', closeSessionsDrawer);
   els.newSessionBtn?.addEventListener('click', createNewSession);
   els.sessionsBackdrop?.addEventListener('click', closeSessionsDrawer);
-  els.providerSelect?.addEventListener('change', async () => {
+  els.providerSelect?.addEventListener('change', () => {
     onProviderChange();
     persistConfigDraft();
-    await fetchModels();
+    fetchModels().catch(() => {});
     refreshUsageForCurrentModel();
   });
-  els.modelSelect?.addEventListener('change', refreshUsageForCurrentModel);
-  els.modelInput?.addEventListener('input', refreshUsageForCurrentModel);
   els.baseUrlInput?.addEventListener('change', fetchModels);
   els.apiKeyInput?.addEventListener('change', fetchModels);
   els.langSelect?.addEventListener('change', onLangChange);
   els.chatInput?.addEventListener('input', onComposerInput);
-  els.modelModeBtn?.addEventListener('click', () => setModelMode(!modelManual));
   els.saveBtn?.addEventListener('click', () => saveConfig({ silent: false }));
+  els.agentsSaveBtn?.addEventListener('click', () => saveAgentsSettings().catch(console.error));
   bindConfigPersistence();
   if (savedConfig && Object.keys(savedConfig).length) {
     configSaveState = reconcileConfigDraft(savedConfig) ? 'dirty' : 'saved';
@@ -5057,15 +4682,85 @@ function bindUiEvents() {
     onEmbeddingProviderChange();
     persistConfigDraft();
   });
-  els.embeddingModelModeBtn?.addEventListener('click', () => setEmbeddingModelMode(!embeddingModelManual));
-  els.embeddingModelSelect?.addEventListener('change', persistConfigDraft);
   document.addEventListener('keydown', onOverlayKeydown);
   window.addEventListener('pagehide', flushSessionSyncOnUnload);
   window.addEventListener('beforeunload', flushSessionSyncOnUnload);
 }
 
+async function migrateLegacySessionsOnce() {
+  const legacy = SessionStore.readLegacyLocalSnapshot?.();
+  if (!legacy?.sessions?.length) return;
+  try {
+    const { data: server } = await api('GET', '/api/ai/sessions');
+    if (server?.sessions?.length) {
+      SessionStore.clearLegacyLocalStorage?.();
+      return;
+    }
+    const { data } = await api('POST', '/api/ai/sessions', {
+      sessions: legacy.sessions.filter((s) => SessionStore.sessionHasContent(s)),
+      activeId: legacy.activeId,
+    });
+    if (data?.ok) {
+      if (typeof SessionSync !== 'undefined') SessionSync.setServerSyncMeta(data);
+      SessionStore.clearLegacyLocalStorage?.();
+      await loadSessionsFromDevice();
+    }
+  } catch (e) {
+    console.warn('legacy session migration skipped', e);
+  }
+}
+
+function waitForSyncHello(timeoutMs = 6000) {
+  if (_syncWsGotHello) return Promise.resolve(true);
+  return new Promise((resolve) => {
+    const deadline = Date.now() + timeoutMs;
+    const tick = () => {
+      if (_syncWsGotHello) return resolve(true);
+      if (Date.now() >= deadline) return resolve(false);
+      setTimeout(tick, 40);
+    };
+    tick();
+  });
+}
+
 async function init() {
-  SessionStore.load();
+  SessionStore.init();
+  if (typeof WebApi !== 'undefined') {
+    WebApi.configure({
+      pinRequired,
+      els: {
+        pinModal: els.pinModal,
+        pinModalInput: els.pinModalInput,
+        pinModalOk: els.pinModalOk,
+      },
+      onPinSuccess: () => {
+        reconnectSyncWebSocket();
+        refreshSessionViewFromRemote().catch(() => {});
+      },
+    });
+  }
+  initChatJobs();
+  initModelCombos();
+  if (typeof AgentsPanel !== 'undefined') {
+    AgentsPanel.init({
+      api,
+      els,
+      escapeHtml,
+      scrollToBottom,
+      showToast,
+    });
+  }
+  if (typeof OfficePanel !== 'undefined') {
+    OfficePanel.init({
+      onOpen: () => {
+        if (typeof AgentsPanel !== 'undefined') AgentsPanel.refreshOfficeUsage();
+      },
+    });
+  }
+  if (typeof CommandQueue !== 'undefined') CommandQueue.bindUi();
+  if (typeof DeviceTrust !== 'undefined') {
+    DeviceTrust.refreshTrust(api).catch(() => {});
+  }
   bindSettingsTabs();
   bindUiEvents();
   if (typeof TskPanel !== 'undefined') TskPanel.bind();
@@ -5081,22 +4776,35 @@ async function init() {
     ensureCabanaInited();
   }
 
+  startSyncWebSocket();
+
   try {
-    await loadBootstrap();
+    await Promise.all([
+      loadBootstrap().catch((e) => {
+        console.error('loadBootstrap failed', e);
+        applyCachedUiState();
+      }),
+      waitForSyncHello(6000),
+    ]);
   } catch (e) {
-    console.error('loadBootstrap failed', e);
+    console.error('init bootstrap/hello failed', e);
     applyCachedUiState();
   }
 
-  await refreshSessionViewFromRemote().catch((e) => {
-    console.warn('initial session pull failed', e);
-  });
+  if (!_gatewayHydrated) {
+    await refreshSessionViewFromRemote().catch((e) => {
+      console.warn('initial session pull failed', e);
+    });
+  }
+
+  await migrateLegacySessionsOnce().catch(() => {});
 
   loadSessionMode();
   renderSessionList();
   renderStoredMessages();
-
-  startSyncWebSocket();
+  if (typeof CanvasPanel !== 'undefined') {
+    CanvasPanel.loadSession(SessionStore.activeId).catch(() => {});
+  }
 
   startStatusPolling();
   loadNotifications().catch(() => {});

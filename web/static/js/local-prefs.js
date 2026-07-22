@@ -1,27 +1,28 @@
 /**
- * Local preferences & cache (ClawPanel-style) — fast settings, tool toggles.
+ * Client UI preferences — Gateway mode: config/models truth on server (WS hello).
+ * Only unsaved config draft uses sessionStorage; tool/theme prefs stay local.
  */
 const LocalPrefs = (() => {
-  const CONFIG_CACHE = 'openpilot-ai-config-cache';
   const CONFIG_DRAFT = 'openpilot-ai-config-draft';
-  const MODELS_CACHE = 'openpilot-ai-models-cache';
   const TOOL_PREFS = 'openpilot-ai-tool-prefs';
   const TOOL_DRIVING_PREFS = 'openpilot-ai-tool-driving-prefs';
   const MODEL_PROFILE = 'openpilot-ai-model-profile';
 
   let _serverToolDefaults = null;
+  let _configCache = null;
+  let _modelsCache = {};
 
-  function readJson(key, fallback) {
+  function readJson(storage, key, fallback) {
     try {
-      const raw = localStorage.getItem(key);
+      const raw = storage.getItem(key);
       if (raw) return JSON.parse(raw);
     } catch {}
     return fallback;
   }
 
-  function writeJson(key, value) {
+  function writeJson(storage, key, value) {
     try {
-      localStorage.setItem(key, JSON.stringify(value));
+      storage.setItem(key, JSON.stringify(value));
     } catch {}
   }
 
@@ -57,23 +58,27 @@ const LocalPrefs = (() => {
   }
 
   function getConfigCache() {
-    return readJson(CONFIG_CACHE, null);
+    return _configCache;
   }
 
   function setConfigCache(config) {
-    if (config) writeJson(CONFIG_CACHE, { ...config, cachedAt: Date.now() });
+    _configCache = config ? { ...config, cachedAt: Date.now() } : null;
+  }
+
+  function clearConfigCache() {
+    _configCache = null;
   }
 
   function getConfigDraft() {
-    return readJson(CONFIG_DRAFT, null);
+    return readJson(sessionStorage, CONFIG_DRAFT, null);
   }
 
   function setConfigDraft(draft) {
-    if (draft) writeJson(CONFIG_DRAFT, { ...draft, draftAt: Date.now() });
+    if (draft) writeJson(sessionStorage, CONFIG_DRAFT, { ...draft, draftAt: Date.now() });
   }
 
   function clearConfigDraft() {
-    try { localStorage.removeItem(CONFIG_DRAFT); } catch {}
+    try { sessionStorage.removeItem(CONFIG_DRAFT); } catch {}
   }
 
   function mergeDraftOntoServer(server, draft) {
@@ -91,38 +96,38 @@ const LocalPrefs = (() => {
     return base;
   }
 
-  /** @deprecated use mergeDraftOntoServer — server wins; draft only overlays unsaved edits */
   function mergeConfigLayers(server, _cache, draft) {
     return mergeDraftOntoServer(server, draft);
   }
 
   function getModelsCache(provider) {
-    const all = readJson(MODELS_CACHE, {});
-    return all[provider] || null;
+    return _modelsCache[provider] || null;
   }
 
   function setModelsCache(provider, models) {
-    const all = readJson(MODELS_CACHE, {});
-    all[provider] = { models, cachedAt: Date.now() };
-    writeJson(MODELS_CACHE, all);
+    _modelsCache[provider] = { models, cachedAt: Date.now() };
+  }
+
+  function clearModelsCache() {
+    _modelsCache = {};
   }
 
   function getToolPrefs() {
     const defaults = buildDefaultTools();
-    return { ...defaults, ...readJson(TOOL_PREFS, {}) };
+    return { ...defaults, ...readJson(localStorage, TOOL_PREFS, {}) };
   }
 
   function getToolDrivingPrefs() {
     const defaults = buildDefaultDrivingTools();
-    return { ...defaults, ...readJson(TOOL_DRIVING_PREFS, {}) };
+    return { ...defaults, ...readJson(localStorage, TOOL_DRIVING_PREFS, {}) };
   }
 
   function setToolPrefs(prefs) {
-    writeJson(TOOL_PREFS, { ...buildDefaultTools(), ...prefs });
+    writeJson(localStorage, TOOL_PREFS, { ...buildDefaultTools(), ...prefs });
   }
 
   function setToolDrivingPrefs(prefs) {
-    writeJson(TOOL_DRIVING_PREFS, { ...buildDefaultDrivingTools(), ...prefs });
+    writeJson(localStorage, TOOL_DRIVING_PREFS, { ...buildDefaultDrivingTools(), ...prefs });
   }
 
   function getMaxToolRounds() {
@@ -149,6 +154,7 @@ const LocalPrefs = (() => {
   return {
     getConfigCache,
     setConfigCache,
+    clearConfigCache,
     getConfigDraft,
     setConfigDraft,
     clearConfigDraft,
@@ -156,6 +162,7 @@ const LocalPrefs = (() => {
     mergeConfigLayers,
     getModelsCache,
     setModelsCache,
+    clearModelsCache,
     setServerToolDefaults,
     getToolPrefs,
     getToolDrivingPrefs,

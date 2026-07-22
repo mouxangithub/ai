@@ -128,7 +128,17 @@ AI_PROVIDER_MODEL_CATALOG = {
   ],
   "openrouter": [],
   "openai": [],
-  "kimi": [],
+  "kimi": [
+    "moonshot-v1-8k",
+    "moonshot-v1-32k",
+    "moonshot-v1-128k",
+    "moonshot-v1-auto",
+    "kimi-k2.5",
+    "kimi-k2.6",
+    "kimi-k2.7",
+    "kimi-k2.7-code",
+    "kimi-k3",
+  ],
   "custom": [],
 }
 

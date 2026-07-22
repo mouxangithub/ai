@@ -154,6 +154,7 @@ def ensure_default_scheduler_tasks(params: Params) -> dict[str, Any]:
     {"name": "Runner/CI 健康", "action": "check_runner_health_offroad", "trigger": "on_offroad", "interval_minutes": 120, "payload": {"notify": True}},
     {"name": "设备健康巡检", "action": "check_device_health_offroad", "trigger": "interval", "interval_minutes": 360, "payload": {}},
     {"name": "CI 失败告警", "action": "check_github_ci_failed", "trigger": "on_wifi", "interval_minutes": 60, "payload": {}},
+    {"name": "Heartbeat 巡检", "action": "heartbeat_tick", "trigger": "interval", "interval_minutes": 30, "payload": {}},
   ]
   seeded = 0
   if not tasks:
