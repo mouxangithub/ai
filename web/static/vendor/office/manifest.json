@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "license": "CC0 — Kenney / Quaternius via poly.pizza or fetch_office_assets.mjs",
+  "base": "/static/vendor/office/",
+  "models": {
+    "desk": { "file": "desk.glb", "scale": 1.0, "y": 0 },
+    "chair": { "file": "chair.glb", "scale": 1.0, "y": 0 },
+    "plant": { "file": "plant.glb", "scale": 1.0, "y": 0 },
+    "sofa": { "file": "sofa.glb", "scale": 1.0, "y": 0 },
+    "coffee": { "file": "coffee.glb", "scale": 1.0, "y": 0 }
+  }
+}

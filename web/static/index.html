@@ -6,7 +6,7 @@
   <title>op助手</title>
   <link rel="icon" type="image/svg+xml" href="/static/img/favicon.svg">
   <link rel="stylesheet" href="/static/css/ai.css?v=20260723f">
-  <link rel="stylesheet" href="/static/css/office-panel.css?v=20260723h">
+  <link rel="stylesheet" href="/static/css/office-panel.css?v=20260723j">
   <link rel="stylesheet" href="/static/css/canvas-panel.css?v=20260723e">
   <link rel="stylesheet" href="/static/css/cabana-panel.css?v=20260723a">
   <link rel="stylesheet" href="/static/vendor/xterm/xterm.css?v=20260722i">
@@ -611,7 +611,7 @@
       <div class="modal-header office-modal-header">
         <div class="office-modal-head-text">
           <h2 id="officeTitle">OP 办公室</h2>
-          <p class="settings-pane-desc" id="officeDesc">3D 动态办公室 · 专员自动派活与生活状态</p>
+          <p class="settings-pane-desc" id="officeDesc">Three.js 3D 办公室 · 工位 / 茶水间 / 休息区</p>
         </div>
         <button type="button" id="officeCloseBtn" class="btn icon" aria-label="Close office">
           <svg class="icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg>
@@ -621,7 +621,7 @@
         <div class="office-stats" id="officeStats"></div>
         <div class="office-main-row">
           <div class="office-scene-wrap" id="officeSceneWrap">
-            <canvas id="officeSceneCanvas" class="office-scene-canvas" aria-label="OP 办公室 3D 场景"></canvas>
+            <div id="officeSceneHost" class="office-scene-canvas" aria-label="OP 办公室 3D 场景"></div>
           </div>
           <aside class="office-roster" id="officeRoster" aria-label="专员列表"></aside>
         </div>
@@ -846,8 +846,16 @@
   <script src="/static/js/terminal-sidecar.js?v=20260723b"></script>
   <script src="/static/js/terminal-ai.js?v=20260723e"></script>
   <script src="/static/js/agents-panel.js?v=20260723f"></script>
-  <script src="/static/js/office-scene.js?v=20260723f"></script>
-  <script src="/static/js/office-panel.js?v=20260723h"></script>
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "/static/vendor/three/three.module.js",
+      "three/addons/": "/static/vendor/three/examples/jsm/"
+    }
+  }
+  </script>
+  <script type="module" src="/static/js/office-scene-3d.mjs?v=20260723j"></script>
+  <script src="/static/js/office-panel.js?v=20260723j"></script>
   <script src="/static/js/command-queue.js?v=20260722h"></script>
   <script src="/static/js/canvas-panel.js?v=20260723a"></script>
   <script src="/static/js/terminal-panel.js?v=20260723e"></script>

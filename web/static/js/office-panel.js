@@ -218,9 +218,9 @@ const OfficePanel = (() => {
     }
   }
 
-  function ensureScene() {
+  async function ensureScene() {
     if (sceneReady || typeof OfficeScene === 'undefined') return sceneReady;
-    sceneReady = OfficeScene.init(document.getElementById('officeSceneCanvas'));
+    sceneReady = await OfficeScene.init(document.getElementById('officeSceneHost'));
     if (sceneReady) {
       OfficeScene.setOnSelectAgent((id) => selectAgent(id));
     }
@@ -239,13 +239,14 @@ const OfficePanel = (() => {
       if (getDriving()) {
         showToast?.('行驶中：办公室动画已暂停，不影响辅助驾驶');
       }
-      ensureScene();
       setDrivingMode(getDriving());
       ensureAgentsLoaded().catch(() => {});
-      if (sceneReady) {
-        OfficeScene.resize();
-        OfficeScene.start();
-      }
+      ensureScene().then(() => {
+        if (sceneReady) {
+          OfficeScene.resize();
+          OfficeScene.start();
+        }
+      });
       onOpenCallback?.();
     } else if (sceneReady) {
       OfficeScene.stop();
