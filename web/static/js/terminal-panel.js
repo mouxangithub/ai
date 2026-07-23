@@ -1,12 +1,13 @@
 /**
- * Web terminal — xterm.js + PTY WebSocket (Hermes-inspired).
+ * Web terminal — xterm.js + PTY WebSocket (centered modal).
  */
 const TerminalPanel = (() => {
-  let panel = null;
+  let modal = null;
   let term = null;
   let ws = null;
   let fitAddon = null;
   let open = false;
+  let onVisibilityChange = null;
 
   function wsUrl() {
     const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
@@ -14,7 +15,7 @@ const TerminalPanel = (() => {
   }
 
   function ensureDom() {
-    panel = document.getElementById('terminalPanel');
+    modal = document.getElementById('terminalModal');
     const closeBtn = document.getElementById('terminalCloseBtn');
     const toggleBtn = document.getElementById('terminalToggleBtn');
     const backdrop = document.getElementById('terminalBackdrop');
@@ -35,11 +36,13 @@ const TerminalPanel = (() => {
   function setOpen(v) {
     open = !!v;
     ensureDom();
-    if (panel) {
-      panel.classList.toggle('open', open);
-      panel.setAttribute('aria-hidden', open ? 'false' : 'true');
+    if (modal) {
+      modal.classList.toggle('is-open', open);
+      if (open) modal.removeAttribute('hidden');
+      else modal.setAttribute('hidden', '');
     }
-    document.getElementById('terminalBackdrop')?.classList.toggle('hidden', !open);
+    document.getElementById('terminalToggleBtn')?.classList.toggle('active', open);
+    onVisibilityChange?.(open);
     if (open) {
       connect();
       if (typeof TerminalSidecar !== 'undefined') TerminalSidecar.connect();
@@ -112,5 +115,10 @@ const TerminalPanel = (() => {
     }
   }
 
-  return { setOpen, connect, disconnect };
+  function init(opts = {}) {
+    onVisibilityChange = opts.onVisibilityChange || null;
+    ensureDom();
+  }
+
+  return { init, setOpen, connect, disconnect, isOpen: () => open };
 })();

@@ -1,34 +1,15 @@
 /**
- * Canvas panel — artifacts with markdown, JSON, filters, export.
+ * Canvas artifacts — embedded in 设置 → 开发.
  */
 const CanvasPanel = (() => {
   let listEl = null;
-  let panel = null;
-  let backdrop = null;
   let filterEl = null;
-  let open = false;
   const bySession = new Map();
   let activeFilter = 'all';
 
   function ensureDom() {
-    panel = document.getElementById('canvasPanel');
     listEl = document.getElementById('canvasList');
-    backdrop = document.getElementById('canvasBackdrop');
     filterEl = document.getElementById('canvasFilter');
-    const closeBtn = document.getElementById('canvasCloseBtn');
-    const toggleBtn = document.getElementById('canvasToggleBtn');
-    if (closeBtn && !closeBtn.dataset.bound) {
-      closeBtn.dataset.bound = '1';
-      closeBtn.addEventListener('click', () => setOpen(false));
-    }
-    if (backdrop && !backdrop.dataset.bound) {
-      backdrop.dataset.bound = '1';
-      backdrop.addEventListener('click', () => setOpen(false));
-    }
-    if (toggleBtn && !toggleBtn.dataset.bound) {
-      toggleBtn.dataset.bound = '1';
-      toggleBtn.addEventListener('click', () => setOpen(!open));
-    }
     if (filterEl && !filterEl.dataset.bound) {
       filterEl.dataset.bound = '1';
       filterEl.addEventListener('change', () => {
@@ -38,17 +19,6 @@ const CanvasPanel = (() => {
     }
   }
 
-  function setOpen(v) {
-    open = !!v;
-    ensureDom();
-    if (panel) {
-      panel.classList.toggle('open', open);
-      panel.setAttribute('aria-hidden', open ? 'false' : 'true');
-    }
-    if (backdrop) backdrop.classList.toggle('hidden', !open);
-    if (open) render();
-  }
-
   function addArtifact(sessionId, artifact) {
     if (!artifact) return;
     const sid = sessionId || '__global__';
@@ -56,15 +26,13 @@ const CanvasPanel = (() => {
     items.unshift(artifact);
     bySession.set(sid, items.slice(0, 30));
     updateBadge(items.length);
-    if (open) render(sessionId);
+    render(sessionId);
   }
 
   function updateBadge(n) {
-    const badge = document.getElementById('canvasBadge');
-    if (badge) {
-      badge.hidden = !n;
-      badge.textContent = String(n);
-    }
+    const count = Number(n) || 0;
+    const badge = document.getElementById('devCanvasCount');
+    if (badge) badge.textContent = String(count);
   }
 
   function renderBody(artifact) {
@@ -98,6 +66,7 @@ const CanvasPanel = (() => {
     }
     if (!items.length) {
       listEl.innerHTML = '<p class="canvas-empty">暂无可视化输出</p>';
+      updateBadge((bySession.get(sid) || []).length);
       return;
     }
     listEl.innerHTML = items.map((a) => {
@@ -127,6 +96,7 @@ const CanvasPanel = (() => {
         URL.revokeObjectURL(a.href);
       });
     });
+    updateBadge((bySession.get(sid) || []).length);
   }
 
   function escapeHtml(s) {
@@ -146,5 +116,5 @@ const CanvasPanel = (() => {
     addArtifact(payload.sessionId, payload.artifact);
   }
 
-  return { setOpen, addArtifact, render, loadSession, handleWs };
+  return { addArtifact, render, loadSession, handleWs };
 })();

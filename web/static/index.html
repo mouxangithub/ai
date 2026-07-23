@@ -7,7 +7,8 @@
   <link rel="icon" type="image/svg+xml" href="/static/img/favicon.svg">
   <link rel="stylesheet" href="/static/css/ai.css?v=20260722j">
   <link rel="stylesheet" href="/static/css/office-panel.css?v=20260722l">
-  <link rel="stylesheet" href="/static/css/canvas-panel.css?v=20260722j">
+  <link rel="stylesheet" href="/static/css/canvas-panel.css?v=20260723a">
+  <link rel="stylesheet" href="/static/css/cabana-panel.css?v=20260723a">
   <link rel="stylesheet" href="/static/vendor/xterm/xterm.css?v=20260722i">
 </head>
 <body>
@@ -70,9 +71,8 @@
           <button type="button" id="terminalToggleBtn" class="btn icon" title="Web 终端" aria-label="Terminal">
             <svg class="icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M4 17 10 11 4 5"/><path d="M12 19h8"/></svg>
           </button>
-          <button type="button" id="canvasToggleBtn" class="btn icon" title="可视化输出" aria-label="Canvas">
-            <svg class="icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><rect x="3" y="4" width="18" height="14" rx="2"/><path d="M8 20h8"/></svg>
-            <span class="badge hidden" id="canvasBadge"></span>
+          <button type="button" id="secocBtn" class="btn icon" title="SecOC" aria-label="SecOC" data-i18n-title="tabSecoc">
+            <svg class="icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0 3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg>
           </button>
           <button type="button" id="officeBtn" class="btn icon" title="OP 办公室" aria-label="OP Office">
             <svg class="icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
@@ -248,7 +248,6 @@
           <button type="button" class="settings-tab active" data-tab="model" id="tabModel" role="tab">模型</button>
           <button type="button" class="settings-tab" data-tab="agents" id="tabAgents" role="tab">专员</button>
           <button type="button" class="settings-tab" data-tab="knowledge" id="tabKnowledge" role="tab">知识库</button>
-          <button type="button" class="settings-tab" data-tab="secoc" id="tabSecoc" role="tab" data-i18n="tabSecoc">SecOC</button>
           <button type="button" class="settings-tab" data-tab="scheduler" id="tabScheduler" role="tab">定时</button>
           <button type="button" class="settings-tab" data-tab="dev" id="tabDev" role="tab">开发</button>
         </div>
@@ -378,92 +377,6 @@
               </label>
             </div>
           </section>
-        </div>
-
-        <!-- SecOC -->
-        <div class="settings-pane" id="paneSecoc" role="tabpanel">
-          <p class="settings-pane-lead" id="secocPaneDesc" data-i18n="secocPaneDesc">丰田 SecOC（offroad）。可手动输入密钥、TSK 一键提取，或 CAN+DataFlash 查找安装。</p>
-
-          <div class="tsk-warning-box" id="tskBlackscreenWarning">
-            <strong data-i18n="tskBlackscreenTitle">黑屏提醒：</strong><span data-i18n="tskBlackscreenBody">提取 / 采集 / 导出期间会停止 manager 与 pandad，屏幕可能黑屏数秒到数分钟，属正常现象。</span>
-          </div>
-
-          <div class="tsk-hero-card tsk-status-card">
-            <div class="tsk-status-row">
-              <span class="tsk-status-dot" id="tskKeyLight"></span>
-              <div>
-                <div class="tsk-status-title" id="tskKeyTitle" data-i18n="tskKeyNotInstalled">密钥未安装</div>
-                <pre class="tsk-key-detail" id="tskKeyDetail"></pre>
-              </div>
-            </div>
-          </div>
-
-          <details class="settings-accordion">
-            <summary class="settings-accordion-summary" data-i18n="tskManualInstallTitle">手动安装密钥</summary>
-            <div class="settings-accordion-body">
-              <label class="field tsk-manual-field">
-                <span class="field-label" data-i18n="tskManualKeyLabel">SecOC Key（32 位 hex）</span>
-                <input type="text" id="tskManualKeyInput" class="tsk-manual-input" data-i18n-placeholder="tskManualKeyPlaceholder" placeholder="例如 a1b2c3d4… 或带空格分组" autocomplete="off" spellcheck="false">
-              </label>
-              <button type="button" class="btn primary block" id="tskManualInstallBtn" data-i18n="tskManualInstallBtn">安装密钥</button>
-            </div>
-          </details>
-
-          <details class="settings-accordion">
-            <summary class="settings-accordion-summary" data-i18n="tskExtractTitle">TSK 一键提取</summary>
-            <div class="settings-accordion-body">
-              <p class="tsk-section-hint" data-i18n="tskExtractHint">适用于 2021–2023 RAV4 Prime / Sienna 等；offroad 直接 UDS 提取，无需先采 CAN。</p>
-              <button type="button" class="btn block" id="tskExtractBtn" data-i18n="tskExtractBtn">开始 TSK 提取</button>
-            </div>
-          </details>
-
-          <details class="settings-accordion" open>
-            <summary class="settings-accordion-summary" data-i18n="tskCanDfTitle">CAN + DataFlash 查找</summary>
-            <div class="settings-accordion-body">
-              <div class="tsk-steps">
-                <div class="tsk-step">
-                  <span class="tsk-step-dot" id="tskCanDot"></span>
-                  <div class="tsk-step-body">
-                    <div class="tsk-step-title" data-i18n="tskStepCan">1. 采集 CAN</div>
-                    <div class="tsk-step-detail" id="tskCanDetail">READY 模式</div>
-                  </div>
-                  <button type="button" class="btn small" id="tskCanBtn" data-i18n="tskCanBtnStart">开始</button>
-                </div>
-                <div class="tsk-step">
-                  <span class="tsk-step-dot" id="tskDfDot"></span>
-                  <div class="tsk-step-body">
-                    <div class="tsk-step-title" data-i18n="tskStepDf">2. 导出 DataFlash</div>
-                    <div class="tsk-step-detail" id="tskDfDetail">Not Ready to Drive</div>
-                  </div>
-                  <button type="button" class="btn small" id="tskDfBtn" data-i18n="tskCanBtnStart">开始</button>
-                </div>
-              </div>
-              <div class="tsk-actions">
-                <button type="button" class="btn primary block" id="tskMatcherBtn" disabled data-i18n="tskMatcherBtn">查找丰田 SecOC 密钥</button>
-                <button type="button" class="btn ghost small block" id="tskCleanerBtn" disabled data-i18n="tskCleanerBtn">清除提取缓存</button>
-                <button type="button" class="btn ghost small block danger" id="tskUninstallBtn" disabled data-i18n="tskUninstallBtn">卸载密钥</button>
-              </div>
-            </div>
-          </details>
-
-          <div class="tsk-job-panel hidden" id="tskJobPanel">
-            <div class="tsk-job-head">
-              <div class="tsk-job-title" id="tskJobTitle"></div>
-              <button type="button" class="btn ghost small" id="tskCancelJobBtn" data-i18n="tskCancelJobBtn">取消</button>
-            </div>
-            <div class="tsk-job-log" id="tskJobLog"></div>
-          </div>
-          <div class="tsk-finding hidden" id="tskFinding" data-i18n="tskFinding">正在查找密钥…</div>
-
-          <details class="settings-accordion">
-            <summary class="settings-accordion-summary" data-i18n="tskDeviceTitle">设备与服务</summary>
-            <div class="settings-accordion-body tsk-device-actions">
-              <p class="tsk-section-hint" data-i18n="tskDeviceHint">黑屏或提取结束后，可单独重启服务或整机。</p>
-              <button type="button" class="btn block danger" id="tskRebootDeviceBtn" data-i18n="tskRebootDeviceBtn">重启设备</button>
-              <button type="button" class="btn block" id="tskRestartManagerBtn" data-i18n="tskRestartManagerBtn">重启 manager</button>
-              <button type="button" class="btn block" id="tskRestartPandadBtn" data-i18n="tskRestartPandadBtn">重启 pandad</button>
-            </div>
-          </details>
         </div>
 
         <!-- 定时 -->
@@ -598,6 +511,26 @@
             <ul class="dev-item-list" id="tunePassportList"></ul>
           </section>
 
+          <section class="dev-card" aria-labelledby="devCanvasTitle">
+            <div class="dev-card-head">
+              <h3 class="dev-card-title" id="devCanvasTitle">可视化输出</h3>
+              <span class="dev-count-badge" id="devCanvasCount">0</span>
+            </div>
+            <p class="settings-pane-desc dev-canvas-desc">调参报告、图表与结构化结果（随当前会话）</p>
+            <label class="canvas-filter-wrap dev-canvas-filter">
+              <span>筛选</span>
+              <select id="canvasFilter">
+                <option value="all">全部</option>
+                <option value="report">报告</option>
+                <option value="chart">图表</option>
+                <option value="tune">调参</option>
+                <option value="markdown">Markdown</option>
+                <option value="html">HTML</option>
+              </select>
+            </label>
+            <div class="canvas-list canvas-list-embedded" id="canvasList"></div>
+          </section>
+
           <section class="dev-card" aria-labelledby="devAssetsTitle">
             <div class="dev-card-head">
               <h3 class="dev-card-title" id="devAssetsTitle">报告与导出</h3>
@@ -708,50 +641,127 @@
     </div>
   </div>
 
-  <aside class="canvas-panel" id="canvasPanel" aria-hidden="true">
-    <header class="canvas-panel-head">
-      <div>
-        <h3 class="canvas-panel-title">可视化输出</h3>
-        <p class="canvas-panel-desc">调参报告、图表与结构化结果</p>
+  <!-- SecOC modal -->
+  <div id="secocModal" class="modal secoc-modal" hidden>
+    <div class="modal-backdrop" id="secocBackdrop"></div>
+    <div class="modal-content secoc-modal-content">
+      <div class="modal-header secoc-modal-header">
+        <div class="secoc-modal-head-text">
+          <h2 id="secocModalTitle" data-i18n="tabSecoc">SecOC</h2>
+          <p class="settings-pane-desc" id="secocPaneDesc" data-i18n="secocPaneDesc">丰田 SecOC（offroad）。可手动输入密钥、TSK 一键提取，或 CAN+DataFlash 查找安装。</p>
+        </div>
+        <button type="button" id="secocCloseBtn" class="btn icon" aria-label="Close">
+          <svg class="icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg>
+        </button>
       </div>
-      <label class="canvas-filter-wrap">
-        <span>筛选</span>
-        <select id="canvasFilter">
-          <option value="all">全部</option>
-          <option value="report">报告</option>
-          <option value="chart">图表</option>
-          <option value="tune">调参</option>
-          <option value="markdown">Markdown</option>
-          <option value="html">HTML</option>
-        </select>
-      </label>
-      <button type="button" id="canvasCloseBtn" class="btn icon" aria-label="Close canvas">
-        <svg class="icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg>
-      </button>
-    </header>
-    <div class="canvas-list" id="canvasList"></div>
-  </aside>
-  <div class="canvas-backdrop hidden" id="canvasBackdrop"></div>
+      <div class="modal-body secoc-modal-body">
+        <div class="tsk-warning-box" id="tskBlackscreenWarning">
+          <strong data-i18n="tskBlackscreenTitle">黑屏提醒：</strong><span data-i18n="tskBlackscreenBody">提取 / 采集 / 导出期间会停止 manager 与 pandad，屏幕可能黑屏数秒到数分钟，属正常现象。</span>
+        </div>
 
-  <aside class="terminal-panel" id="terminalPanel" aria-hidden="true">
-    <header class="terminal-panel-head">
-      <div>
-        <h3 class="terminal-panel-title">Web 终端</h3>
-        <p class="terminal-panel-desc">行驶中可用诊断 Shell；禁止控车命令</p>
+        <div class="tsk-hero-card tsk-status-card">
+          <div class="tsk-status-row">
+            <span class="tsk-status-dot" id="tskKeyLight"></span>
+            <div>
+              <div class="tsk-status-title" id="tskKeyTitle" data-i18n="tskKeyNotInstalled">密钥未安装</div>
+              <pre class="tsk-key-detail" id="tskKeyDetail"></pre>
+            </div>
+          </div>
+        </div>
+
+        <details class="settings-accordion">
+          <summary class="settings-accordion-summary" data-i18n="tskManualInstallTitle">手动安装密钥</summary>
+          <div class="settings-accordion-body">
+            <label class="field tsk-manual-field">
+              <span class="field-label" data-i18n="tskManualKeyLabel">SecOC Key（32 位 hex）</span>
+              <input type="text" id="tskManualKeyInput" class="tsk-manual-input" data-i18n-placeholder="tskManualKeyPlaceholder" placeholder="例如 a1b2c3d4… 或带空格分组" autocomplete="off" spellcheck="false">
+            </label>
+            <button type="button" class="btn primary block" id="tskManualInstallBtn" data-i18n="tskManualInstallBtn">安装密钥</button>
+          </div>
+        </details>
+
+        <details class="settings-accordion">
+          <summary class="settings-accordion-summary" data-i18n="tskExtractTitle">TSK 一键提取</summary>
+          <div class="settings-accordion-body">
+            <p class="tsk-section-hint" data-i18n="tskExtractHint">适用于 2021–2023 RAV4 Prime / Sienna 等；offroad 直接 UDS 提取，无需先采 CAN。</p>
+            <button type="button" class="btn block" id="tskExtractBtn" data-i18n="tskExtractBtn">开始 TSK 提取</button>
+          </div>
+        </details>
+
+        <details class="settings-accordion" open>
+          <summary class="settings-accordion-summary" data-i18n="tskCanDfTitle">CAN + DataFlash 查找</summary>
+          <div class="settings-accordion-body">
+            <div class="tsk-steps">
+              <div class="tsk-step">
+                <span class="tsk-step-dot" id="tskCanDot"></span>
+                <div class="tsk-step-body">
+                  <div class="tsk-step-title" data-i18n="tskStepCan">1. 采集 CAN</div>
+                  <div class="tsk-step-detail" id="tskCanDetail">READY 模式</div>
+                </div>
+                <button type="button" class="btn small" id="tskCanBtn" data-i18n="tskCanBtnStart">开始</button>
+              </div>
+              <div class="tsk-step">
+                <span class="tsk-step-dot" id="tskDfDot"></span>
+                <div class="tsk-step-body">
+                  <div class="tsk-step-title" data-i18n="tskStepDf">2. 导出 DataFlash</div>
+                  <div class="tsk-step-detail" id="tskDfDetail">Not Ready to Drive</div>
+                </div>
+                <button type="button" class="btn small" id="tskDfBtn" data-i18n="tskCanBtnStart">开始</button>
+              </div>
+            </div>
+            <div class="tsk-actions">
+              <button type="button" class="btn primary block" id="tskMatcherBtn" disabled data-i18n="tskMatcherBtn">查找丰田 SecOC 密钥</button>
+              <button type="button" class="btn ghost small block" id="tskCleanerBtn" disabled data-i18n="tskCleanerBtn">清除提取缓存</button>
+              <button type="button" class="btn ghost small block danger" id="tskUninstallBtn" disabled data-i18n="tskUninstallBtn">卸载密钥</button>
+            </div>
+          </div>
+        </details>
+
+        <div class="tsk-job-panel hidden" id="tskJobPanel">
+          <div class="tsk-job-head">
+            <div class="tsk-job-title" id="tskJobTitle"></div>
+            <button type="button" class="btn ghost small" id="tskCancelJobBtn" data-i18n="tskCancelJobBtn">取消</button>
+          </div>
+          <div class="tsk-job-log" id="tskJobLog"></div>
+        </div>
+        <div class="tsk-finding hidden" id="tskFinding" data-i18n="tskFinding">正在查找密钥…</div>
+
+        <details class="settings-accordion">
+          <summary class="settings-accordion-summary" data-i18n="tskDeviceTitle">设备与服务</summary>
+          <div class="settings-accordion-body tsk-device-actions">
+            <p class="tsk-section-hint" data-i18n="tskDeviceHint">黑屏或提取结束后，可单独重启服务或整机。</p>
+            <button type="button" class="btn block danger" id="tskRebootDeviceBtn" data-i18n="tskRebootDeviceBtn">重启设备</button>
+            <button type="button" class="btn block" id="tskRestartManagerBtn" data-i18n="tskRestartManagerBtn">重启 manager</button>
+            <button type="button" class="btn block" id="tskRestartPandadBtn" data-i18n="tskRestartPandadBtn">重启 pandad</button>
+          </div>
+        </details>
       </div>
-      <button type="button" id="terminalCloseBtn" class="btn icon" aria-label="Close terminal">
-        <svg class="icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg>
-      </button>
-    </header>
-    <div class="terminal-body">
-      <div class="terminal-host" id="terminalHost"></div>
-      <aside class="terminal-sidecar" id="terminalSidecar" aria-label="Tool sidecar">
-        <h4 class="terminal-sidecar-title">工具活动</h4>
-        <ul class="terminal-sidecar-list" id="terminalSidecarList"></ul>
-      </aside>
     </div>
-  </aside>
-  <div class="terminal-backdrop hidden" id="terminalBackdrop"></div>
+  </div>
+
+  <div id="terminalModal" class="modal terminal-modal" hidden>
+    <div class="modal-backdrop" id="terminalBackdrop"></div>
+    <div class="modal-content terminal-modal-content">
+      <div class="modal-header terminal-modal-header">
+        <div class="terminal-modal-head-text">
+          <h2 id="terminalModalTitle">Web 终端</h2>
+          <p class="settings-pane-desc" id="terminalModalDesc">行驶中可用诊断 Shell；禁止控车命令</p>
+        </div>
+        <button type="button" id="terminalCloseBtn" class="btn icon" aria-label="Close terminal">
+          <svg class="icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg>
+        </button>
+      </div>
+      <div class="modal-body terminal-modal-body">
+        <div class="terminal-body">
+          <div class="terminal-host" id="terminalHost"></div>
+          <aside class="terminal-sidecar" id="terminalSidecar" aria-label="Tool sidecar">
+            <h4 class="terminal-sidecar-title">工具活动</h4>
+            <ul class="terminal-sidecar-list" id="terminalSidecarList"></ul>
+          </aside>
+        </div>
+      </div>
+    </div>
+  </div>
 
   <div id="settingsBackdrop" class="settings-backdrop" hidden></div>
 
@@ -842,9 +852,9 @@
   <script src="/static/js/agents-panel.js?v=20260722h"></script>
   <script src="/static/js/office-panel.js?v=20260722l"></script>
   <script src="/static/js/command-queue.js?v=20260722h"></script>
-  <script src="/static/js/canvas-panel.js?v=20260722h"></script>
-  <script src="/static/js/terminal-panel.js?v=20260722h"></script>
-  <script src="/static/js/ai.js?v=20260722l"></script>
-  <script src="/static/js/cabana-panel.js?v=20260715aa"></script>
+  <script src="/static/js/canvas-panel.js?v=20260723a"></script>
+  <script src="/static/js/terminal-panel.js?v=20260723a"></script>
+  <script src="/static/js/ai.js?v=20260723a"></script>
+  <script src="/static/js/cabana-panel.js?v=20260723a"></script>
 </body>
 </html>

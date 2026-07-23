@@ -50,6 +50,10 @@ const els = {
   newSessionBtn: $('#newSessionBtn'),
   activeAgentBadge: $('#activeAgentBadge'),
   officeBtn: $('#officeBtn'),
+  secocBtn: $('#secocBtn'),
+  secocModal: $('#secocModal'),
+  secocBackdrop: $('#secocBackdrop'),
+  secocCloseBtn: $('#secocCloseBtn'),
   agentsSettingsList: $('#agentsSettingsList'),
   agentsSaveBtn: $('#agentsSaveBtn'),
   providerSelect: $('#providerSelect'),
@@ -317,6 +321,7 @@ const JPEG_QUALITY = 0.82;
 
 let pendingImages = [];
 let cabanaOpen = false;
+let secocOpen = false;
 let cabanaInited = false;
 const OPTIONAL_BASE_URL_PROVIDERS = new Set(['qwen', 'minimax', 'mimo', 'bigmodel']);
 
@@ -460,8 +465,8 @@ function applyTranslations() {
   setI18nText('#sessionsTitle', 'sessions', 'Sessions');
   setI18nText('#tabModel', 'tabModel', '模型');
   setI18nText('#tabKnowledge', 'tabKnowledge', '知识库');
-  const tabSecocEl = $('#tabSecoc');
-  if (tabSecocEl) tabSecocEl.textContent = t('tabSecoc', 'SecOC');
+  const tabSecocEl = $('#secocBtn');
+  if (tabSecocEl) tabSecocEl.title = t('tabSecoc', 'SecOC');
   setI18nText('#tabScheduler', 'tabScheduler', '定时');
   setI18nText('#modelPaneDesc', 'modelPaneDesc', '连接服务商、选择对话模型并查看用量。');
   setI18nText('#modelConnectionTitle', 'modelConnectionTitle', '模型连接');
@@ -978,9 +983,11 @@ let notificationsPollTimer = null;
 function syncBodyScrollLock() {
   const locked = Boolean(
     cabanaOpen ||
+    secocOpen ||
     knowledgeOpen ||
     notificationsOpen ||
     (typeof OfficePanel !== 'undefined' && OfficePanel.isOpen()) ||
+    (typeof TerminalPanel !== 'undefined' && TerminalPanel.isOpen()) ||
     els.sessionsPanel?.classList.contains('open') ||
     els.settingsSidebar?.classList.contains('open') ||
     (els.writeConfirmModal && !els.writeConfirmModal.hidden) ||
@@ -1373,6 +1380,7 @@ function switchSession(id) {
   renderSessionList();
   scheduleSessionSync();
   syncActiveSessionStreaming().catch(() => {});
+  if (typeof CanvasPanel !== 'undefined') CanvasPanel.loadSession(id).catch(() => {});
   closeSessionsDrawer();
 }
 
@@ -1486,7 +1494,6 @@ const SETTINGS_TAB_PANES = {
   model: 'paneModel',
   agents: 'paneAgents',
   knowledge: 'paneKnowledge',
-  secoc: 'paneSecoc',
   scheduler: 'paneScheduler',
   dev: 'paneDev',
 };
@@ -1503,7 +1510,24 @@ function syncSettingsSaveBar(tabName) {
   bar.hidden = !show;
 }
 
+function openSecocModal() {
+  secocOpen = true;
+  setOverlayVisible(els.secocModal, true);
+  els.secocBtn?.classList.add('active');
+  if (typeof TskPanel !== 'undefined') TskPanel.startPoll();
+  syncBodyScrollLock();
+}
+
+function closeSecocModal() {
+  secocOpen = false;
+  setOverlayVisible(els.secocModal, false);
+  els.secocBtn?.classList.remove('active');
+  if (typeof TskPanel !== 'undefined') TskPanel.stopPoll();
+  syncBodyScrollLock();
+}
+
 function openSettings(tab) {
+  closeSecocModal();
   closeCabanaModal();
   closeKnowledgeModal();
   closeSessionsDrawer();
@@ -1536,18 +1560,25 @@ function activateSettingsTab(name) {
   syncSettingsSaveBar(tabName);
   tab.scrollIntoView({ inline: 'center', block: 'nearest', behavior: 'smooth' });
   if (tabName === 'scheduler') loadSchedulerPanel();
-  if (tabName === 'dev') renderDevPane();
+  if (tabName === 'dev') {
+    renderDevPane();
+    if (typeof CanvasPanel !== 'undefined') {
+      CanvasPanel.loadSession(SessionStore.activeId).catch(() => {});
+    }
+  }
   if (tabName === 'model') loadUsage();
   if (tabName === 'agents') renderAgentsSettings();
-  if (tabName === 'secoc' && typeof TskPanel !== 'undefined') TskPanel.startPoll();
 }
 
 function openSettingsTab(tab) {
+  if (tab === 'secoc') {
+    openSecocModal();
+    return;
+  }
   openSettings(tab);
 }
 
 function closeSettings() {
-  if (typeof TskPanel !== 'undefined') TskPanel.stopPoll();
   els.settingsSidebar?.classList.remove('open');
   els.settingsSidebar?.setAttribute('aria-hidden', 'true');
   els.settingsBackdrop?.classList.remove('visible');
@@ -1562,9 +1593,7 @@ function closeSettings() {
 function bindSettingsTabs() {
   $$('.settings-tab').forEach((tab) => {
     tab.addEventListener('click', () => {
-      const name = tab.dataset.tab;
-      if (typeof TskPanel !== 'undefined') TskPanel.stopPoll();
-      activateSettingsTab(name);
+      activateSettingsTab(tab.dataset.tab);
     });
   });
 }
@@ -2352,7 +2381,7 @@ function selectSlashCommand(def) {
     autoResize();
     return;
   } else if (def.action === 'secoc') {
-    openSettingsTab('secoc');
+    openSecocModal();
     hideComposerSlashMenu();
     els.chatInput.value = '';
     autoResize();
@@ -2381,7 +2410,7 @@ function selectComposerSlashRoute(routeName) {
 function selectTskSlashItem(item) {
   if (!els.chatInput || !item) return;
   if (item.action === 'secoc') {
-    openSettingsTab('secoc');
+    openSecocModal();
     hideComposerSlashMenu();
     els.chatInput.value = '';
     autoResize();
@@ -2521,7 +2550,7 @@ async function resolveSlashSend(text) {
       return { displayText: trimmed, preview: trimmed, historyContent: buildUserContent(trimmed, []) };
     }
     if (tskItem.action === 'secoc') {
-      openSettingsTab('secoc');
+      openSecocModal();
       return { blockSend: true, handled: true };
     }
     const msg = await buildTskSlashMessage(sub);
@@ -2543,7 +2572,7 @@ async function resolveSlashSend(text) {
     return { blockSend: true, handled: true };
   }
   if (def.action === 'secoc') {
-    openSettingsTab('secoc');
+    openSecocModal();
     return { blockSend: true, handled: true };
   }
   if (def.submenu) return { blockSend: true };
@@ -2853,7 +2882,7 @@ function renderTskUiCard(div, card) {
     ${steps ? `<ul class="tsk-card-steps">${steps}</ul>` : ''}
     ${card.url ? `<button type="button" class="tsk-card-link btn link" data-open-secoc="1">打开 SecOC 设置</button>` : ''}
   `;
-  el.querySelector('[data-open-secoc]')?.addEventListener('click', () => openSettingsTab('secoc'));
+  el.querySelector('[data-open-secoc]')?.addEventListener('click', () => openSecocModal());
 }
 
 function startTskPoll(div, id) {
@@ -4227,6 +4256,10 @@ async function loadDevPane() {
 
 function renderDevPane() {
   loadDevPane().catch(() => {});
+  if (typeof CanvasPanel !== 'undefined') {
+    CanvasPanel.loadSession(SessionStore.activeId).catch(() => {});
+    CanvasPanel.render();
+  }
 }
 
 async function loadStatus() {
@@ -4392,6 +4425,8 @@ function onOverlayKeydown(e) {
   if (usageDetailOpen) { closeUsageDetailModal(); return; }
   if (notificationsOpen) { closeNotificationsPanel(); return; }
   if (cabanaOpen) { closeCabanaModal(); return; }
+  if (secocOpen) { closeSecocModal(); return; }
+  if (typeof TerminalPanel !== 'undefined' && TerminalPanel.isOpen()) { TerminalPanel.setOpen(false); syncBodyScrollLock(); return; }
   if (typeof OfficePanel !== 'undefined' && OfficePanel.isOpen()) { OfficePanel.hide(); syncBodyScrollLock(); return; }
   if (els.settingsSidebar?.classList.contains('open')) { closeSettings(); return; }
   if (els.sessionsPanel?.classList.contains('open')) { closeSessionsDrawer(); }
@@ -4767,6 +4802,15 @@ async function init() {
   bindSettingsTabs();
   bindUiEvents();
   if (typeof TskPanel !== 'undefined') TskPanel.bind();
+  if (typeof TerminalPanel !== 'undefined') {
+    TerminalPanel.init({ onVisibilityChange: () => syncBodyScrollLock() });
+  }
+  els.secocBtn?.addEventListener('click', () => {
+    if (secocOpen) closeSecocModal();
+    else openSecocModal();
+  });
+  els.secocCloseBtn?.addEventListener('click', closeSecocModal);
+  els.secocBackdrop?.addEventListener('click', closeSecocModal);
 
   Theme.init();
   window.addEventListener('themechange', updateThemeIcon);
@@ -4818,9 +4862,8 @@ async function init() {
   }
 
   const settingsTab = new URLSearchParams(location.search).get('settings');
-  if (settingsTab) {
-    openSettingsTab(settingsTab);
-  }
+  if (settingsTab === 'secoc') openSecocModal();
+  else if (settingsTab) openSettingsTab(settingsTab);
 
   await dismissAppSplash();
 }

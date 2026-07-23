@@ -1,5 +1,5 @@
 /**
- * Toyota SecOC / TSK — embedded in op 助手 settings sidebar.
+ * Toyota SecOC / TSK — centered modal + header shortcut.
  */
 const TskPanel = (() => {
   const $ = (id) => document.getElementById(id);

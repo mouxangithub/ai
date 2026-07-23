@@ -13,3 +13,4 @@ data/fork_analysis/
 *.swp
 *~
 .DS_Store
+config.json
