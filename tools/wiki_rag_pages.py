@@ -9,7 +9,7 @@ WIKI_RAG_PAGES: list[dict[str, Any]] = [
     "id": "builtin_wiki_home_0",
     "title": "Wiki: Home",
     "tags": ["wiki","openpilot","comma","home"],
-    "refresh": True,
+    "refresh": False,
     "text": """Source: openpilot Wiki — Home
 https://github.com/commaai/openpilot/wiki/Home
 
@@ -46,7 +46,7 @@ Development with openpilot""",
     "id": "builtin_wiki_faq_0",
     "title": "Wiki: FAQ (1/6)",
     "tags": ["wiki","openpilot","comma","faq"],
-    "refresh": True,
+    "refresh": False,
     "text": """Source: openpilot Wiki — FAQ
 https://github.com/commaai/openpilot/wiki/FAQ
 
@@ -104,7 +104,7 @@ Video of getting the segment ID from comma connect:
     "id": "builtin_wiki_faq_1",
     "title": "Wiki: FAQ (2/6)",
     "tags": ["wiki","openpilot","comma","faq"],
-    "refresh": True,
+    "refresh": False,
     "text": """Source: openpilot Wiki — FAQ
 https://github.com/commaai/openpilot/wiki/FAQ
 
@@ -142,7 +142,7 @@ With comma prime, low quality videos and condensed logs are uploaded constantly.
     "id": "builtin_wiki_faq_2",
     "title": "Wiki: FAQ (3/6)",
     "tags": ["wiki","openpilot","comma","faq"],
-    "refresh": True,
+    "refresh": False,
     "text": """Source: openpilot Wiki — FAQ
 https://github.com/commaai/openpilot/wiki/FAQ
 
@@ -190,7 +190,7 @@ How do I delete my drives?""",
     "id": "builtin_wiki_faq_3",
     "title": "Wiki: FAQ (4/6)",
     "tags": ["wiki","openpilot","comma","faq"],
-    "refresh": True,
+    "refresh": False,
     "text": """Source: openpilot Wiki — FAQ
 https://github.com/commaai/openpilot/wiki/FAQ
 
@@ -222,7 +222,7 @@ The comma two is no longer supported. The most recent software release for the c
     "id": "builtin_wiki_faq_4",
     "title": "Wiki: FAQ (5/6)",
     "tags": ["wiki","openpilot","comma","faq"],
-    "refresh": True,
+    "refresh": False,
     "text": """Source: openpilot Wiki — FAQ
 https://github.com/commaai/openpilot/wiki/FAQ
 
@@ -282,7 +282,7 @@ Ho""",
     "id": "builtin_wiki_faq_5",
     "title": "Wiki: FAQ (6/6)",
     "tags": ["wiki","openpilot","comma","faq"],
-    "refresh": True,
+    "refresh": False,
     "text": """Source: openpilot Wiki — FAQ
 https://github.com/commaai/openpilot/wiki/FAQ
 
@@ -305,7 +305,7 @@ On the mobile app the channel description can be found by dragging from the righ
     "id": "builtin_wiki_troubleshooting_0",
     "title": "Wiki: Troubleshooting (1/3)",
     "tags": ["wiki","openpilot","comma","troubleshooting"],
-    "refresh": True,
+    "refresh": False,
     "text": """Source: openpilot Wiki — Troubleshooting
 https://github.com/commaai/openpilot/wiki/Troubleshooting
 
@@ -376,7 +376,7 @@ Get a better USB cable: thicker gauge and shorter length. The panda outputs at 5
     "id": "builtin_wiki_troubleshooting_1",
     "title": "Wiki: Troubleshooting (2/3)",
     "tags": ["wiki","openpilot","comma","troubleshooting"],
-    "refresh": True,
+    "refresh": False,
     "text": """Source: openpilot Wiki — Troubleshooting
 https://github.com/commaai/openpilot/wiki/Troubleshooting
 
@@ -436,7 +436,7 @@ If the comma device is plugged into the car harness, please proceed.
     "id": "builtin_wiki_troubleshooting_2",
     "title": "Wiki: Troubleshooting (3/3)",
     "tags": ["wiki","openpilot","comma","troubleshooting"],
-    "refresh": True,
+    "refresh": False,
     "text": """Source: openpilot Wiki — Troubleshooting
 https://github.com/commaai/openpilot/wiki/Troubleshooting
 
@@ -480,7 +480,7 @@ tmux a to attach to tmux window\\
     "id": "builtin_wiki_ssh_0",
     "title": "Wiki: SSH (1/8)",
     "tags": ["wiki","openpilot","comma","ssh"],
-    "refresh": True,
+    "refresh": False,
     "text": """Source: openpilot Wiki — SSH
 https://github.com/commaai/openpilot/wiki/SSH
 
@@ -535,7 +535,7 @@ Putty is a simple beginner friendly way to connect to a comma device via SSH.
     "id": "builtin_wiki_ssh_1",
     "title": "Wiki: SSH (2/8)",
     "tags": ["wiki","openpilot","comma","ssh"],
-    "refresh": True,
+    "refresh": False,
     "text": """Source: openpilot Wiki — SSH
 https://github.com/commaai/openpilot/wiki/SSH
 
@@ -568,7 +568,7 @@ Windows 10 and up already comes with a SSH client and has everything you need to
     "id": "builtin_wiki_ssh_2",
     "title": "Wiki: SSH (3/8)",
     "tags": ["wiki","openpilot","comma","ssh"],
-    "refresh": True,
+    "refresh": False,
     "text": """Source: openpilot Wiki — SSH
 https://github.com/commaai/openpilot/wiki/SSH
 
@@ -597,7 +597,7 @@ Option 2.Mac - Pre-installed OpenSSH clie""",
     "id": "builtin_wiki_ssh_3",
     "title": "Wiki: SSH (4/8)",
     "tags": ["wiki","openpilot","comma","ssh"],
-    "refresh": True,
+    "refresh": False,
     "text": """Source: openpilot Wiki — SSH
 https://github.com/commaai/openpilot/wiki/SSH
 
@@ -628,7 +628,7 @@ macOS already comes with a SSH client and has everything you need to SSH into an
     "id": "builtin_wiki_ssh_4",
     "title": "Wiki: SSH (5/8)",
     "tags": ["wiki","openpilot","comma","ssh"],
-    "refresh": True,
+    "refresh": False,
     "text": """Source: openpilot Wiki — SSH
 https://github.com/commaai/openpilot/wiki/SSH
 
@@ -665,7 +665,7 @@ OpenSSH or Similar Client
     "id": "builtin_wiki_ssh_5",
     "title": "Wiki: SSH (6/8)",
     "tags": ["wiki","openpilot","comma","ssh"],
-    "refresh": True,
+    "refresh": False,
     "text": """Source: openpilot Wiki — SSH
 https://github.com/commaai/openpilot/wiki/SSH
 
@@ -733,7 +733,7 @@ Using Putty to connect to ssh.comma.ai is a bit involved.  First, it assumes you
     "id": "builtin_wiki_ssh_6",
     "title": "Wiki: SSH (7/8)",
     "tags": ["wiki","openpilot","comma","ssh"],
-    "refresh": True,
+    "refresh": False,
     "text": """Source: openpilot Wiki — SSH
 https://github.com/commaai/openpilot/wiki/SSH
 
@@ -790,7 +790,7 @@ This is a generic authentication error and could mean many things.  Did you enab
     "id": "builtin_wiki_ssh_7",
     "title": "Wiki: SSH (8/8)",
     "tags": ["wiki","openpilot","comma","ssh"],
-    "refresh": True,
+    "refresh": False,
     "text": """Source: openpilot Wiki — SSH
 https://github.com/commaai/openpilot/wiki/SSH
 
@@ -814,7 +814,7 @@ It is possible to use VSCode Remote to remotely edit on a comma three device as 
     "id": "builtin_wiki_tuning_0",
     "title": "Wiki: Tuning (1/9)",
     "tags": ["wiki","openpilot","comma","tuning"],
-    "refresh": True,
+    "refresh": False,
     "text": """Source: openpilot Wiki — Tuning
 https://github.com/commaai/openpilot/wiki/Tuning
 
@@ -866,7 +866,7 @@ kpBP and kiBP are generally identical. The breakpoint units are meters/s and app
     "id": "builtin_wiki_tuning_1",
     "title": "Wiki: Tuning (2/9)",
     "tags": ["wiki","openpilot","comma","tuning"],
-    "refresh": True,
+    "refresh": False,
     "text": """Source: openpilot Wiki — Tuning
 https://github.com/commaai/openpilot/wiki/Tuning
 
@@ -883,7 +883,7 @@ Conceptual descriptions of the PIDF components:
     "id": "builtin_wiki_tuning_2",
     "title": "Wiki: Tuning (3/9)",
     "tags": ["wiki","openpilot","comma","tuning"],
-    "refresh": True,
+    "refresh": False,
     "text": """Source: openpilot Wiki — Tuning
 https://github.com/commaai/openpilot/wiki/Tuning
 
@@ -906,7 +906,7 @@ If kf is too high, it will turn too hard, pact the correct curvature, or at the 
     "id": "builtin_wiki_tuning_3",
     "title": "Wiki: Tuning (4/9)",
     "tags": ["wiki","openpilot","comma","tuning"],
-    "refresh": True,
+    "refresh": False,
     "text": """Source: openpilot Wiki — Tuning
 https://github.com/commaai/openpilot/wiki/Tuning
 
@@ -933,7 +933,7 @@ INDI Tuning Strategy
     "id": "builtin_wiki_tuning_4",
     "title": "Wiki: Tuning (5/9)",
     "tags": ["wiki","openpilot","comma","tuning"],
-    "refresh": True,
+    "refresh": False,
     "text": """Source: openpilot Wiki — Tuning
 https://github.com/commaai/openpilot/wiki/Tuning
 
@@ -977,7 +977,7 @@ Notes on INDI tuning parameters
     "id": "builtin_wiki_tuning_5",
     "title": "Wiki: Tuning (6/9)",
     "tags": ["wiki","openpilot","comma","tuning"],
-    "refresh": True,
+    "refresh": False,
     "text": """Source: openpilot Wiki — Tuning
 https://github.com/commaai/openpilot/wiki/Tuning
 
@@ -1021,7 +1021,7 @@ tune.kiBP = [0., 5., 12., 20., 27.]""",
     "id": "builtin_wiki_tuning_6",
     "title": "Wiki: Tuning (7/9)",
     "tags": ["wiki","openpilot","comma","tuning"],
-    "refresh": True,
+    "refresh": False,
     "text": """Source: openpilot Wiki — Tuning
 https://github.com/commaai/openpilot/wiki/Tuning
 
@@ -1046,7 +1046,7 @@ Understanding the PI controller
     "id": "builtin_wiki_tuning_7",
     "title": "Wiki: Tuning (8/9)",
     "tags": ["wiki","openpilot","comma","tuning"],
-    "refresh": True,
+    "refresh": False,
     "text": """Source: openpilot Wiki — Tuning
 https://github.com/commaai/openpilot/wiki/Tuning
 
@@ -1087,7 +1087,7 @@ Speed Conversion Table
     "id": "builtin_wiki_tuning_8",
     "title": "Wiki: Tuning (9/9)",
     "tags": ["wiki","openpilot","comma","tuning"],
-    "refresh": True,
+    "refresh": False,
     "text": """Source: openpilot Wiki — Tuning
 https://github.com/commaai/openpilot/wiki/Tuning
 
@@ -1102,7 +1102,7 @@ https://github.com/commaai/openpilot/wiki/Tuning
     "id": "builtin_wiki_development_0",
     "title": "Wiki: Development",
     "tags": ["wiki","openpilot","comma","development"],
-    "refresh": True,
+    "refresh": False,
     "text": """Source: openpilot Wiki — Development
 https://github.com/commaai/openpilot/wiki/Development
 
@@ -1149,7 +1149,7 @@ Other
     "id": "builtin_wiki_installing_openpilot_0",
     "title": "Wiki: Installing openpilot (1/2)",
     "tags": ["wiki","openpilot","comma","installing"],
-    "refresh": True,
+    "refresh": False,
     "text": """Source: openpilot Wiki — Installing openpilot
 https://github.com/commaai/openpilot/wiki/Installing-openpilot
 
@@ -1190,7 +1190,7 @@ If you selected the "Dashcam" software during setup you should uninstall with th
     "id": "builtin_wiki_installing_openpilot_1",
     "title": "Wiki: Installing openpilot (2/2)",
     "tags": ["wiki","openpilot","comma","installing"],
-    "refresh": True,
+    "refresh": False,
     "text": """Source: openpilot Wiki — Installing openpilot
 https://github.com/commaai/openpilot/wiki/Installing-openpilot
 
@@ -1205,7 +1205,7 @@ https://github.com/commaai/openpilot/wiki/Installing-openpilot
     "id": "builtin_wiki_installation_guides_0",
     "title": "Wiki: Installation Guides (1/3)",
     "tags": ["wiki","openpilot","comma","installation"],
-    "refresh": True,
+    "refresh": False,
     "text": """Source: openpilot Wiki — Installation Guides
 https://github.com/commaai/openpilot/wiki/Installation-Guides
 
@@ -1261,7 +1261,7 @@ Aligning and Placing Components
     "id": "builtin_wiki_installation_guides_1",
     "title": "Wiki: Installation Guides (2/3)",
     "tags": ["wiki","openpilot","comma","installation"],
-    "refresh": True,
+    "refresh": False,
     "text": """Source: openpilot Wiki — Installation Guides
 https://github.com/commaai/openpilot/wiki/Installation-Guides
 
@@ -1283,7 +1283,7 @@ comma provides the following instructions in the package:
     "id": "builtin_wiki_installation_guides_2",
     "title": "Wiki: Installation Guides (3/3)",
     "tags": ["wiki","openpilot","comma","installation"],
-    "refresh": True,
+    "refresh": False,
     "text": """Source: openpilot Wiki — Installation Guides
 https://github.com/commaai/openpilot/wiki/Installation-Guides
 
@@ -1313,7 +1313,7 @@ If you are a visual learner, the community has also created some troubleshooting
     "id": "builtin_wiki_general_terms_0",
     "title": "Wiki: General Terms (1/5)",
     "tags": ["wiki","openpilot","comma","general"],
-    "refresh": True,
+    "refresh": False,
     "text": """Source: openpilot Wiki — General Terms
 https://github.com/commaai/openpilot/wiki/General-Terms
 
@@ -1343,7 +1343,7 @@ Lane Change Assist | LCA | Activate the turn signa""",
     "id": "builtin_wiki_general_terms_1",
     "title": "Wiki: General Terms (2/5)",
     "tags": ["wiki","openpilot","comma","general"],
-    "refresh": True,
+    "refresh": False,
     "text": """Source: openpilot Wiki — General Terms
 https://github.com/commaai/openpilot/wiki/General-Terms
 
@@ -1370,7 +1370,7 @@ Model predictive control | mpc | An advanced method of process control that is u
     "id": "builtin_wiki_general_terms_2",
     "title": "Wiki: General Terms (3/5)",
     "tags": ["wiki","openpilot","comma","general"],
-    "refresh": True,
+    "refresh": False,
     "text": """Source: openpilot Wiki — General Terms
 https://github.com/commaai/openpilot/wiki/General-Terms
 
@@ -1400,7 +1400,7 @@ wobble | | Similar to ping pong, but where the vehicle drives mostly centered in
     "id": "builtin_wiki_general_terms_3",
     "title": "Wiki: General Terms (4/5)",
     "tags": ["wiki","openpilot","comma","general"],
-    "refresh": True,
+    "refresh": False,
     "text": """Source: openpilot Wiki — General Terms
 https://github.com/commaai/openpilot/wiki/General-Terms
 
@@ -1432,7 +1432,7 @@ Incremental Non-Linear Dynamic Inversion | INDI | Incremental Nonlinear Dynamic 
     "id": "builtin_wiki_general_terms_4",
     "title": "Wiki: General Terms (5/5)",
     "tags": ["wiki","openpilot","comma","general"],
-    "refresh": True,
+    "refresh": False,
     "text": """Source: openpilot Wiki — General Terms
 https://github.com/commaai/openpilot/wiki/General-Terms
 
@@ -1453,7 +1453,7 @@ For Sale | FS | You want to sell an item (on #for-sale channel)""",
     "id": "builtin_wiki_comma_three_0",
     "title": "Wiki: comma three",
     "tags": ["wiki","openpilot","comma","comma"],
-    "refresh": True,
+    "refresh": False,
     "text": """Source: openpilot Wiki — comma three
 https://github.com/commaai/openpilot/wiki/comma-three
 
@@ -1479,7 +1479,7 @@ Improved software
     "id": "builtin_wiki_honda_acura_0",
     "title": "Wiki: Honda Acura (1/3)",
     "tags": ["wiki","openpilot","comma","honda"],
-    "refresh": True,
+    "refresh": False,
     "text": """Source: openpilot Wiki — Honda Acura
 https://github.com/commaai/openpilot/wiki/Honda-Acura
 
@@ -1505,7 +1505,7 @@ L""",
     "id": "builtin_wiki_honda_acura_1",
     "title": "Wiki: Honda Acura (2/3)",
     "tags": ["wiki","openpilot","comma","honda"],
-    "refresh": True,
+    "refresh": False,
     "text": """Source: openpilot Wiki — Honda Acura
 https://github.com/commaai/openpilot/wiki/Honda-Acura
 
@@ -1539,7 +1539,7 @@ Community forks often implement improvemen""",
     "id": "builtin_wiki_honda_acura_2",
     "title": "Wiki: Honda Acura (3/3)",
     "tags": ["wiki","openpilot","comma","honda"],
-    "refresh": True,
+    "refresh": False,
     "text": """Source: openpilot Wiki — Honda Acura
 https://github.com/commaai/openpilot/wiki/Honda-Acura
 
@@ -1582,7 +1582,7 @@ The Honda Prologue and 2024 Acura ZDX are manufactured by GM, using their Global
     "id": "builtin_wiki_toyota_lexus_0",
     "title": "Wiki: Toyota Lexus (1/5)",
     "tags": ["wiki","openpilot","comma","toyota"],
-    "refresh": True,
+    "refresh": False,
     "text": """Source: openpilot Wiki — Toyota Lexus
 https://github.com/commaai/openpilot/wiki/Toyota-Lexus
 
@@ -1637,7 +1637,7 @@ For 2018-2020 Camry models which don't have Full-Speed Range Dynamic Radar Cruis
     "id": "builtin_wiki_toyota_lexus_1",
     "title": "Wiki: Toyota Lexus (2/5)",
     "tags": ["wiki","openpilot","comma","toyota"],
-    "refresh": True,
+    "refresh": False,
     "text": """Source: openpilot Wiki — Toyota Lexus
 https://github.com/commaai/openpilot/wiki/Toyota-Lexus
 
@@ -1677,7 +1677,7 @@ Road Sign Assist | RSA | The thing that displays speed limit and stop signs on y
     "id": "builtin_wiki_toyota_lexus_2",
     "title": "Wiki: Toyota Lexus (3/5)",
     "tags": ["wiki","openpilot","comma","toyota"],
-    "refresh": True,
+    "refresh": False,
     "text": """Source: openpilot Wiki — Toyota Lexus
 https://github.com/commaai/openpilot/wiki/Toyota-Lexus
 
@@ -1722,7 +1722,7 @@ TSSP vehicle owners have the benefit of choosing to use openpilot or stock ACC, 
     "id": "builtin_wiki_toyota_lexus_3",
     "title": "Wiki: Toyota Lexus (4/5)",
     "tags": ["wiki","openpilot","comma","toyota"],
-    "refresh": True,
+    "refresh": False,
     "text": """Source: openpilot Wiki — Toyota Lexus
 https://github.com/commaai/openpilot/wiki/Toyota-Lexus
 
@@ -1764,7 +1764,7 @@ This has been tested in TSS""",
     "id": "builtin_wiki_toyota_lexus_4",
     "title": "Wiki: Toyota Lexus (5/5)",
     "tags": ["wiki","openpilot","comma","toyota"],
-    "refresh": True,
+    "refresh": False,
     "text": """Source: openpilot Wiki — Toyota Lexus
 https://github.com/commaai/openpilot/wiki/Toyota-Lexus
 
@@ -1786,7 +1786,7 @@ Links:
     "id": "builtin_wiki_ford_0",
     "title": "Wiki: Ford (1/11)",
     "tags": ["wiki","openpilot","comma","ford"],
-    "refresh": True,
+    "refresh": False,
     "text": """Source: openpilot Wiki — Ford
 https://github.com/commaai/openpilot/wiki/Ford
 
@@ -1847,7 +1847,7 @@ If you have a Ford which you think may be compatible, and you're interested in h
     "id": "builtin_wiki_ford_1",
     "title": "Wiki: Ford (2/11)",
     "tags": ["wiki","openpilot","comma","ford"],
-    "refresh": True,
+    "refresh": False,
     "text": """Source: openpilot Wiki — Ford
 https://github.com/commaai/openpilot/wiki/Ford
 
@@ -1887,7 +1887,7 @@ The""",
     "id": "builtin_wiki_ford_2",
     "title": "Wiki: Ford (3/11)",
     "tags": ["wiki","openpilot","comma","ford"],
-    "refresh": True,
+    "refresh": False,
     "text": """Source: openpilot Wiki — Ford
 https://github.com/commaai/openpilot/wiki/Ford
 
@@ -1926,7 +1926,7 @@ graph TD
     "id": "builtin_wiki_ford_3",
     "title": "Wiki: Ford (4/11)",
     "tags": ["wiki","openpilot","comma","ford"],
-    "refresh": True,
+    "refresh": False,
     "text": """Source: openpilot Wiki — Ford
 https://github.com/commaai/openpilot/wiki/Ford
 
@@ -1978,7 +1978,7 @@ PSCM | Power Steeri""",
     "id": "builtin_wiki_ford_4",
     "title": "Wiki: Ford (5/11)",
     "tags": ["wiki","openpilot","comma","ford"],
-    "refresh": True,
+    "refresh": False,
     "text": """Source: openpilot Wiki — Ford
 https://github.com/commaai/openpilot/wiki/Ford
 
@@ -2031,7 +2031,7 @@ The IPMA is responsible for calculating t""",
     "id": "builtin_wiki_ford_5",
     "title": "Wiki: Ford (6/11)",
     "tags": ["wiki","openpilot","comma","ford"],
-    "refresh": True,
+    "refresh": False,
     "text": """Source: openpilot Wiki — Ford
 https://github.com/commaai/openpilot/wiki/Ford
 
@@ -2068,7 +2068,7 @@ It may be pos""",
     "id": "builtin_wiki_ford_6",
     "title": "Wiki: Ford (7/11)",
     "tags": ["wiki","openpilot","comma","ford"],
-    "refresh": True,
+    "refresh": False,
     "text": """Source: openpilot Wiki — Ford
 https://github.com/commaai/openpilot/wiki/Ford
 
@@ -2109,7 +2109,7 @@ The CAN bus from the car should be connected to panda CAN0, the CAN bus from the
     "id": "builtin_wiki_ford_7",
     "title": "Wiki: Ford (8/11)",
     "tags": ["wiki","openpilot","comma","ford"],
-    "refresh": True,
+    "refresh": False,
     "text": """Source: openpilot Wiki — Ford
 https://github.com/commaai/openpilot/wiki/Ford
 
@@ -2167,7 +2167,7 @@ It is found on the vehicles as early as 2017, such as the Ford Fiesta in Europe.
     "id": "builtin_wiki_ford_8",
     "title": "Wiki: Ford (9/11)",
     "tags": ["wiki","openpilot","comma","ford"],
-    "refresh": True,
+    "refresh": False,
     "text": """Source: openpilot Wiki — Ford
 https://github.com/commaai/openpilot/wiki/Ford
 
@@ -2238,7 +2238,7 @@ Connector colour: Black
     "id": "builtin_wiki_ford_9",
     "title": "Wiki: Ford (10/11)",
     "tags": ["wiki","openpilot","comma","ford"],
-    "refresh": True,
+    "refresh": False,
     "text": """Source: openpilot Wiki — Ford
 https://github.com/commaai/openpilot/wiki/Ford
 
@@ -2315,7 +2315,7 @@ Connector colour: Black
     "id": "builtin_wiki_ford_10",
     "title": "Wiki: Ford (11/11)",
     "tags": ["wiki","openpilot","comma","ford"],
-    "refresh": True,
+    "refresh": False,
     "text": """Source: openpilot Wiki — Ford
 https://github.com/commaai/openpilot/wiki/Ford
 
@@ -2352,7 +2352,7 @@ Useful links
     "id": "builtin_wiki_gm_0",
     "title": "Wiki: GM (1/7)",
     "tags": ["wiki","openpilot","comma","gm"],
-    "refresh": True,
+    "refresh": False,
     "text": """Source: openpilot Wiki — GM
 https://github.com/commaai/openpilot/wiki/GM
 
@@ -2383,7 +2383,7 @@ ALL 2024+ GM EVs are using Global B; Therefore, they're unsupported. (N/A†)
     "id": "builtin_wiki_gm_1",
     "title": "Wiki: GM (2/7)",
     "tags": ["wiki","openpilot","comma","gm"],
-    "refresh": True,
+    "refresh": False,
     "text": """Source: openpilot Wiki — GM
 https://github.com/commaai/openpilot/wiki/GM
 
@@ -2410,7 +2410,7 @@ S                      |      |      | GM |      |      |      |      |      |  
     "id": "builtin_wiki_gm_2",
     "title": "Wiki: GM (3/7)",
     "tags": ["wiki","openpilot","comma","gm"],
-    "refresh": True,
+    "refresh": False,
     "text": """Source: openpilot Wiki — GM
 https://github.com/commaai/openpilot/wiki/GM
 
@@ -2438,7 +2438,7 @@ Harnesses
     "id": "builtin_wiki_gm_3",
     "title": "Wiki: GM (4/7)",
     "tags": ["wiki","openpilot","comma","gm"],
-    "refresh": True,
+    "refresh": False,
     "text": """Source: openpilot Wiki — GM
 https://github.com/commaai/openpilot/wiki/GM
 
@@ -2486,7 +2486,7 @@ No steering under 6 MPH is barely noticeable unless you do a lot of gridlock tra
     "id": "builtin_wiki_gm_4",
     "title": "Wiki: GM (5/7)",
     "tags": ["wiki","openpilot","comma","gm"],
-    "refresh": True,
+    "refresh": False,
     "text": """Source: openpilot Wiki — GM
 https://github.com/commaai/openpilot/wiki/GM
 
@@ -2542,7 +2542,7 @@ Homemade OBD-II to OBD-C Harness
     "id": "builtin_wiki_gm_5",
     "title": "Wiki: GM (6/7)",
     "tags": ["wiki","openpilot","comma","gm"],
-    "refresh": True,
+    "refresh": False,
     "text": """Source: openpilot Wiki — GM
 https://github.com/commaai/openpilot/wiki/GM
 
@@ -2595,7 +2595,7 @@ Developmental Programming System""",
     "id": "builtin_wiki_gm_6",
     "title": "Wiki: GM (7/7)",
     "tags": ["wiki","openpilot","comma","gm"],
-    "refresh": True,
+    "refresh": False,
     "text": """Source: openpilot Wiki — GM
 https://github.com/commaai/openpilot/wiki/GM
 
@@ -2615,7 +2615,7 @@ Vehicle Intelligence Platform | VIP | VIP, which has also been referred to as Gl
     "id": "builtin_wiki_fca_0",
     "title": "Wiki: FCA (1/2)",
     "tags": ["wiki","openpilot","comma","fca"],
-    "refresh": True,
+    "refresh": False,
     "text": """Source: openpilot Wiki — FCA
 https://github.com/commaai/openpilot/wiki/FCA
 
@@ -2670,7 +2670,7 @@ Discord user Tunder has a working fork for Ram 1500's.  It is in active developm
     "id": "builtin_wiki_fca_1",
     "title": "Wiki: FCA (2/2)",
     "tags": ["wiki","openpilot","comma","fca"],
-    "refresh": True,
+    "refresh": False,
     "text": """Source: openpilot Wiki — FCA
 https://github.com/commaai/openpilot/wiki/FCA
 
@@ -2690,7 +2690,7 @@ Owners of the above vehicles will need a comma two (c2) or newer and Dev Harness
     "id": "builtin_wiki_hyundai_kia_genesis_0",
     "title": "Wiki: Hyundai Kia Genesis (1/2)",
     "tags": ["wiki","openpilot","comma","hyundai"],
-    "refresh": True,
+    "refresh": False,
     "text": """Source: openpilot Wiki — Hyundai Kia Genesis
 https://github.com/commaai/openpilot/wiki/Hyundai-Kia-Genesis
 
@@ -2795,7 +2795,7 @@ ret.lateralT""",
     "id": "builtin_wiki_hyundai_kia_genesis_1",
     "title": "Wiki: Hyundai Kia Genesis (2/2)",
     "tags": ["wiki","openpilot","comma","hyundai"],
-    "refresh": True,
+    "refresh": False,
     "text": """Source: openpilot Wiki — Hyundai Kia Genesis
 https://github.com/commaai/openpilot/wiki/Hyundai-Kia-Genesis
 
@@ -2816,7 +2816,7 @@ In the future, we will be able to control longitudinally via openpilot for any v
     "id": "builtin_wiki_subaru_0",
     "title": "Wiki: Subaru (1/5)",
     "tags": ["wiki","openpilot","comma","subaru"],
-    "refresh": True,
+    "refresh": False,
     "text": """Source: openpilot Wiki — Subaru
 https://github.com/commaai/openpilot/wiki/Subaru
 
@@ -2859,7 +2859,7 @@ There is no indication that modern Subaru EyeSight systems are encrypte""",
     "id": "builtin_wiki_subaru_1",
     "title": "Wiki: Subaru (2/5)",
     "tags": ["wiki","openpilot","comma","subaru"],
-    "refresh": True,
+    "refresh": False,
     "text": """Source: openpilot Wiki — Subaru
 https://github.com/commaai/openpilot/wiki/Subaru
 
@@ -2918,7 +2918,7 @@ Pre-global
     "id": "builtin_wiki_subaru_2",
     "title": "Wiki: Subaru (3/5)",
     "tags": ["wiki","openpilot","comma","subaru"],
-    "refresh": True,
+    "refresh": False,
     "text": """Source: openpilot Wiki — Subaru
 https://github.com/commaai/openpilot/wiki/Subaru
 
@@ -2947,7 +2947,7 @@ Work in progress
     "id": "builtin_wiki_subaru_3",
     "title": "Wiki: Subaru (4/5)",
     "tags": ["wiki","openpilot","comma","subaru"],
-    "refresh": True,
+    "refresh": False,
     "text": """Source: openpilot Wiki — Subaru
 https://github.com/commaai/openpilot/wiki/Subaru
 
@@ -3028,7 +3028,7 @@ Subaru A to Subaru B car harness conversion
     "id": "builtin_wiki_subaru_4",
     "title": "Wiki: Subaru (5/5)",
     "tags": ["wiki","openpilot","comma","subaru"],
-    "refresh": True,
+    "refresh": False,
     "text": """Source: openpilot Wiki — Subaru
 https://github.com/commaai/openpilot/wiki/Subaru
 
@@ -3041,7 +3041,7 @@ Can1 High
     "id": "builtin_wiki_mazda_0",
     "title": "Wiki: Mazda (1/3)",
     "tags": ["wiki","openpilot","comma","mazda"],
-    "refresh": True,
+    "refresh": False,
     "text": """Source: openpilot Wiki — Mazda
 https://github.com/commaai/openpilot/wiki/Mazda
 
@@ -3087,7 +3087,7 @@ ret.das""",
     "id": "builtin_wiki_mazda_1",
     "title": "Wiki: Mazda (2/3)",
     "tags": ["wiki","openpilot","comma","mazda"],
-    "refresh": True,
+    "refresh": False,
     "text": """Source: openpilot Wiki — Mazda
 https://github.com/commaai/openpilot/wiki/Mazda
 
@@ -3150,7 +3150,7 @@ Developer TODOs
     "id": "builtin_wiki_mazda_2",
     "title": "Wiki: Mazda (3/3)",
     "tags": ["wiki","openpilot","comma","mazda"],
-    "refresh": True,
+    "refresh": False,
     "text": """Source: openpilot Wiki — Mazda
 https://github.com/commaai/openpilot/wiki/Mazda
 
@@ -3166,7 +3166,7 @@ See Also
     "id": "builtin_wiki_volvo_0",
     "title": "Wiki: Volvo",
     "tags": ["wiki","openpilot","comma","volvo"],
-    "refresh": True,
+    "refresh": False,
     "text": """Source: openpilot Wiki — Volvo
 https://github.com/commaai/openpilot/wiki/Volvo
 
@@ -3180,7 +3180,7 @@ Join the #volvo channel on the comma discord.""",
     "id": "builtin_wiki_rivian_0",
     "title": "Wiki: Rivian",
     "tags": ["wiki","openpilot","comma","rivian"],
-    "refresh": True,
+    "refresh": False,
     "text": """Source: openpilot Wiki — Rivian
 https://github.com/commaai/openpilot/wiki/Rivian
 

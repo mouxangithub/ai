@@ -10,7 +10,12 @@ from openpilot.common.params import Params
 from ai.tools.comma_docs_rag import COMMA_DOCS_RAG
 from ai.tools.secoc_rag import SECOC_RAG
 from ai.tools.wiki_rag import WIKI_RAG
-from ai.tools.rag_store import list_documents, remove_document, upsert_document_sync
+from ai.tools.rag_store import (
+  _MAX_DOC_CHARS,
+  _MAX_DOCS,
+  _load_docs,
+  _save_docs,
+)
 
 _BUILTIN_PREFIX = "builtin_"
 
@@ -207,52 +212,56 @@ manager 离路且电压>9V、非计量网络时 systemctl 启停；github_runner
 
 
 def ensure_builtin_rag_docs(params: Params | None = None) -> dict[str, Any]:
-  """Insert or refresh built-in FAQ docs (idempotent per doc id)."""
+  """Insert or refresh built-in FAQ docs (single load/save batch)."""
   params = params or Params()
-  existing = list_documents(params).get("documents") or []
-  existing_ids = {str(d.get("id", "")) for d in existing}
+  docs = _load_docs(params)
+  by_id: dict[str, dict[str, Any]] = {str(d.get("id", "")): d for d in docs if d.get("id")}
 
   removed = 0
   for old_id in _DEPRECATED_BUILTIN_IDS:
-    if old_id in existing_ids:
-      try:
-        remove_document(params, old_id)
-        removed += 1
-        existing_ids.discard(old_id)
-      except Exception:
-        pass
+    if old_id in by_id:
+      by_id.pop(old_id, None)
+      removed += 1
 
   seeded = 0
   refreshed = 0
   skipped = 0
-  errors: list[str] = []
+  now = int(time.time())
   for doc in _BUILTIN_DOCS:
-    doc_id = doc["id"]
-    should_write = doc_id not in existing_ids or doc.get("refresh")
+    doc_id = str(doc["id"])
+    should_write = doc_id not in by_id or doc.get("refresh")
     if not should_write:
       skipped += 1
       continue
-    try:
-      upsert_document_sync(
-        params,
-        title=doc["title"],
-        text=doc["text"],
-        tags=doc.get("tags"),
-        doc_id=doc_id,
-      )
-      if doc_id in existing_ids:
-        refreshed += 1
-      else:
-        seeded += 1
-    except Exception as e:
-      errors.append(f"{doc_id}: {e}")
+    text = str(doc.get("text") or "").strip()
+    if not text:
+      continue
+    if len(text) > _MAX_DOC_CHARS:
+      text = text[:_MAX_DOC_CHARS]
+    prev = by_id.get(doc_id)
+    by_id[doc_id] = {
+      "id": doc_id,
+      "title": str(doc.get("title") or "Untitled").strip(),
+      "text": text,
+      "tags": doc.get("tags") or [],
+      "at": now,
+      "embedded": bool(prev.get("embedded")) if prev else False,
+      "chunk_count": int(prev.get("chunk_count") or 0) if prev else 0,
+    }
+    if prev:
+      refreshed += 1
+    else:
+      seeded += 1
+
+  _save_docs(params, list(by_id.values()))
   return {
-    "ok": len(errors) == 0,
+    "ok": True,
     "seeded": seeded,
     "refreshed": refreshed,
     "removed": removed,
     "skipped": skipped,
     "total": len(_BUILTIN_DOCS),
-    "errors": errors[:5],
-    "at": int(time.time()),
+    "stored": min(len(by_id), _MAX_DOCS),
+    "errors": [],
+    "at": now,
   }

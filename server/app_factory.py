@@ -21,7 +21,30 @@ from ai.web_auth import ai_auth_middleware
 _PARAMS = params()
 
 
-async def _startup_rag_reindex() -> None:
+async def _startup_rag_seed_and_reindex() -> None:
+  """Seed built-in RAG off the event loop, then optionally reindex vectors."""
+  loop = asyncio.get_event_loop()
+  try:
+    from ai.tools.rag_sync_tools import sync_knowledge_from_docs
+    doc_sync = await loop.run_in_executor(
+      None, lambda: sync_knowledge_from_docs(_PARAMS, max_files=60)
+    )
+    if doc_sync.get("indexed"):
+      cloudlog.info(f"aid: doc sync indexed={doc_sync.get('indexed')}")
+  except Exception as e:
+    cloudlog.warning(f"aid: doc sync skipped: {e}")
+  try:
+    from ai.tools.rag_seed import ensure_builtin_rag_docs
+    from ai.tools.rag_extra_seed import ensure_extra_rag_docs
+    result = await loop.run_in_executor(None, ensure_builtin_rag_docs, _PARAMS)
+    extra = await loop.run_in_executor(None, ensure_extra_rag_docs, _PARAMS)
+    if result.get("seeded") or result.get("refreshed") or extra.get("seeded"):
+      cloudlog.info(
+        f"aid: RAG seed builtin={result.get('seeded')} refreshed={result.get('refreshed')} "
+        f"stored={result.get('stored')} extra={extra.get('seeded')} v={extra.get('version')}"
+      )
+  except Exception as e:
+    cloudlog.warning(f"aid: builtin RAG seed skipped: {e}")
   try:
     config = read_ai_config()
     embed_cfg = load_embedding_config(_PARAMS, config)
@@ -91,25 +114,10 @@ def create_app() -> web.Application:
       cloudlog.warning(f"aid: workspace seed skipped: {e}")
     try:
       ensure_default_scheduler_tasks(_PARAMS)
-      from ai.tools.rag_sync_tools import sync_knowledge_from_docs
-      doc_sync = sync_knowledge_from_docs(_PARAMS, max_files=60)
-      if doc_sync.get("indexed"):
-        cloudlog.info(f"aid: doc sync indexed={doc_sync.get('indexed')}")
       application["memory_index_task"] = asyncio.create_task(_startup_memory_index())
     except Exception as e:
-      cloudlog.warning(f"aid: default scheduler/doc sync skipped: {e}")
-    try:
-      from ai.tools.rag_seed import ensure_builtin_rag_docs
-      from ai.tools.rag_extra_seed import ensure_extra_rag_docs
-      result = ensure_builtin_rag_docs(_PARAMS)
-      extra = ensure_extra_rag_docs(_PARAMS)
-      if result.get("seeded") or result.get("refreshed") or extra.get("seeded"):
-        cloudlog.info(
-          f"aid: RAG seed builtin={result.get('seeded')} extra={extra.get('seeded')} v={extra.get('version')}"
-        )
-      application["rag_reindex_task"] = asyncio.create_task(_startup_rag_reindex())
-    except Exception as e:
-      cloudlog.warning(f"aid: builtin RAG seed skipped: {e}")
+      cloudlog.warning(f"aid: default scheduler skipped: {e}")
+    application["rag_reindex_task"] = asyncio.create_task(_startup_rag_seed_and_reindex())
     try:
       from ai.skills.snapshot import warm_skills_snapshot
       from ai.chat_jobs import ensure_stuck_watchdog

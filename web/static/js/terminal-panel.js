@@ -76,6 +76,7 @@ const TerminalPanel = (() => {
       term = new Terminal({
         cursorBlink: true,
         fontSize: 13,
+        lineHeight: 1.35,
         fontFamily: 'Consolas, "Cascadia Mono", "SF Mono", Menlo, monospace',
         theme: { background: '#0d1117', foreground: '#e6edf3' },
       });
@@ -110,6 +111,15 @@ const TerminalPanel = (() => {
     fitTerminal();
   }
 
+  let connectTimer = null;
+
+  function clearConnectTimer() {
+    if (connectTimer) {
+      clearTimeout(connectTimer);
+      connectTimer = null;
+    }
+  }
+
   function startAiOnly() {
     enableAiOnlyMode({ clear: true, reason: 'op助手 Web 终端 — AI 模式（本机无 PTY）' });
   }
@@ -132,7 +142,16 @@ const TerminalPanel = (() => {
       return;
     }
 
+    clearConnectTimer();
+    connectTimer = setTimeout(() => {
+      if (!ws || ws.readyState === WebSocket.OPEN || aiOnly) return;
+      try { ws.close(); } catch {}
+      term.writeln('\r\n\x1b[33m连接超时 — 已切换 AI 模式（服务可能仍在启动）\x1b[0m');
+      startAiOnly();
+    }, 10000);
+
     ws.onopen = () => {
+      clearConnectTimer();
       term.writeln('\x1b[32m已连接\x1b[0m');
       if (typeof TerminalAi !== 'undefined') TerminalAi.printHelp(term);
       term.writeln('');
@@ -145,12 +164,14 @@ const TerminalPanel = (() => {
       else term.write(new Uint8Array(ev.data));
     };
     ws.onclose = () => {
+      clearConnectTimer();
       if (!aiOnly) {
         term.writeln('\r\n\x1b[33mShell 连接已关闭 — 可继续用 AI，或关闭后重开尝试重连\x1b[0m');
         enableAiOnlyMode({ clear: false });
       }
     };
     ws.onerror = () => {
+      clearConnectTimer();
       if (!aiOnly) {
         term.writeln('\r\n\x1b[31m终端连接错误\x1b[0m');
         enableAiOnlyMode({ clear: false });
@@ -159,6 +180,7 @@ const TerminalPanel = (() => {
   }
 
   function disconnect() {
+    clearConnectTimer();
     if (ws) {
       try { ws.close(); } catch {}
       ws = null;

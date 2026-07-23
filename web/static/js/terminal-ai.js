@@ -8,6 +8,19 @@ const TerminalAi = (() => {
   let activeJobId = null;
   let lineBuffer = '';
 
+  const ANSI = {
+    reset: '\x1b[0m',
+    dim: '\x1b[90m',
+    bold: '\x1b[1m',
+    italic: '\x1b[3m',
+    cyan: '\x1b[36m',
+    brightCyan: '\x1b[96m',
+    green: '\x1b[32m',
+    yellow: '\x1b[33m',
+    red: '\x1b[31m',
+    blue: '\x1b[34m',
+  };
+
   function init(d = {}) {
     deps = d;
   }
@@ -22,10 +35,89 @@ const TerminalAi = (() => {
       .replace(/[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/g, '');
   }
 
+  /** Remove function-call syntax some models leak into content. */
+  function stripLeakedToolCalls(text) {
+    if (!text) return '';
+    let s = String(text);
+    let out = '';
+    let i = 0;
+    while (i < s.length) {
+      const rest = s.slice(i);
+      const m = rest.match(/(?:^|\s)(functions\.[a-zA-Z_][\w.]*)\s*:/);
+      if (!m || m.index === undefined) {
+        out += rest;
+        break;
+      }
+      const lead = m[0].startsWith(' ') ? 1 : 0;
+      const start = i + m.index + lead;
+      out += s.slice(i, start);
+      i = start + m[1].length + 1;
+      while (i < s.length && s[i] !== '\n') i += 1;
+    }
+    return out.replace(/\n{3,}/g, '\n\n').trimEnd();
+  }
+
+  function formatToolLabel(name) {
+    const n = String(name || 'tool');
+    return n.replace(/^functions\./, '').replace(/_/g, ' ');
+  }
+
+  function formatInlineMarkdown(text) {
+    const R = ANSI.reset;
+    let out = String(text || '');
+    out = out.replace(/`([^`\n]+)`/g, `${ANSI.brightCyan}$1${R}`);
+    out = out.replace(/\*\*([^*\n]+)\*\*/g, `${ANSI.bold}$1${R}`);
+    out = out.replace(/__([^_\n]+)__/g, `${ANSI.bold}$1${R}`);
+    out = out.replace(/(^|[^*])\*([^*\n]+)\*([^*]|$)/g, `$1${ANSI.italic}$2${R}$3`);
+    return out;
+  }
+
+  function formatTerminalLine(line) {
+    const raw = String(line || '').trimEnd();
+    if (!raw.trim()) return '';
+
+    const plain = raw.trim();
+    if (/^[-*_]{3,}$/.test(plain)) {
+      return `${ANSI.dim}${'─'.repeat(Math.min(plain.length, 48))}${ANSI.reset}`;
+    }
+
+    const heading = plain.match(/^(#{1,6})\s+(.+)$/);
+    if (heading) {
+      const level = heading[1].length;
+      const color = level <= 2 ? ANSI.bold + ANSI.cyan : ANSI.cyan;
+      return `${color}${formatInlineMarkdown(heading[2])}${ANSI.reset}`;
+    }
+
+    const bullet = plain.match(/^(\s*)[-*+]\s+(.+)$/);
+    if (bullet) {
+      const pad = bullet[1].replace(/\t/g, '  ');
+      return `${pad}${ANSI.yellow}•${ANSI.reset} ${formatInlineMarkdown(bullet[2])}`;
+    }
+
+    const numbered = plain.match(/^(\s*)(\d+)[.)]\s+(.+)$/);
+    if (numbered) {
+      return `${numbered[1]}${ANSI.yellow}${numbered[2]}.${ANSI.reset} ${formatInlineMarkdown(numbered[3])}`;
+    }
+
+    const quote = plain.match(/^>\s?(.+)$/);
+    if (quote) {
+      return `${ANSI.dim}│ ${formatInlineMarkdown(quote[1])}${ANSI.reset}`;
+    }
+
+    if (/^(建议|结论|总结|注意|提示|状态|结果)[:：]/.test(plain)) {
+      return `${ANSI.bold}${formatInlineMarkdown(plain)}${ANSI.reset}`;
+    }
+
+    return formatInlineMarkdown(plain);
+  }
+
   class TermInlineWriter {
     constructor(term) {
       this.term = term;
       this.buf = { content: '', reasoning: '' };
+      this.processing = false;
+      this.replyStarted = false;
+      this.inCodeBlock = false;
     }
 
     cols() {
@@ -38,29 +130,77 @@ const TerminalAi = (() => {
       } catch {}
     }
 
-    wrapLines(text) {
-      const max = this.cols();
-      const out = [];
-      let remaining = String(text || '').replace(/\r/g, '');
-      while (remaining.length > 0) {
-        if (remaining.length <= max) {
-          out.push(remaining);
-          break;
-        }
-        let breakAt = max;
-        const slice = remaining.slice(0, max + 1);
-        const lastSpace = slice.lastIndexOf(' ');
-        if (lastSpace > max * 0.4) breakAt = lastSpace;
-        out.push(remaining.slice(0, breakAt).trimEnd());
-        remaining = remaining.slice(breakAt).trimStart();
-      }
-      return out.length ? out : [''];
+    clearProcessingLine() {
+      if (!this.processing || !this.term) return;
+      try {
+        this.term.write('\x1b[1A\x1b[2K');
+      } catch {}
+      this.processing = false;
     }
 
-    writelnStyled(text, style = '') {
-      if (!this.term || text === '') return;
-      for (const line of this.wrapLines(text)) {
-        this.term.writeln(style ? `${style}${line}\x1b[0m` : line);
+    beginReply() {
+      if (this.replyStarted) return;
+      this.clearProcessingLine();
+      this.replyStarted = true;
+      this.term?.writeln(`${ANSI.cyan}${ANSI.bold}[op助手]${ANSI.reset}`);
+    }
+
+    writeFormattedLine(rawLine, { isReasoning = false } = {}) {
+      if (!this.term) return;
+      if (!String(rawLine || '').trim()) {
+        this.term.writeln('');
+        this.scrollBottom();
+        return;
+      }
+
+      const cleaned = stripLeakedToolCalls(rawLine);
+      if (!cleaned.trim()) return;
+
+      if (cleaned.trim().startsWith('```')) {
+        this.inCodeBlock = !this.inCodeBlock;
+        this.term.writeln(
+          this.inCodeBlock
+            ? `${ANSI.dim}  ┌─ code ─${ANSI.reset}`
+            : `${ANSI.dim}  └────────${ANSI.reset}`,
+        );
+        this.scrollBottom();
+        return;
+      }
+
+      const wrapIndent = isReasoning ? 10 : 2;
+      const max = Math.max(20, this.cols() - wrapIndent);
+
+      const wrap = (text) => {
+        const out = [];
+        let remaining = String(text || '').replace(/\r/g, '');
+        while (remaining.length > 0) {
+          if (remaining.length <= max) {
+            out.push(remaining);
+            break;
+          }
+          let breakAt = max;
+          const slice = remaining.slice(0, max + 1);
+          const lastSpace = slice.lastIndexOf(' ');
+          if (lastSpace > max * 0.35) breakAt = lastSpace;
+          out.push(remaining.slice(0, breakAt).trimEnd());
+          remaining = remaining.slice(breakAt).trimStart();
+        }
+        return out.length ? out : [''];
+      };
+
+      if (this.inCodeBlock) {
+        for (const part of wrap(cleaned)) {
+          this.term.writeln(`${ANSI.dim}  │ ${part}${ANSI.reset}`);
+        }
+      } else {
+        for (const part of wrap(cleaned)) {
+          const formatted = formatTerminalLine(part);
+          if (isReasoning) {
+            this.term.writeln(`${ANSI.dim}  [思考] ${formatted}${ANSI.reset}`);
+          } else {
+            this.term.writeln(`  ${formatted}`);
+          }
+        }
       }
       this.scrollBottom();
     }
@@ -71,10 +211,12 @@ const TerminalAi = (() => {
       if (nl === -1) return;
       const line = buf.slice(0, nl);
       this.buf[key] = buf.slice(nl + 1);
+
       if (key === 'reasoning') {
-        this.writelnStyled(`[思考] ${line}`, '\x1b[90m');
+        this.writeFormattedLine(line, { isReasoning: true });
       } else {
-        this.writelnStyled(line);
+        this.beginReply();
+        this.writeFormattedLine(line);
       }
       if (this.buf[key]) this.flushBuf(key);
     }
@@ -87,35 +229,52 @@ const TerminalAi = (() => {
 
     flushAll() {
       for (const key of ['reasoning', 'content']) {
-        const text = this.buf[key].trim();
+        const text = this.buf[key];
         if (!text) continue;
         if (key === 'reasoning') {
-          this.writelnStyled(`[思考] ${text}`, '\x1b[90m');
+          const trimmed = text.trim();
+          if (trimmed) this.writeFormattedLine(trimmed, { isReasoning: true });
         } else {
-          this.writelnStyled(text);
+          this.beginReply();
+          for (const line of text.split('\n')) {
+            this.writeFormattedLine(line);
+          }
         }
         this.buf[key] = '';
       }
+      this.scrollBottom();
     }
 
     toolCall(name) {
       if (!this.term) return;
-      this.term.writeln(`\x1b[33m  ▸ ${name || 'tool'}\x1b[0m`);
+      this.beginReply();
+      const label = formatToolLabel(name);
+      this.term.writeln(`${ANSI.dim}  ▸ ${label}${ANSI.reset}`);
       this.scrollBottom();
     }
 
     toolResult(ok) {
       if (!this.term) return;
-      this.term.writeln(`\x1b[${ok ? '32' : '31'}m    ${ok ? '✓' : '✗'}\x1b[0m`);
+      const mark = ok ? `${ANSI.green}✓` : `${ANSI.red}✗`;
+      this.term.writeln(`${ANSI.dim}    ${mark}${ANSI.reset}`);
       this.scrollBottom();
     }
 
     error(msg) {
-      this.writelnStyled(`[错误] ${msg}`, '\x1b[31m');
+      this.clearProcessingLine();
+      this.term?.writeln(`${ANSI.red}  [错误] ${msg}${ANSI.reset}`);
+      this.scrollBottom();
     }
 
     done(statusText) {
-      if (statusText) this.writelnStyled(`[op助手] ${statusText}`, '\x1b[90m');
+      this.clearProcessingLine();
+      if (statusText) {
+        this.term?.writeln(`${ANSI.dim}  [op助手] ${statusText}${ANSI.reset}`);
+      }
+    }
+
+    markProcessing() {
+      this.processing = true;
     }
   }
 
@@ -247,6 +406,7 @@ const TerminalAi = (() => {
 
     writeln(term, `\x1b[36m[你]\x1b[0m ${query}`);
     shellHint(term, '[op助手] 处理中…');
+    writer.markProcessing();
 
     try {
       const messages = prepareMessages(session, query);
@@ -284,7 +444,7 @@ const TerminalAi = (() => {
       deps.SessionStore.setActiveJobId?.(sessionId, startData.jobId);
       await pollJob(startData.jobId, writer);
       deps.syncSessionsToDevice?.().catch(() => {});
-      writeln(term, '');
+      if (writer.replyStarted) writeln(term, '');
     } catch (e) {
       writer.error(e?.message || String(e));
     } finally {

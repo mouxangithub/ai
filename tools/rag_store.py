@@ -15,9 +15,9 @@ from ai.common.storage import read_param, write_param
 from ai.tools.rag_vectors import chunk_count, remove_doc_chunks, replace_doc_chunks, search_vector_chunks
 
 _RAG_KEY = "ai_rag_documents"
-_MAX_DOCS = 80
+_MAX_DOCS = 512
 _MAX_DOC_CHARS = 24000
-_MAX_TOTAL_CHARS = 400000
+_MAX_TOTAL_CHARS = 2_000_000
 _CHUNK_SIZE = 900
 _CHUNK_OVERLAP = 120
 

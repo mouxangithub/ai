@@ -94,7 +94,7 @@ async function main() {
         id: c.id,
         title: chunks.length > 1 ? `${src.title} (${i + 1}/${chunks.length})` : src.title,
         tags: src.tags,
-        refresh: true,
+        refresh: false,
         text: `Source: ${src.repo} — ${src.path}\n${sourceUrl}\n\n${c.text}`,
       });
     });
@@ -116,7 +116,7 @@ async function main() {
     lines.push(`    "id": ${JSON.stringify(d.id)},`);
     lines.push(`    "title": ${JSON.stringify(d.title)},`);
     lines.push(`    "tags": ${tags},`);
-    lines.push('    "refresh": True,');
+    lines.push('    "refresh": False,');
     lines.push(`    "text": """${text}""",`);
     lines.push('  },');
   }

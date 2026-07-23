@@ -132,7 +132,15 @@
   flex: 1;
   min-height: 0;
   min-width: 0;
-  padding: 4px 8px 8px;
+  padding: 6px 10px 10px;
+}
+
+.terminal-host .xterm {
+  padding: 2px 0;
+}
+
+.terminal-host .xterm-viewport {
+  overflow-y: auto !important;
 }
 
 .terminal-sidecar {

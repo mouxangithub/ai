@@ -9,7 +9,7 @@ SECOC_RAG_PAGES: list[dict[str, Any]] = [
     "id": "builtin_secoc_optskug_docs_readme_md_0",
     "title": "optskug SecOC Setup Guide (1/85)",
     "tags": ["secoc","optskug","toyota","setup"],
-    "refresh": True,
+    "refresh": False,
     "text": """Source: optskug/docs — README.md
 https://github.com/optskug/docs/blob/main/README.md
 
@@ -52,7 +52,7 @@ Table of Contents
     "id": "builtin_secoc_optskug_docs_readme_md_1",
     "title": "optskug SecOC Setup Guide (2/85)",
     "tags": ["secoc","optskug","toyota","setup"],
-    "refresh": True,
+    "refresh": False,
     "text": """Source: optskug/docs — README.md
 https://github.com/optskug/docs/blob/main/README.md
 
@@ -83,7 +83,7 @@ Most work on the issue still builds on what Willem and Greg accomplished. As of 
     "id": "builtin_secoc_optskug_docs_readme_md_2",
     "title": "optskug SecOC Setup Guide (3/85)",
     "tags": ["secoc","optskug","toyota","setup"],
-    "refresh": True,
+    "refresh": False,
     "text": """Source: optskug/docs — README.md
 https://github.com/optskug/docs/blob/main/README.md
 
@@ -118,7 +118,7 @@ If it is on https://comma.ai/vehicles#toyota, then it's not in question and is s
     "id": "builtin_secoc_optskug_docs_readme_md_3",
     "title": "optskug SecOC Setup Guide (4/85)",
     "tags": ["secoc","optskug","toyota","setup"],
-    "refresh": True,
+    "refresh": False,
     "text": """Source: optskug/docs — README.md
 https://github.com/optskug/docs/blob/main/README.md
 
@@ -165,7 +165,7 @@ Follow the Setup Guide (#setup-guide) below and you'll have it working.
     "id": "builtin_secoc_optskug_docs_readme_md_4",
     "title": "optskug SecOC Setup Guide (5/85)",
     "tags": ["secoc","optskug","toyota","setup"],
-    "refresh": True,
+    "refresh": False,
     "text": """Source: optskug/docs — README.md
 https://github.com/optskug/docs/blob/main/README.md
 
@@ -206,7 +206,7 @@ These cars have credible community reports of working openpilot control, but the
     "id": "builtin_secoc_optskug_docs_readme_md_5",
     "title": "optskug SecOC Setup Guide (6/85)",
     "tags": ["secoc","optskug","toyota","setup"],
-    "refresh": True,
+    "refresh": False,
     "text": """Source: optskug/docs — README.md
 https://github.com/optskug/docs/blob/main/README.md
 
@@ -235,7 +235,7 @@ Related vehicles such as 🟠 2023+ Sienna (Mainland China-made) (#-may-be-possi
     "id": "builtin_secoc_optskug_docs_readme_md_6",
     "title": "optskug SecOC Setup Guide (7/85)",
     "tags": ["secoc","optskug","toyota","setup"],
-    "refresh": True,
+    "refresh": False,
     "text": """Source: optskug/docs — README.md
 https://github.com/optskug/docs/blob/main/README.md
 
@@ -265,7 +265,7 @@ If you have one of these cars, please stop by the comma Discord (https://discord
     "id": "builtin_secoc_optskug_docs_readme_md_7",
     "title": "optskug SecOC Setup Guide (8/85)",
     "tags": ["secoc","optskug","toyota","setup"],
-    "refresh": True,
+    "refresh": False,
     "text": """Source: optskug/docs — README.md
 https://github.com/optskug/docs/blob/main/README.md
 
@@ -300,7 +300,7 @@ These fall into a few categories:
     "id": "builtin_secoc_optskug_docs_readme_md_8",
     "title": "optskug SecOC Setup Guide (9/85)",
     "tags": ["secoc","optskug","toyota","setup"],
-    "refresh": True,
+    "refresh": False,
     "text": """Source: optskug/docs — README.md
 https://github.com/optskug/docs/blob/main/README.md
 
@@ -343,7 +343,7 @@ The List:
     "id": "builtin_secoc_optskug_docs_readme_md_9",
     "title": "optskug SecOC Setup Guide (10/85)",
     "tags": ["secoc","optskug","toyota","setup"],
-    "refresh": True,
+    "refresh": False,
     "text": """Source: optskug/docs — README.md
 https://github.com/optskug/docs/blob/main/README.md
 
@@ -375,7 +375,7 @@ ificial EPS reverse-engineering path.
     "id": "builtin_secoc_optskug_docs_readme_md_10",
     "title": "optskug SecOC Setup Guide (11/85)",
     "tags": ["secoc","optskug","toyota","setup"],
-    "refresh": True,
+    "refresh": False,
     "text": """Source: optskug/docs — README.md
 https://github.com/optskug/docs/blob/main/README.md
 
@@ -423,7 +423,7 @@ Vehicle status notes in this section are for the US market unless otherwise spec
     "id": "builtin_secoc_optskug_docs_readme_md_11",
     "title": "optskug SecOC Setup Guide (12/85)",
     "tags": ["secoc","optskug","toyota","setup"],
-    "refresh": True,
+    "refresh": False,
     "text": """Source: optskug/docs — README.md
 https://github.com/optskug/docs/blob/main/README.md
 
@@ -490,7 +490,7 @@ Step 3. Extract the key
     "id": "builtin_secoc_optskug_docs_readme_md_12",
     "title": "optskug SecOC Setup Guide (13/85)",
     "tags": ["secoc","optskug","toyota","setup"],
-    "refresh": True,
+    "refresh": False,
     "text": """Source: optskug/docs — README.md
 https://github.com/optskug/docs/blob/main/README.md
 
@@ -543,7 +543,7 @@ Turn the car on and off - the comma device should remain powered on.
     "id": "builtin_secoc_optskug_docs_readme_md_13",
     "title": "optskug SecOC Setup Guide (14/85)",
     "tags": ["secoc","optskug","toyota","setup"],
-    "refresh": True,
+    "refresh": False,
     "text": """Source: optskug/docs — README.md
 https://github.com/optskug/docs/blob/main/README.md
 
@@ -596,7 +596,7 @@ Sometimes TSK Extractor can't talk to the""",
     "id": "builtin_secoc_optskug_docs_readme_md_14",
     "title": "optskug SecOC Setup Guide (15/85)",
     "tags": ["secoc","optskug","toyota","setup"],
-    "refresh": True,
+    "refresh": False,
     "text": """Source: optskug/docs — README.md
 https://github.com/optskug/docs/blob/main/README.md
 
@@ -646,7 +646,7 @@ sunnypilot/staging-tici can use both the gas and brake pedals (aka "long support
     "id": "builtin_secoc_optskug_docs_readme_md_15",
     "title": "optskug SecOC Setup Guide (16/85)",
     "tags": ["secoc","optskug","toyota","setup"],
-    "refresh": True,
+    "refresh": False,
     "text": """Source: optskug/docs — README.md
 https://github.com/optskug/docs/blob/main/README.md
 
@@ -701,7 +701,7 @@ In some cases it's possible to type in a key that you already know (https://gith
     "id": "builtin_secoc_optskug_docs_readme_md_16",
     "title": "optskug SecOC Setup Guide (17/85)",
     "tags": ["secoc","optskug","toyota","setup"],
-    "refresh": True,
+    "refresh": False,
     "text": """Source: optskug/docs — README.md
 https://github.com/optskug/docs/blob/main/README.md
 
@@ -756,7 +756,7 @@ Notes
     "id": "builtin_secoc_optskug_docs_readme_md_17",
     "title": "optskug SecOC Setup Guide (18/85)",
     "tags": ["secoc","optskug","toyota","setup"],
-    "refresh": True,
+    "refresh": False,
     "text": """Source: optskug/docs — README.md
 https://github.com/optskug/docs/blob/main/README.md
 
@@ -817,7 +817,7 @@ If you are installing a fork not included in the list above, find the fork autho
     "id": "builtin_secoc_optskug_docs_readme_md_18",
     "title": "optskug SecOC Setup Guide (19/85)",
     "tags": ["secoc","optskug","toyota","setup"],
-    "refresh": True,
+    "refresh": False,
     "text": """Source: optskug/docs — README.md
 https://github.com/optskug/docs/blob/main/README.md
 
@@ -858,7 +858,7 @@ Vote counts were reported every week""",
     "id": "builtin_secoc_optskug_docs_readme_md_19",
     "title": "optskug SecOC Setup Guide (20/85)",
     "tags": ["secoc","optskug","toyota","setup"],
-    "refresh": True,
+    "refresh": False,
     "text": """Source: optskug/docs — README.md
 https://github.com/optskug/docs/blob/main/README.md
 
@@ -906,7 +906,7 @@ In its place are more specific community bounties:
     "id": "builtin_secoc_optskug_docs_readme_md_20",
     "title": "optskug SecOC Setup Guide (21/85)",
     "tags": ["secoc","optskug","toyota","setup"],
-    "refresh": True,
+    "refresh": False,
     "text": """Source: optskug/docs — README.md
 https://github.com/optskug/docs/blob/main/README.md
 
@@ -953,7 +953,7 @@ Previously seen TSS2 vehicles have had an architecture where both latitude and l
     "id": "builtin_secoc_optskug_docs_readme_md_21",
     "title": "optskug SecOC Setup Guide (22/85)",
     "tags": ["secoc","optskug","toyota","setup"],
-    "refresh": True,
+    "refresh": False,
     "text": """Source: optskug/docs — README.md
 https://github.com/optskug/docs/blob/main/README.md
 
@@ -985,7 +985,7 @@ matty#8553 came on Discord as the first user with a RAV4 Prime and a new Comma 2
     "id": "builtin_secoc_optskug_docs_readme_md_22",
     "title": "optskug SecOC Setup Guide (23/85)",
     "tags": ["secoc","optskug","toyota","setup"],
-    "refresh": True,
+    "refresh": False,
     "text": """Source: optskug/docs — README.md
 https://github.com/optskug/docs/blob/main/README.md
 
@@ -1021,7 +1021,7 @@ February 2021
     "id": "builtin_secoc_optskug_docs_readme_md_23",
     "title": "optskug SecOC Setup Guide (24/85)",
     "tags": ["secoc","optskug","toyota","setup"],
-    "refresh": True,
+    "refresh": False,
     "text": """Source: optskug/docs — README.md
 https://github.com/optskug/docs/blob/main/README.md
 
@@ -1049,7 +1049,7 @@ May 2021
     "id": "builtin_secoc_optskug_docs_readme_md_24",
     "title": "optskug SecOC Setup Guide (25/85)",
     "tags": ["secoc","optskug","toyota","setup"],
-    "refresh": True,
+    "refresh": False,
     "text": """Source: optskug/docs — README.md
 https://github.com/optskug/docs/blob/main/README.md
 
@@ -1083,7 +1083,7 @@ August 2021
     "id": "builtin_secoc_optskug_docs_readme_md_25",
     "title": "optskug SecOC Setup Guide (26/85)",
     "tags": ["secoc","optskug","toyota","setup"],
-    "refresh": True,
+    "refresh": False,
     "text": """Source: optskug/docs — README.md
 https://github.com/optskug/docs/blob/main/README.md
 
@@ -1107,7 +1107,7 @@ September 2021
     "id": "builtin_secoc_optskug_docs_readme_md_26",
     "title": "optskug SecOC Setup Guide (27/85)",
     "tags": ["secoc","optskug","toyota","setup"],
-    "refresh": True,
+    "refresh": False,
     "text": """Source: optskug/docs — README.md
 https://github.com/optskug/docs/blob/main/README.md
 
@@ -1139,7 +1139,7 @@ October 2021
     "id": "builtin_secoc_optskug_docs_readme_md_27",
     "title": "optskug SecOC Setup Guide (28/85)",
     "tags": ["secoc","optskug","toyota","setup"],
-    "refresh": True,
+    "refresh": False,
     "text": """Source: optskug/docs — README.md
 https://github.com/optskug/docs/blob/main/README.md
 
@@ -1165,7 +1165,7 @@ November 2021
     "id": "builtin_secoc_optskug_docs_readme_md_28",
     "title": "optskug SecOC Setup Guide (29/85)",
     "tags": ["secoc","optskug","toyota","setup"],
-    "refresh": True,
+    "refresh": False,
     "text": """Source: optskug/docs — README.md
 https://github.com/optskug/docs/blob/main/README.md
 
@@ -1187,7 +1187,7 @@ December 2021
     "id": "builtin_secoc_optskug_docs_readme_md_29",
     "title": "optskug SecOC Setup Guide (30/85)",
     "tags": ["secoc","optskug","toyota","setup"],
-    "refresh": True,
+    "refresh": False,
     "text": """Source: optskug/docs — README.md
 https://github.com/optskug/docs/blob/main/README.md
 
@@ -1209,7 +1209,7 @@ January 2022
     "id": "builtin_secoc_optskug_docs_readme_md_30",
     "title": "optskug SecOC Setup Guide (31/85)",
     "tags": ["secoc","optskug","toyota","setup"],
-    "refresh": True,
+    "refresh": False,
     "text": """Source: optskug/docs — README.md
 https://github.com/optskug/docs/blob/main/README.md
 
@@ -1230,7 +1230,7 @@ February 2022
     "id": "builtin_secoc_optskug_docs_readme_md_31",
     "title": "optskug SecOC Setup Guide (32/85)",
     "tags": ["secoc","optskug","toyota","setup"],
-    "refresh": True,
+    "refresh": False,
     "text": """Source: optskug/docs — README.md
 https://github.com/optskug/docs/blob/main/README.md
 
@@ -1249,7 +1249,7 @@ dump together, has gone MIA. (https://discord.com/channels/469524606043160576/90
     "id": "builtin_secoc_optskug_docs_readme_md_32",
     "title": "optskug SecOC Setup Guide (33/85)",
     "tags": ["secoc","optskug","toyota","setup"],
-    "refresh": True,
+    "refresh": False,
     "text": """Source: optskug/docs — README.md
 https://github.com/optskug/docs/blob/main/README.md
 
@@ -1274,7 +1274,7 @@ April 2022
     "id": "builtin_secoc_optskug_docs_readme_md_33",
     "title": "optskug SecOC Setup Guide (34/85)",
     "tags": ["secoc","optskug","toyota","setup"],
-    "refresh": True,
+    "refresh": False,
     "text": """Source: optskug/docs — README.md
 https://github.com/optskug/docs/blob/main/README.md
 
@@ -1299,7 +1299,7 @@ June 2022
     "id": "builtin_secoc_optskug_docs_readme_md_34",
     "title": "optskug SecOC Setup Guide (35/85)",
     "tags": ["secoc","optskug","toyota","setup"],
-    "refresh": True,
+    "refresh": False,
     "text": """Source: optskug/docs — README.md
 https://github.com/optskug/docs/blob/main/README.md
 
@@ -1326,7 +1326,7 @@ July 2022
     "id": "builtin_secoc_optskug_docs_readme_md_35",
     "title": "optskug SecOC Setup Guide (36/85)",
     "tags": ["secoc","optskug","toyota","setup"],
-    "refresh": True,
+    "refresh": False,
     "text": """Source: optskug/docs — README.md
 https://github.com/optskug/docs/blob/main/README.md
 
@@ -1353,7 +1353,7 @@ September 2022
     "id": "builtin_secoc_optskug_docs_readme_md_36",
     "title": "optskug SecOC Setup Guide (37/85)",
     "tags": ["secoc","optskug","toyota","setup"],
-    "refresh": True,
+    "refresh": False,
     "text": """Source: optskug/docs — README.md
 https://github.com/optskug/docs/blob/main/README.md
 
@@ -1376,7 +1376,7 @@ October 2022
     "id": "builtin_secoc_optskug_docs_readme_md_37",
     "title": "optskug SecOC Setup Guide (38/85)",
     "tags": ["secoc","optskug","toyota","setup"],
-    "refresh": True,
+    "refresh": False,
     "text": """Source: optskug/docs — README.md
 https://github.com/optskug/docs/blob/main/README.md
 
@@ -1400,7 +1400,7 @@ November 2022
     "id": "builtin_secoc_optskug_docs_readme_md_38",
     "title": "optskug SecOC Setup Guide (39/85)",
     "tags": ["secoc","optskug","toyota","setup"],
-    "refresh": True,
+    "refresh": False,
     "text": """Source: optskug/docs — README.md
 https://github.com/optskug/docs/blob/main/README.md
 
@@ -1422,7 +1422,7 @@ December 2022
     "id": "builtin_secoc_optskug_docs_readme_md_39",
     "title": "optskug SecOC Setup Guide (40/85)",
     "tags": ["secoc","optskug","toyota","setup"],
-    "refresh": True,
+    "refresh": False,
     "text": """Source: optskug/docs — README.md
 https://github.com/optskug/docs/blob/main/README.md
 
@@ -1445,7 +1445,7 @@ January 2023
     "id": "builtin_secoc_optskug_docs_readme_md_40",
     "title": "optskug SecOC Setup Guide (41/85)",
     "tags": ["secoc","optskug","toyota","setup"],
-    "refresh": True,
+    "refresh": False,
     "text": """Source: optskug/docs — README.md
 https://github.com/optskug/docs/blob/main/README.md
 
@@ -1473,7 +1473,7 @@ March 2023
     "id": "builtin_secoc_optskug_docs_readme_md_41",
     "title": "optskug SecOC Setup Guide (42/85)",
     "tags": ["secoc","optskug","toyota","setup"],
-    "refresh": True,
+    "refresh": False,
     "text": """Source: optskug/docs — README.md
 https://github.com/optskug/docs/blob/main/README.md
 
@@ -1500,7 +1500,7 @@ April 2023
     "id": "builtin_secoc_optskug_docs_readme_md_42",
     "title": "optskug SecOC Setup Guide (43/85)",
     "tags": ["secoc","optskug","toyota","setup"],
-    "refresh": True,
+    "refresh": False,
     "text": """Source: optskug/docs — README.md
 https://github.com/optskug/docs/blob/main/README.md
 
@@ -1533,7 +1533,7 @@ https://discord.com/channels/469524606043160576/905950538816978974/1134950311719
     "id": "builtin_secoc_optskug_docs_readme_md_43",
     "title": "optskug SecOC Setup Guide (44/85)",
     "tags": ["secoc","optskug","toyota","setup"],
-    "refresh": True,
+    "refresh": False,
     "text": """Source: optskug/docs — README.md
 https://github.com/optskug/docs/blob/main/README.md
 
@@ -1572,7 +1572,7 @@ August 2023
     "id": "builtin_secoc_optskug_docs_readme_md_44",
     "title": "optskug SecOC Setup Guide (45/85)",
     "tags": ["secoc","optskug","toyota","setup"],
-    "refresh": True,
+    "refresh": False,
     "text": """Source: optskug/docs — README.md
 https://github.com/optskug/docs/blob/main/README.md
 
@@ -1600,7 +1600,7 @@ October 2023
     "id": "builtin_secoc_optskug_docs_readme_md_45",
     "title": "optskug SecOC Setup Guide (46/85)",
     "tags": ["secoc","optskug","toyota","setup"],
-    "refresh": True,
+    "refresh": False,
     "text": """Source: optskug/docs — README.md
 https://github.com/optskug/docs/blob/main/README.md
 
@@ -1627,7 +1627,7 @@ November 2023
     "id": "builtin_secoc_optskug_docs_readme_md_46",
     "title": "optskug SecOC Setup Guide (47/85)",
     "tags": ["secoc","optskug","toyota","setup"],
-    "refresh": True,
+    "refresh": False,
     "text": """Source: optskug/docs — README.md
 https://github.com/optskug/docs/blob/main/README.md
 
@@ -1659,7 +1659,7 @@ January 2024
     "id": "builtin_secoc_optskug_docs_readme_md_47",
     "title": "optskug SecOC Setup Guide (48/85)",
     "tags": ["secoc","optskug","toyota","setup"],
-    "refresh": True,
+    "refresh": False,
     "text": """Source: optskug/docs — README.md
 https://github.com/optskug/docs/blob/main/README.md
 
@@ -1693,7 +1693,7 @@ March 2024
     "id": "builtin_secoc_optskug_docs_readme_md_48",
     "title": "optskug SecOC Setup Guide (49/85)",
     "tags": ["secoc","optskug","toyota","setup"],
-    "refresh": True,
+    "refresh": False,
     "text": """Source: optskug/docs — README.md
 https://github.com/optskug/docs/blob/main/README.md
 
@@ -1719,7 +1719,7 @@ b.com/I-CAN-hack/secoc
     "id": "builtin_secoc_optskug_docs_readme_md_49",
     "title": "optskug SecOC Setup Guide (50/85)",
     "tags": ["secoc","optskug","toyota","setup"],
-    "refresh": True,
+    "refresh": False,
     "text": """Source: optskug/docs — README.md
 https://github.com/optskug/docs/blob/main/README.md
 
@@ -1746,7 +1746,7 @@ April 2024
     "id": "builtin_secoc_optskug_docs_readme_md_50",
     "title": "optskug SecOC Setup Guide (51/85)",
     "tags": ["secoc","optskug","toyota","setup"],
-    "refresh": True,
+    "refresh": False,
     "text": """Source: optskug/docs — README.md
 https://github.com/optskug/docs/blob/main/README.md
 
@@ -1772,7 +1772,7 @@ May 2024
     "id": "builtin_secoc_optskug_docs_readme_md_51",
     "title": "optskug SecOC Setup Guide (52/85)",
     "tags": ["secoc","optskug","toyota","setup"],
-    "refresh": True,
+    "refresh": False,
     "text": """Source: optskug/docs — README.md
 https://github.com/optskug/docs/blob/main/README.md
 
@@ -1793,7 +1793,7 @@ June 2024
     "id": "builtin_secoc_optskug_docs_readme_md_52",
     "title": "optskug SecOC Setup Guide (53/85)",
     "tags": ["secoc","optskug","toyota","setup"],
-    "refresh": True,
+    "refresh": False,
     "text": """Source: optskug/docs — README.md
 https://github.com/optskug/docs/blob/main/README.md
 
@@ -1812,7 +1812,7 @@ s://www.reddit.com/r/Commaai/comments/1d5r7xr/stateoftoyotasecuritykeysecocandco
     "id": "builtin_secoc_optskug_docs_readme_md_53",
     "title": "optskug SecOC Setup Guide (54/85)",
     "tags": ["secoc","optskug","toyota","setup"],
-    "refresh": True,
+    "refresh": False,
     "text": """Source: optskug/docs — README.md
 https://github.com/optskug/docs/blob/main/README.md
 
@@ -1836,7 +1836,7 @@ July 2024
     "id": "builtin_secoc_optskug_docs_readme_md_54",
     "title": "optskug SecOC Setup Guide (55/85)",
     "tags": ["secoc","optskug","toyota","setup"],
-    "refresh": True,
+    "refresh": False,
     "text": """Source: optskug/docs — README.md
 https://github.com/optskug/docs/blob/main/README.md
 
@@ -1862,7 +1862,7 @@ September 2024
     "id": "builtin_secoc_optskug_docs_readme_md_55",
     "title": "optskug SecOC Setup Guide (56/85)",
     "tags": ["secoc","optskug","toyota","setup"],
-    "refresh": True,
+    "refresh": False,
     "text": """Source: optskug/docs — README.md
 https://github.com/optskug/docs/blob/main/README.md
 
@@ -1884,7 +1884,7 @@ gh renewed interest in fork support such as frogpilot/sunnypilot ([https://disco
     "id": "builtin_secoc_optskug_docs_readme_md_56",
     "title": "optskug SecOC Setup Guide (57/85)",
     "tags": ["secoc","optskug","toyota","setup"],
-    "refresh": True,
+    "refresh": False,
     "text": """Source: optskug/docs — README.md
 https://github.com/optskug/docs/blob/main/README.md
 
@@ -1907,7 +1907,7 @@ October 2024
     "id": "builtin_secoc_optskug_docs_readme_md_57",
     "title": "optskug SecOC Setup Guide (58/85)",
     "tags": ["secoc","optskug","toyota","setup"],
-    "refresh": True,
+    "refresh": False,
     "text": """Source: optskug/docs — README.md
 https://github.com/optskug/docs/blob/main/README.md
 
@@ -1931,7 +1931,7 @@ is not supposed to be working. ACC/Automatic Cruise Control messages are suppose
     "id": "builtin_secoc_optskug_docs_readme_md_58",
     "title": "optskug SecOC Setup Guide (59/85)",
     "tags": ["secoc","optskug","toyota","setup"],
-    "refresh": True,
+    "refresh": False,
     "text": """Source: optskug/docs — README.md
 https://github.com/optskug/docs/blob/main/README.md
 
@@ -1952,7 +1952,7 @@ a couple of test route data for automated safety as a prerequisite of getting co
     "id": "builtin_secoc_optskug_docs_readme_md_59",
     "title": "optskug SecOC Setup Guide (60/85)",
     "tags": ["secoc","optskug","toyota","setup"],
-    "refresh": True,
+    "refresh": False,
     "text": """Source: optskug/docs — README.md
 https://github.com/optskug/docs/blob/main/README.md
 
@@ -1976,7 +1976,7 @@ nd its functionality is purely speculative. (https://discord.com/channels/469524
     "id": "builtin_secoc_optskug_docs_readme_md_60",
     "title": "optskug SecOC Setup Guide (61/85)",
     "tags": ["secoc","optskug","toyota","setup"],
-    "refresh": True,
+    "refresh": False,
     "text": """Source: optskug/docs — README.md
 https://github.com/optskug/docs/blob/main/README.md
 
@@ -1999,7 +1999,7 @@ November 2024
     "id": "builtin_secoc_optskug_docs_readme_md_61",
     "title": "optskug SecOC Setup Guide (62/85)",
     "tags": ["secoc","optskug","toyota","setup"],
-    "refresh": True,
+    "refresh": False,
     "text": """Source: optskug/docs — README.md
 https://github.com/optskug/docs/blob/main/README.md
 
@@ -2026,7 +2026,7 @@ January 2025
     "id": "builtin_secoc_optskug_docs_readme_md_62",
     "title": "optskug SecOC Setup Guide (63/85)",
     "tags": ["secoc","optskug","toyota","setup"],
-    "refresh": True,
+    "refresh": False,
     "text": """Source: optskug/docs — README.md
 https://github.com/optskug/docs/blob/main/README.md
 
@@ -2044,7 +2044,7 @@ nypilot developers about his GUI dumping and restoration tool along with integra
     "id": "builtin_secoc_optskug_docs_readme_md_63",
     "title": "optskug SecOC Setup Guide (64/85)",
     "tags": ["secoc","optskug","toyota","setup"],
-    "refresh": True,
+    "refresh": False,
     "text": """Source: optskug/docs — README.md
 https://github.com/optskug/docs/blob/main/README.md
 
@@ -2062,7 +2062,7 @@ port and just recently rebased and worked on safety. (SP Discord) (https://disco
     "id": "builtin_secoc_optskug_docs_readme_md_64",
     "title": "optskug SecOC Setup Guide (65/85)",
     "tags": ["secoc","optskug","toyota","setup"],
-    "refresh": True,
+    "refresh": False,
     "text": """Source: optskug/docs — README.md
 https://github.com/optskug/docs/blob/main/README.md
 
@@ -2085,7 +2085,7 @@ February 2025
     "id": "builtin_secoc_optskug_docs_readme_md_65",
     "title": "optskug SecOC Setup Guide (66/85)",
     "tags": ["secoc","optskug","toyota","setup"],
-    "refresh": True,
+    "refresh": False,
     "text": """Source: optskug/docs — README.md
 https://github.com/optskug/docs/blob/main/README.md
 
@@ -2110,7 +2110,7 @@ March 2025
     "id": "builtin_secoc_optskug_docs_readme_md_66",
     "title": "optskug SecOC Setup Guide (67/85)",
     "tags": ["secoc","optskug","toyota","setup"],
-    "refresh": True,
+    "refresh": False,
     "text": """Source: optskug/docs — README.md
 https://github.com/optskug/docs/blob/main/README.md
 
@@ -2132,7 +2132,7 @@ April 2025
     "id": "builtin_secoc_optskug_docs_readme_md_67",
     "title": "optskug SecOC Setup Guide (68/85)",
     "tags": ["secoc","optskug","toyota","setup"],
-    "refresh": True,
+    "refresh": False,
     "text": """Source: optskug/docs — README.md
 https://github.com/optskug/docs/blob/main/README.md
 
@@ -2159,7 +2159,7 @@ May 2025
     "id": "builtin_secoc_optskug_docs_readme_md_68",
     "title": "optskug SecOC Setup Guide (69/85)",
     "tags": ["secoc","optskug","toyota","setup"],
-    "refresh": True,
+    "refresh": False,
     "text": """Source: optskug/docs — README.md
 https://github.com/optskug/docs/blob/main/README.md
 
@@ -2183,7 +2183,7 @@ June 2025
     "id": "builtin_secoc_optskug_docs_readme_md_69",
     "title": "optskug SecOC Setup Guide (70/85)",
     "tags": ["secoc","optskug","toyota","setup"],
-    "refresh": True,
+    "refresh": False,
     "text": """Source: optskug/docs — README.md
 https://github.com/optskug/docs/blob/main/README.md
 
@@ -2205,7 +2205,7 @@ July 2025
     "id": "builtin_secoc_optskug_docs_readme_md_70",
     "title": "optskug SecOC Setup Guide (71/85)",
     "tags": ["secoc","optskug","toyota","setup"],
-    "refresh": True,
+    "refresh": False,
     "text": """Source: optskug/docs — README.md
 https://github.com/optskug/docs/blob/main/README.md
 
@@ -2230,7 +2230,7 @@ August 2025
     "id": "builtin_secoc_optskug_docs_readme_md_71",
     "title": "optskug SecOC Setup Guide (72/85)",
     "tags": ["secoc","optskug","toyota","setup"],
-    "refresh": True,
+    "refresh": False,
     "text": """Source: optskug/docs — README.md
 https://github.com/optskug/docs/blob/main/README.md
 
@@ -2262,7 +2262,7 @@ November 2025
     "id": "builtin_secoc_optskug_docs_readme_md_72",
     "title": "optskug SecOC Setup Guide (73/85)",
     "tags": ["secoc","optskug","toyota","setup"],
-    "refresh": True,
+    "refresh": False,
     "text": """Source: optskug/docs — README.md
 https://github.com/optskug/docs/blob/main/README.md
 
@@ -2289,7 +2289,7 @@ https://github.com/optskug/docs/blob/main/README.md
     "id": "builtin_secoc_optskug_docs_readme_md_73",
     "title": "optskug SecOC Setup Guide (74/85)",
     "tags": ["secoc","optskug","toyota","setup"],
-    "refresh": True,
+    "refresh": False,
     "text": """Source: optskug/docs — README.md
 https://github.com/optskug/docs/blob/main/README.md
 
@@ -2319,7 +2319,7 @@ December 2025
     "id": "builtin_secoc_optskug_docs_readme_md_74",
     "title": "optskug SecOC Setup Guide (75/85)",
     "tags": ["secoc","optskug","toyota","setup"],
-    "refresh": True,
+    "refresh": False,
     "text": """Source: optskug/docs — README.md
 https://github.com/optskug/docs/blob/main/README.md
 
@@ -2346,7 +2346,7 @@ February 2026
     "id": "builtin_secoc_optskug_docs_readme_md_75",
     "title": "optskug SecOC Setup Guide (76/85)",
     "tags": ["secoc","optskug","toyota","setup"],
-    "refresh": True,
+    "refresh": False,
     "text": """Source: optskug/docs — README.md
 https://github.com/optskug/docs/blob/main/README.md
 
@@ -2368,7 +2368,7 @@ April 2026
     "id": "builtin_secoc_optskug_docs_readme_md_76",
     "title": "optskug SecOC Setup Guide (77/85)",
     "tags": ["secoc","optskug","toyota","setup"],
-    "refresh": True,
+    "refresh": False,
     "text": """Source: optskug/docs — README.md
 https://github.com/optskug/docs/blob/main/README.md
 
@@ -2385,7 +2385,7 @@ May 2026
     "id": "builtin_secoc_optskug_docs_readme_md_77",
     "title": "optskug SecOC Setup Guide (78/85)",
     "tags": ["secoc","optskug","toyota","setup"],
-    "refresh": True,
+    "refresh": False,
     "text": """Source: optskug/docs — README.md
 https://github.com/optskug/docs/blob/main/README.md
 
@@ -2401,7 +2401,7 @@ June 2026
     "id": "builtin_secoc_optskug_docs_readme_md_78",
     "title": "optskug SecOC Setup Guide (79/85)",
     "tags": ["secoc","optskug","toyota","setup"],
-    "refresh": True,
+    "refresh": False,
     "text": """Source: optskug/docs — README.md
 https://github.com/optskug/docs/blob/main/README.md
 
@@ -2417,7 +2417,7 @@ han just rebuilding payload.bin.
     "id": "builtin_secoc_optskug_docs_readme_md_79",
     "title": "optskug SecOC Setup Guide (80/85)",
     "tags": ["secoc","optskug","toyota","setup"],
-    "refresh": True,
+    "refresh": False,
     "text": """Source: optskug/docs — README.md
 https://github.com/optskug/docs/blob/main/README.md
 
@@ -2430,7 +2430,7 @@ https://github.com/optskug/docs/blob/main/README.md
     "id": "builtin_secoc_optskug_docs_readme_md_80",
     "title": "optskug SecOC Setup Guide (81/85)",
     "tags": ["secoc","optskug","toyota","setup"],
-    "refresh": True,
+    "refresh": False,
     "text": """Source: optskug/docs — README.md
 https://github.com/optskug/docs/blob/main/README.md
 
@@ -2445,7 +2445,7 @@ east proof-of-concept longitudinal support; the issue also notes a smaller payou
     "id": "builtin_secoc_optskug_docs_readme_md_81",
     "title": "optskug SecOC Setup Guide (82/85)",
     "tags": ["secoc","optskug","toyota","setup"],
-    "refresh": True,
+    "refresh": False,
     "text": """Source: optskug/docs — README.md
 https://github.com/optskug/docs/blob/main/README.md
 
@@ -2462,7 +2462,7 @@ July 2026
     "id": "builtin_secoc_optskug_docs_readme_md_82",
     "title": "optskug SecOC Setup Guide (83/85)",
     "tags": ["secoc","optskug","toyota","setup"],
-    "refresh": True,
+    "refresh": False,
     "text": """Source: optskug/docs — README.md
 https://github.com/optskug/docs/blob/main/README.md
 
@@ -2476,7 +2476,7 @@ ey material. This is a hardware bring-up milestone only: no firmware dump, paylo
     "id": "builtin_secoc_optskug_docs_readme_md_83",
     "title": "optskug SecOC Setup Guide (84/85)",
     "tags": ["secoc","optskug","toyota","setup"],
-    "refresh": True,
+    "refresh": False,
     "text": """Source: optskug/docs — README.md
 https://github.com/optskug/docs/blob/main/README.md
 
@@ -2497,7 +2497,7 @@ he successful 8965B4514000 DataFlash scan is not a universal Sienna/Toyota solut
     "id": "builtin_secoc_optskug_docs_readme_md_84",
     "title": "optskug SecOC Setup Guide (85/85)",
     "tags": ["secoc","optskug","toyota","setup"],
-    "refresh": True,
+    "refresh": False,
     "text": """Source: optskug/docs — README.md
 https://github.com/optskug/docs/blob/main/README.md
 
@@ -2510,7 +2510,7 @@ p. TechInfo lookup is looking at Toyota's Techinfo site (payment required, minim
     "id": "builtin_secoc_optskug_docs_archive_auth_not_enc_md_0",
     "title": "optskug: auth_not_enc",
     "tags": ["secoc","optskug","archive"],
-    "refresh": True,
+    "refresh": False,
     "text": """Source: optskug/docs — archive/auth_not_enc.md
 https://github.com/optskug/docs/blob/main/archive/auth_not_enc.md
 
@@ -2530,7 +2530,7 @@ nelson note: this isn't the best analogy, but it gets across the point that the 
     "id": "builtin_secoc_optskug_docs_archive_can_bus_md_0",
     "title": "optskug: CAN bus notes",
     "tags": ["secoc","optskug","can","archive"],
-    "refresh": True,
+    "refresh": False,
     "text": """Source: optskug/docs — archive/can_bus.md
 https://github.com/optskug/docs/blob/main/archive/can_bus.md
 
@@ -2564,7 +2564,7 @@ Once in Cabana, click Load DBC and select toyotanodsuptgenerated.dbc. Filter the
     "id": "builtin_secoc_optskug_docs_archive_dump_milestone_md_0",
     "title": "optskug: dump milestone",
     "tags": ["secoc","optskug","dataflash","archive"],
-    "refresh": True,
+    "refresh": False,
     "text": """Source: optskug/docs — archive/dump_milestone.md
 https://github.com/optskug/docs/blob/main/archive/dump_milestone.md
 
@@ -2596,7 +2596,7 @@ I'm going to start to try to collect and gather the bounty.""",
     "id": "builtin_secoc_optskug_docs_archive_rav4_prime_replace_rack_md_0",
     "title": "optskug: RAV4 Prime rack",
     "tags": ["secoc","optskug","rav4","archive"],
-    "refresh": True,
+    "refresh": False,
     "text": """Source: optskug/docs — archive/rav4_prime_replace_rack.md
 https://github.com/optskug/docs/blob/main/archive/rav4_prime_replace_rack.md
 
@@ -2606,7 +2606,7 @@ Probably too much, just here for the record.""",
     "id": "builtin_secoc_optskug_docs_archive_sienna_replace_rack_md_0",
     "title": "optskug: Sienna rack",
     "tags": ["secoc","optskug","sienna","archive"],
-    "refresh": True,
+    "refresh": False,
     "text": """Source: optskug/docs — archive/sienna_replace_rack.md
 https://github.com/optskug/docs/blob/main/archive/sienna_replace_rack.md
 
@@ -2616,7 +2616,7 @@ Probably too much for most people, but if one is wondering...""",
     "id": "builtin_secoc_lochuan_rh850_p1m_e_readme_md_0",
     "title": "RH850 P1m-E repo overview",
     "tags": ["secoc","rh850","firmware"],
-    "refresh": True,
+    "refresh": False,
     "text": """Source: lochuan/RH850_P1m-E — README.md
 https://github.com/lochuan/RH850_P1m-E/blob/main/README.md
 
@@ -2629,7 +2629,7 @@ RH850/P1M-E SecOC Research Report
     "id": "builtin_secoc_lochuan_rh850_p1m_e_research_report_cn_md_0",
     "title": "RH850 SecOC 研究报告（中文） (1/12)",
     "tags": ["secoc","rh850","research","zh"],
-    "refresh": True,
+    "refresh": False,
     "text": """Source: lochuan/RH850_P1m-E — RESEARCH_REPORT_CN.md
 https://github.com/lochuan/RH850_P1m-E/blob/main/RESEARCH_REPORT_CN.md
 
@@ -2749,7 +2749,7 @@ ECU 启动过程遵循以下顺序：
     "id": "builtin_secoc_lochuan_rh850_p1m_e_research_report_cn_md_1",
     "title": "RH850 SecOC 研究报告（中文） (2/12)",
     "tags": ["secoc","rh850","research","zh"],
-    "refresh": True,
+    "refresh": False,
     "text": """Source: lochuan/RH850_P1m-E — RESEARCH_REPORT_CN.md
 https://github.com/lochuan/RH850_P1m-E/blob/main/RESEARCH_REPORT_CN.md
 
@@ -2846,7 +2846,7 @@ SecOC 保护的 CAN 帧具有以下结构：
     "id": "builtin_secoc_lochuan_rh850_p1m_e_research_report_cn_md_2",
     "title": "RH850 SecOC 研究报告（中文） (3/12)",
     "tags": ["secoc","rh850","research","zh"],
-    "refresh": True,
+    "refresh": False,
     "text": """Source: lochuan/RH850_P1m-E — RESEARCH_REPORT_CN.md
 https://github.com/lochuan/RH850_P1m-E/blob/main/RESEARCH_REPORT_CN.md
 
@@ -2931,7 +2931,7 @@ SecOC 密钥不以原始 AES 密钥形式存储在 DataFlash 中。 相反，Dat
     "id": "builtin_secoc_lochuan_rh850_p1m_e_research_report_cn_md_3",
     "title": "RH850 SecOC 研究报告（中文） (4/12)",
     "tags": ["secoc","rh850","research","zh"],
-    "refresh": True,
+    "refresh": False,
     "text": """Source: lochuan/RH850_P1m-E — RESEARCH_REPORT_CN.md
 https://github.com/lochuan/RH850_P1m-E/blob/main/RESEARCH_REPORT_CN.md
 
@@ -3047,7 +3047,7 @@ void csmprocessjobfinish(void) {
     "id": "builtin_secoc_lochuan_rh850_p1m_e_research_report_cn_md_4",
     "title": "RH850 SecOC 研究报告（中文） (5/12)",
     "tags": ["secoc","rh850","research","zh"],
-    "refresh": True,
+    "refresh": False,
     "text": """Source: lochuan/RH850_P1m-E — RESEARCH_REPORT_CN.md
 https://github.com/lochuan/RH850_P1m-E/blob/main/RESEARCH_REPORT_CN.md
 
@@ -3169,7 +3169,7 @@ undefined4 FUN000758a0(uint peoffset, uint len) {
     "id": "builtin_secoc_lochuan_rh850_p1m_e_research_report_cn_md_5",
     "title": "RH850 SecOC 研究报告（中文） (6/12)",
     "tags": ["secoc","rh850","research","zh"],
-    "refresh": True,
+    "refresh": False,
     "text": """Source: lochuan/RH850_P1m-E — RESEARCH_REPORT_CN.md
 https://github.com/lochuan/RH850_P1m-E/blob/main/RESEARCH_REPORT_CN.md
 
@@ -3303,7 +3303,7 @@ DataFlash 组织为 64 字节 PE（编程/擦除）页面：
     "id": "builtin_secoc_lochuan_rh850_p1m_e_research_report_cn_md_6",
     "title": "RH850 SecOC 研究报告（中文） (7/12)",
     "tags": ["secoc","rh850","research","zh"],
-    "refresh": True,
+    "refresh": False,
     "text": """Source: lochuan/RH850_P1m-E — RESEARCH_REPORT_CN.md
 https://github.com/lochuan/RH850_P1m-E/blob/main/RESEARCH_REPORT_CN.md
 
@@ -3403,7 +3403,7 @@ diff          = [ 1,  1,  1,  1,  1,  1,  1,  1, ...]
     "id": "builtin_secoc_lochuan_rh850_p1m_e_research_report_cn_md_7",
     "title": "RH850 SecOC 研究报告（中文） (8/12)",
     "tags": ["secoc","rh850","research","zh"],
-    "refresh": True,
+    "refresh": False,
     "text": """Source: lochuan/RH850_P1m-E — RESEARCH_REPORT_CN.md
 https://github.com/lochuan/RH850_P1m-E/blob/main/RESEARCH_REPORT_CN.md
 
@@ -3500,7 +3500,7 @@ https://github.com/lochuan/RH850_P1m-E/blob/main/RESEARCH_REPORT_CN.md
     "id": "builtin_secoc_lochuan_rh850_p1m_e_research_report_cn_md_8",
     "title": "RH850 SecOC 研究报告（中文） (9/12)",
     "tags": ["secoc","rh850","research","zh"],
-    "refresh": True,
+    "refresh": False,
     "text": """Source: lochuan/RH850_P1m-E — RESEARCH_REPORT_CN.md
 https://github.com/lochuan/RH850_P1m-E/blob/main/RESEARCH_REPORT_CN.md
 
@@ -3628,7 +3628,7 @@ python3 scansecockey4arbid.py capturedkey.bin 0x0 --oracle canoracle4arbid.ndjso
     "id": "builtin_secoc_lochuan_rh850_p1m_e_research_report_cn_md_9",
     "title": "RH850 SecOC 研究报告（中文） (10/12)",
     "tags": ["secoc","rh850","research","zh"],
-    "refresh": True,
+    "refresh": False,
     "text": """Source: lochuan/RH850_P1m-E — RESEARCH_REPORT_CN.md
 https://github.com/lochuan/RH850_P1m-E/blob/main/RESEARCH_REPORT_CN.md
 
@@ -3731,7 +3731,7 @@ https://github.com/lochuan/RH850_P1m-E/blob/main/RESEARCH_REPORT_CN.md
     "id": "builtin_secoc_lochuan_rh850_p1m_e_research_report_cn_md_10",
     "title": "RH850 SecOC 研究报告（中文） (11/12)",
     "tags": ["secoc","rh850","research","zh"],
-    "refresh": True,
+    "refresh": False,
     "text": """Source: lochuan/RH850_P1m-E — RESEARCH_REPORT_CN.md
 https://github.com/lochuan/RH850_P1m-E/blob/main/RESEARCH_REPORT_CN.md
 
@@ -3829,7 +3829,7 @@ Vance 参考： TSS3 SecOC 密钥恢复（合作伙伴转储 8965B4514000）
     "id": "builtin_secoc_lochuan_rh850_p1m_e_research_report_cn_md_11",
     "title": "RH850 SecOC 研究报告（中文） (12/12)",
     "tags": ["secoc","rh850","research","zh"],
-    "refresh": True,
+    "refresh": False,
     "text": """Source: lochuan/RH850_P1m-E — RESEARCH_REPORT_CN.md
 https://github.com/lochuan/RH850_P1m-E/blob/main/RESEARCH_REPORT_CN.md
 
@@ -3914,7 +3914,7 @@ https://github.com/lochuan/RH850_P1m-E/blob/main/RESEARCH_REPORT_CN.md
     "id": "builtin_secoc_lochuan_rh850_p1m_e_research_report_en_md_0",
     "title": "RH850 SecOC research report (EN) (1/18)",
     "tags": ["secoc","rh850","research","en"],
-    "refresh": True,
+    "refresh": False,
     "text": """Source: lochuan/RH850_P1m-E — RESEARCH_REPORT_EN.md
 https://github.com/lochuan/RH850_P1m-E/blob/main/RESEARCH_REPORT_EN.md
 
@@ -3973,7 +3973,7 @@ Table of Contents
     "id": "builtin_secoc_lochuan_rh850_p1m_e_research_report_en_md_1",
     "title": "RH850 SecOC research report (EN) (2/18)",
     "tags": ["secoc","rh850","research","en"],
-    "refresh": True,
+    "refresh": False,
     "text": """Source: lochuan/RH850_P1m-E — RESEARCH_REPORT_EN.md
 https://github.com/lochuan/RH850_P1m-E/blob/main/RESEARCH_REPORT_EN.md
 
@@ -4068,7 +4068,7 @@ The main loop is the heart of the SecOC implem""",
     "id": "builtin_secoc_lochuan_rh850_p1m_e_research_report_en_md_2",
     "title": "RH850 SecOC research report (EN) (3/18)",
     "tags": ["secoc","rh850","research","en"],
-    "refresh": True,
+    "refresh": False,
     "text": """Source: lochuan/RH850_P1m-E — RESEARCH_REPORT_EN.md
 https://github.com/lochuan/RH850_P1m-E/blob/main/RESEARCH_REPORT_EN.md
 
@@ -4131,7 +4131,7 @@ Evidence: Ghidra decompilation of FUN000785""",
     "id": "builtin_secoc_lochuan_rh850_p1m_e_research_report_en_md_3",
     "title": "RH850 SecOC research report (EN) (4/18)",
     "tags": ["secoc","rh850","research","en"],
-    "refresh": True,
+    "refresh": False,
     "text": """Source: lochuan/RH850_P1m-E — RESEARCH_REPORT_EN.md
 https://github.com/lochuan/RH850_P1m-E/blob/main/RESEARCH_REPORT_EN.md
 
@@ -4202,7 +4202,7 @@ Evidence: Flash @0x2AF2C analysi""",
     "id": "builtin_secoc_lochuan_rh850_p1m_e_research_report_en_md_4",
     "title": "RH850 SecOC research report (EN) (5/18)",
     "tags": ["secoc","rh850","research","en"],
-    "refresh": True,
+    "refresh": False,
     "text": """Source: lochuan/RH850_P1m-E — RESEARCH_REPORT_EN.md
 https://github.com/lochuan/RH850_P1m-E/blob/main/RESEARCH_REPORT_EN.md
 
@@ -4279,7 +4279,7 @@ During a rekey operation, the key is installed via a different path:
     "id": "builtin_secoc_lochuan_rh850_p1m_e_research_report_en_md_5",
     "title": "RH850 SecOC research report (EN) (6/18)",
     "tags": ["secoc","rh850","research","en"],
-    "refresh": True,
+    "refresh": False,
     "text": """Source: lochuan/RH850_P1m-E — RESEARCH_REPORT_EN.md
 https://github.com/lochuan/RH850_P1m-E/blob/main/RESEARCH_REPORT_EN.md
 
@@ -4373,7 +4373,7 @@ The CSM maps magic numbers to ICU opcodes:
     "id": "builtin_secoc_lochuan_rh850_p1m_e_research_report_en_md_6",
     "title": "RH850 SecOC research report (EN) (7/18)",
     "tags": ["secoc","rh850","research","en"],
-    "refresh": True,
+    "refresh": False,
     "text": """Source: lochuan/RH850_P1m-E — RESEARCH_REPORT_EN.md
 https://github.com/lochuan/RH850_P1m-E/blob/main/RESEARCH_REPORT_EN.md
 
@@ -4462,7 +4462,7 @@ Reason: The key is NOT installed via csmjobsubmitkeyset during boot.""",
     "id": "builtin_secoc_lochuan_rh850_p1m_e_research_report_en_md_7",
     "title": "RH850 SecOC research report (EN) (8/18)",
     "tags": ["secoc","rh850","research","en"],
-    "refresh": True,
+    "refresh": False,
     "text": """Source: lochuan/RH850_P1m-E — RESEARCH_REPORT_EN.md
 https://github.com/lochuan/RH850_P1m-E/blob/main/RESEARCH_REPORT_EN.md
 
@@ -4553,7 +4553,7 @@ Status: ⏳ LEFT FOR COMMUNITY EXPLORATION
     "id": "builtin_secoc_lochuan_rh850_p1m_e_research_report_en_md_8",
     "title": "RH850 SecOC research report (EN) (9/18)",
     "tags": ["secoc","rh850","research","en"],
-    "refresh": True,
+    "refresh": False,
     "text": """Source: lochuan/RH850_P1m-E — RESEARCH_REPORT_EN.md
 https://github.com/lochuan/RH850_P1m-E/blob/main/RESEARCH_REPORT_EN.md
 
@@ -4635,7 +4635,7 @@ The key slot pages (468-479) contain key slot metadata:
     "id": "builtin_secoc_lochuan_rh850_p1m_e_research_report_en_md_9",
     "title": "RH850 SecOC research report (EN) (10/18)",
     "tags": ["secoc","rh850","research","en"],
-    "refresh": True,
+    "refresh": False,
     "text": """Source: lochuan/RH850_P1m-E — RESEARCH_REPORT_EN.md
 https://github.com/lochuan/RH850_P1m-E/blob/main/RESEARCH_REPORT_EN.md
 
@@ -4714,7 +4714,7 @@ The key slot pages have the following st""",
     "id": "builtin_secoc_lochuan_rh850_p1m_e_research_report_en_md_10",
     "title": "RH850 SecOC research report (EN) (11/18)",
     "tags": ["secoc","rh850","research","en"],
-    "refresh": True,
+    "refresh": False,
     "text": """Source: lochuan/RH850_P1m-E — RESEARCH_REPORT_EN.md
 https://github.com/lochuan/RH850_P1m-E/blob/main/RESEARCH_REPORT_EN.md
 
@@ -4786,7 +4786,7 @@ Evidence: Key slot page analysis, brute force analysis
     "id": "builtin_secoc_lochuan_rh850_p1m_e_research_report_en_md_11",
     "title": "RH850 SecOC research report (EN) (12/18)",
     "tags": ["secoc","rh850","research","en"],
-    "refresh": True,
+    "refresh": False,
     "text": """Source: lochuan/RH850_P1m-E — RESEARCH_REPORT_EN.md
 https://github.com/lochuan/RH850_P1m-E/blob/main/RESEARCH_REPORT_EN.md
 
@@ -4857,7 +4857,7 @@ python3 buildfrombi""",
     "id": "builtin_secoc_lochuan_rh850_p1m_e_research_report_en_md_12",
     "title": "RH850 SecOC research report (EN) (13/18)",
     "tags": ["secoc","rh850","research","en"],
-    "refresh": True,
+    "refresh": False,
     "text": """Source: lochuan/RH850_P1m-E — RESEARCH_REPORT_EN.md
 https://github.com/lochuan/RH850_P1m-E/blob/main/RESEARCH_REPORT_EN.md
 
@@ -4951,7 +4951,7 @@ Possible directions:
     "id": "builtin_secoc_lochuan_rh850_p1m_e_research_report_en_md_13",
     "title": "RH850 SecOC research report (EN) (14/18)",
     "tags": ["secoc","rh850","research","en"],
-    "refresh": True,
+    "refresh": False,
     "text": """Source: lochuan/RH850_P1m-E — RESEARCH_REPORT_EN.md
 https://github.com/lochuan/RH850_P1m-E/blob/main/RESEARCH_REPORT_EN.md
 
@@ -5020,7 +5020,7 @@ Key det""",
     "id": "builtin_secoc_lochuan_rh850_p1m_e_research_report_en_md_14",
     "title": "RH850 SecOC research report (EN) (15/18)",
     "tags": ["secoc","rh850","research","en"],
-    "refresh": True,
+    "refresh": False,
     "text": """Source: lochuan/RH850_P1m-E — RESEARCH_REPORT_EN.md
 https://github.com/lochuan/RH850_P1m-E/blob/main/RESEARCH_REPORT_EN.md
 
@@ -5084,7 +5084,7 @@ What we tried:
     "id": "builtin_secoc_lochuan_rh850_p1m_e_research_report_en_md_15",
     "title": "RH850 SecOC research report (EN) (16/18)",
     "tags": ["secoc","rh850","research","en"],
-    "refresh": True,
+    "refresh": False,
     "text": """Source: lochuan/RH850_P1m-E — RESEARCH_REPORT_EN.md
 https://github.com/lochuan/RH850_P1m-E/blob/main/RESEARCH_REPORT_EN.md
 
@@ -5154,7 +5154,7 @@ Scan results:
     "id": "builtin_secoc_lochuan_rh850_p1m_e_research_report_en_md_16",
     "title": "RH850 SecOC research report (EN) (17/18)",
     "tags": ["secoc","rh850","research","en"],
-    "refresh": True,
+    "refresh": False,
     "text": """Source: lochuan/RH850_P1m-E — RESEARCH_REPORT_EN.md
 https://github.com/lochuan/RH850_P1m-E/blob/main/RESEARCH_REPORT_EN.md
 
@@ -5213,7 +5213,7 @@ o DF key bank | Our DF scan found 0 matches; key not in DF |
     "id": "builtin_secoc_lochuan_rh850_p1m_e_research_report_en_md_17",
     "title": "RH850 SecOC research report (EN) (18/18)",
     "tags": ["secoc","rh850","research","en"],
-    "refresh": True,
+    "refresh": False,
     "text": """Source: lochuan/RH850_P1m-E — RESEARCH_REPORT_EN.md
 https://github.com/lochuan/RH850_P1m-E/blob/main/RESEARCH_REPORT_EN.md
 
@@ -5258,7 +5258,7 @@ See Section 9 (#9-can-frame-analysis) for CAN oracle statistics.
     "id": "builtin_secoc_lochuan_rh850_p1m_e_rekey_capture_design_md_0",
     "title": "RH850 rekey capture design (1/8)",
     "tags": ["secoc","rh850","rekey","capture"],
-    "refresh": True,
+    "refresh": False,
     "text": """Source: lochuan/RH850_P1m-E — rekey-capture-design.md
 https://github.com/lochuan/RH850_P1m-E/blob/main/rekey-capture-design.md
 
@@ -5332,7 +5332,7 @@ The key IS exposed in RAM""",
     "id": "builtin_secoc_lochuan_rh850_p1m_e_rekey_capture_design_md_1",
     "title": "RH850 rekey capture design (2/8)",
     "tags": ["secoc","rh850","rekey","capture"],
-    "refresh": True,
+    "refresh": False,
     "text": """Source: lochuan/RH850_P1m-E — rekey-capture-design.md
 https://github.com/lochuan/RH850_P1m-E/blob/main/rekey-capture-design.md
 
@@ -5428,7 +5428,7 @@ quickinstall.sh — Install shellcode during IG-""",
     "id": "builtin_secoc_lochuan_rh850_p1m_e_rekey_capture_design_md_2",
     "title": "RH850 rekey capture design (3/8)",
     "tags": ["secoc","rh850","rekey","capture"],
-    "refresh": True,
+    "refresh": False,
     "text": """Source: lochuan/RH850_P1m-E — rekey-capture-design.md
 https://github.com/lochuan/RH850_P1m-E/blob/main/rekey-capture-design.md
 
@@ -5526,7 +5526,7 @@ static void memcpy(void dst, const void src, u32 n) {
     "id": "builtin_secoc_lochuan_rh850_p1m_e_rekey_capture_design_md_3",
     "title": "RH850 rekey capture design (4/8)",
     "tags": ["secoc","rh850","rekey","capture"],
-    "refresh": True,
+    "refresh": False,
     "text": """Source: lochuan/RH850_P1m-E — rekey-capture-design.md
 https://github.com/lochuan/RH850_P1m-E/blob/main/rekey-capture-design.md
 
@@ -5622,7 +5622,7 @@ File: mainkeysethook.c
     "id": "builtin_secoc_lochuan_rh850_p1m_e_rekey_capture_design_md_4",
     "title": "RH850 rekey capture design (5/8)",
     "tags": ["secoc","rh850","rekey","capture"],
-    "refresh": True,
+    "refresh": False,
     "text": """Source: lochuan/RH850_P1m-E — rekey-capture-design.md
 https://github.com/lochuan/RH850_P1m-E/blob/main/rekey-capture-design.md
 
@@ -5714,7 +5714,7 @@ TX Format:
     "id": "builtin_secoc_lochuan_rh850_p1m_e_rekey_capture_design_md_5",
     "title": "RH850 rekey capture design (6/8)",
     "tags": ["secoc","rh850","rekey","capture"],
-    "refresh": True,
+    "refresh": False,
     "text": """Source: lochuan/RH850_P1m-E — rekey-capture-design.md
 https://github.com/lochuan/RH850_P1m-E/blob/main/rekey-capture-design.md
 
@@ -5803,7 +5803,7 @@ Phase 2: Test Install (30 min)
     "id": "builtin_secoc_lochuan_rh850_p1m_e_rekey_capture_design_md_6",
     "title": "RH850 rekey capture design (7/8)",
     "tags": ["secoc","rh850","rekey","capture"],
-    "refresh": True,
+    "refresh": False,
     "text": """Source: lochuan/RH850_P1m-E — rekey-capture-design.md
 https://github.com/lochuan/RH850_P1m-E/blob/main/rekey-capture-design.md
 
@@ -5899,7 +5899,7 @@ python3 parserekeycapture.py capture.ndjson --oracle canoracle4ar""",
     "id": "builtin_secoc_lochuan_rh850_p1m_e_rekey_capture_design_md_7",
     "title": "RH850 rekey capture design (8/8)",
     "tags": ["secoc","rh850","rekey","capture"],
-    "refresh": True,
+    "refresh": False,
     "text": """Source: lochuan/RH850_P1m-E — rekey-capture-design.md
 https://github.com/lochuan/RH850_P1m-E/blob/main/rekey-capture-design.md
 
