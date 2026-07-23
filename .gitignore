@@ -15,3 +15,6 @@ data/fork_analysis/
 .DS_Store
 config.json
 web/static/vendor/office/_staging/
+cabana_cache
+data
+workspace
