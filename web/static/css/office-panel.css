@@ -93,7 +93,7 @@
 }
 
 .office-scene-wrap::after {
-  content: '拖拽旋转 · 车道联动车端';
+  content: '左键旋转 · 右键/中键/Shift+左键平移 · 滚轮缩放 · 双击聚焦 · 0 全景';
   position: absolute;
   left: 8px;
   bottom: 6px;
@@ -118,6 +118,7 @@
   display: block;
   width: 100% !important;
   height: 100% !important;
+  user-select: none;
 }
 
 .office-scene-canvas:active,

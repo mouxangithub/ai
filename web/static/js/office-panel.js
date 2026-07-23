@@ -21,6 +21,7 @@ const OfficePanel = (() => {
   let apiFn = null;
   let open = false;
   let sceneReady = false;
+  let sceneInitPromise = null;
   let agentsLoading = false;
 
   const STATUS_LABEL = {
@@ -220,12 +221,25 @@ const OfficePanel = (() => {
   }
 
   async function ensureScene() {
-    if (sceneReady || typeof OfficeScene === 'undefined') return sceneReady;
-    sceneReady = await OfficeScene.init(document.getElementById('officeSceneHost'));
-    if (sceneReady) {
-      OfficeScene.setOnSelectAgent((id) => selectAgent(id));
+    if (sceneReady) return true;
+    if (typeof OfficeScene === 'undefined') return false;
+    if (!sceneInitPromise) {
+      sceneInitPromise = OfficeScene.init(document.getElementById('officeSceneHost')).then((ok) => {
+        sceneReady = !!ok;
+        if (sceneReady) {
+          OfficeScene.setOnSelectAgent((id) => selectAgent(id));
+          if (agentsById.size) {
+            OfficeScene.setAgents([...agentsById.values()]);
+          }
+        }
+        return sceneReady;
+      }).catch(() => {
+        sceneInitPromise = null;
+        sceneReady = false;
+        return false;
+      });
     }
-    return sceneReady;
+    return sceneInitPromise;
   }
 
   function setVisible(visible) {
@@ -243,8 +257,8 @@ const OfficePanel = (() => {
       setDrivingMode(getDriving());
       setVehicleState(getVehicleState());
       ensureAgentsLoaded().catch(() => {});
-      ensureScene().then(() => {
-        if (sceneReady) {
+      ensureScene().then((ok) => {
+        if (ok) {
           OfficeScene.resize();
           OfficeScene.start();
         }
@@ -299,7 +313,6 @@ const OfficePanel = (() => {
     toggleBtn?.addEventListener('click', toggle);
     closeBtn?.addEventListener('click', hide);
     backdrop?.addEventListener('click', hide);
-    ensureScene();
     renderTasks();
     renderStats();
     renderRoster();

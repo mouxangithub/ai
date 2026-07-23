@@ -41,10 +41,26 @@ const PICKS = [
   { src: 'racing/Models/GLTF format/lightRed.glb', dest: 'traffic-light.glb', kit: 'racing' },
 ];
 
+const CHARACTER_PICKS = [
+  { src: 'characters/Models/GLB format/character-male-a.glb', dest: 'character-male-a.glb', kit: 'characters' },
+  { src: 'characters/Models/GLB format/character-male-b.glb', dest: 'character-male-b.glb', kit: 'characters' },
+  { src: 'characters/Models/GLB format/character-male-c.glb', dest: 'character-male-c.glb', kit: 'characters' },
+  { src: 'characters/Models/GLB format/character-male-d.glb', dest: 'character-male-d.glb', kit: 'characters' },
+  { src: 'characters/Models/GLB format/character-male-e.glb', dest: 'character-male-e.glb', kit: 'characters' },
+  { src: 'characters/Models/GLB format/character-male-f.glb', dest: 'character-male-f.glb', kit: 'characters' },
+  { src: 'characters/Models/GLB format/character-female-a.glb', dest: 'character-female-a.glb', kit: 'characters' },
+  { src: 'characters/Models/GLB format/character-female-b.glb', dest: 'character-female-b.glb', kit: 'characters' },
+  { src: 'characters/Models/GLB format/character-female-c.glb', dest: 'character-female-c.glb', kit: 'characters' },
+  { src: 'characters/Models/GLB format/character-female-d.glb', dest: 'character-female-d.glb', kit: 'characters' },
+  { src: 'characters/Models/GLB format/character-female-e.glb', dest: 'character-female-e.glb', kit: 'characters' },
+  { src: 'characters/Models/GLB format/character-female-f.glb', dest: 'character-female-f.glb', kit: 'characters' },
+];
+
 const TEXTURE_GLOBS = [
   'furniture/Models/GLTF format/Textures/colormap.png',
   'roads/Models/GLB format/Textures/colormap.png',
   'racing/Models/GLTF format/Textures/colormap.png',
+  'characters/Models/GLB format/Textures/colormap.png',
 ];
 
 function findFile(rel) {
@@ -84,7 +100,8 @@ function main() {
 
   let ok = 0;
   const missing = [];
-  for (const pick of PICKS) {
+  const allPicks = [...PICKS, ...CHARACTER_PICKS];
+  for (const pick of allPicks) {
     const src = findFile(pick.src);
     const dest = path.join(OUT, pick.dest);
     if (!src) {
@@ -100,18 +117,19 @@ function main() {
   for (const rel of TEXTURE_GLOBS) {
     const src = findFile(rel);
     if (!src) continue;
-    const name = path.basename(path.dirname(path.dirname(src))) + '-' + path.basename(src);
-    copyFile(src, path.join(TEXTURES_OUT, name));
-    console.log(`✓ textures/${name}`);
+    const kit = rel.split('/')[0];
+    const destName = `${kit}-colormap.png`;
+    copyFile(src, path.join(TEXTURES_OUT, destName));
+    console.log(`✓ textures/${destName}`);
   }
 
   // Kenney license copies
-  for (const kit of ['furniture', 'roads', 'racing']) {
+  for (const kit of ['furniture', 'roads', 'racing', 'characters']) {
     const lic = findFile(`${kit}/License.txt`);
     if (lic) copyFile(lic, path.join(OUT, `LICENSE-${kit}.txt`));
   }
 
-  console.log(`\nImported ${ok}/${PICKS.length} models → ${OUT}`);
+  console.log(`\nImported ${ok}/${allPicks.length} models → ${OUT}`);
   if (missing.length) {
     console.warn('\nMissing (check filenames in zip):');
     missing.forEach((m) => console.warn(`  - ${m}`));
