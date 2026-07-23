@@ -10,6 +10,11 @@ from ai.tools.sp_tool_extensions import (
   SP_EXTENSION_TOOL_META,
   make_sp_extension_handlers,
 )
+from ai.tools.platform_extensions import (
+  PLATFORM_SCHEMAS,
+  PLATFORM_TOOL_META,
+  make_platform_handlers,
+)
 
 EXTENSION_TOOL_META: dict[str, dict[str, Any]] = {
   "reboot_device": {"label": "重启设备", "group": "shell", "default_enabled": True, "driving": True},
@@ -75,6 +80,7 @@ EXTENSION_TOOL_META: dict[str, dict[str, Any]] = {
 
 EXTENSION_TOOL_META.update(collect_plugin_tool_meta())
 EXTENSION_TOOL_META.update(SP_EXTENSION_TOOL_META)
+EXTENSION_TOOL_META.update(PLATFORM_TOOL_META)
 
 EXTENSION_SCHEMAS: list[dict[str, Any]] = [
   {"type": "function", "function": {"name": "reboot_device", "description": "Reboot the comma/AGNOS device.", "parameters": {"type": "object", "properties": {"delay_sec": {"type": "integer"}}, "required": []}}},
@@ -140,6 +146,7 @@ EXTENSION_SCHEMAS: list[dict[str, Any]] = [
 
 EXTENSION_SCHEMAS.extend(collect_plugin_schemas())
 EXTENSION_SCHEMAS.extend(SP_EXTENSION_SCHEMAS)
+EXTENSION_SCHEMAS.extend(PLATFORM_SCHEMAS)
 
 
 def make_extension_handlers(
@@ -733,4 +740,5 @@ def make_extension_handlers(
       get_state_reader=get_state_reader,
     )
   )
+  base.update(make_platform_handlers(params=params))
   return base

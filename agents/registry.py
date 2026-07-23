@@ -17,6 +17,12 @@ _SHARED_TOOLS = frozenset({
   "list_knowledge_docs",
   "get_vehicle_state",
   "read_params",
+  "sessions_list",
+  "sessions_history",
+  "search_past_conversations",
+  "get_user_profile",
+  "update_user_profile",
+  "list_learned_skills",
 })
 
 

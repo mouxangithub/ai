@@ -119,3 +119,69 @@ async def api_usage_detail(request: web.Request) -> web.Response:
     "byModel": usage.get("by_model") or {},
     "recent": (usage.get("recent") or [])[-20:],
   })
+
+
+async def api_platform_sessions_search(request: web.Request) -> web.Response:
+  from ai.server.deps import json_response
+  from ai.tools.session_index import search_sessions
+
+  q = str(request.query.get("q") or request.query.get("query") or "").strip()
+  limit = int(request.query.get("limit", "8") or "8")
+  return json_response(search_sessions(q, limit=limit))
+
+
+async def api_platform_mcp(request: web.Request) -> web.Response:
+  from ai.server.deps import json_response, params
+  from ai.mcp.host import list_mcp_servers, upsert_mcp_server, discover_mcp_tools
+
+  p = request.app.get("params") or params()
+  if request.method == "GET":
+    return json_response(list_mcp_servers(p))
+  try:
+    body = await request.json()
+  except Exception:
+    body = {}
+  if not isinstance(body, dict):
+    body = {}
+  op = str(body.get("operation") or "upsert")
+  if op == "discover":
+    return json_response(await discover_mcp_tools(p, str(body.get("server_id") or "")))
+  return json_response(upsert_mcp_server(p, body))
+
+
+async def api_platform_learned_skills(request: web.Request) -> web.Response:
+  from ai.server.deps import json_response, params
+  from ai.tools.skill_learning import approve_learned_skill, list_learned_skills
+
+  p = request.app.get("params") or params()
+  if request.method == "GET":
+    return json_response(list_learned_skills(p))
+  try:
+    body = await request.json()
+  except Exception:
+    body = {}
+  skill_id = str((body or {}).get("skill_id") or (body or {}).get("skillId") or "")
+  if not skill_id:
+    return json_response({"ok": False, "error": "skill_id required"}, status=400)
+  return json_response(approve_learned_skill(p, skill_id))
+
+
+async def api_platform_toolsets(request: web.Request) -> web.Response:
+  from ai.server.deps import json_response
+  from ai.tools.toolsets import list_toolsets
+
+  return json_response({"ok": True, "toolsets": list_toolsets()})
+
+
+async def api_scheduler_nl(request: web.Request) -> web.Response:
+  from ai.server.deps import json_response, params
+  from ai.tools.scheduler import upsert_task_from_nl
+
+  try:
+    body = await request.json()
+  except Exception:
+    body = {}
+  text = str((body or {}).get("text") or (body or {}).get("prompt") or "").strip()
+  if not text:
+    return json_response({"ok": False, "error": "text required"}, status=400)
+  return json_response(upsert_task_from_nl(request.app.get("params") or params(), text))

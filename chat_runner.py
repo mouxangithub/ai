@@ -60,12 +60,14 @@ async def build_chat_messages(
   available_tool_names: set[str] | None,
 ) -> tuple[AIConfig, list[dict[str, Any]]]:
   raw_messages = body.get("messages", [])
+  force_compact = bool(body.get("compact") or body.get("_force_compaction"))
   if not body.get("_skip_compaction"):
     raw_messages = await maybe_compact_messages(
       raw_messages,
       params,
       config,
       session_id=str(body.get("sessionId") or body.get("session_id") or ""),
+      force=force_compact,
     )
   messages = expand_messages_for_api(raw_messages)
 
@@ -112,6 +114,14 @@ async def build_chat_messages(
     system_parts.append(skills_block)
 
   try:
+    from ai.tools.skill_learning import learned_skills_prompt
+    learned = learned_skills_prompt(params)
+    if learned:
+      system_parts.append(learned)
+  except Exception:
+    pass
+
+  try:
     from ai.workspace import workspace_prompt_blocks
     for block in workspace_prompt_blocks():
       system_parts.append(block)
@@ -135,6 +145,10 @@ async def build_chat_messages(
   system_parts.append(
     "Use available tools proactively to diagnose and complete the task without asking for step-by-step confirmation. "
     "Proceed with writes and diagnostics as needed."
+  )
+  system_parts.append(
+    "Memory nudge: if the user shared durable preferences, vehicle facts, or workflow steps worth reusing, "
+    "call update_user_profile and/or update_agent_memory before finishing."
   )
   if is_admin_mode(params):
     system_parts.append(
@@ -201,6 +215,13 @@ async def run_chat_loop(
 
   for _round in range(max_tool_rounds):
     _check_cancel()
+    if body.get("trace"):
+      await emit({
+        "type": "trace",
+        "round": _round,
+        "agentId": agent_id,
+        "message": f"chat round {_round + 1}",
+      })
     hook_round = await run_hooks("before_chat_round", {
       "round": _round,
       "agent_id": agent_id,
@@ -314,6 +335,7 @@ async def run_chat_loop(
         "name": name,
         "result": result,
         "agentId": agent_id,
+        "verbose": bool(body.get("verbose")),
       })
       await _emit_with_office(emit, {"type": "agent_status", "agentId": agent_id, "status": "assigned", "office": office})
       chat_messages.append({
@@ -331,6 +353,22 @@ async def run_chat_loop(
       source="chat",
     )
     await emit({"type": "usage", "usage": total_usage})
+
+  if session_id:
+    try:
+      from ai.tools.session_index import append_to_session_index
+      for msg in reversed(chat_messages):
+        if msg.get("role") in ("user", "assistant"):
+          append_to_session_index(
+            session_id,
+            str(msg.get("role")),
+            msg.get("content"),
+            title=str(route_data.get("agentName") or agent_id),
+          )
+          if msg.get("role") == "user":
+            break
+    except Exception:
+      pass
 
   if body.get("_orchestration_phase") == "specialist":
     office = set_agent_status(agent_id, "idle")

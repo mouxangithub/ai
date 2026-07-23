@@ -207,6 +207,8 @@ let _gatewayHydrated = false;
 let _statusPollTimer = null;
 const CHAT_MODE = 'unlimited';
 let pendingWorkflow = '';
+let pendingAgentId = '';
+let pendingCompact = false;
 let _lastStateVersion = 0;
 
 function getAbortController() { return abortController; }
@@ -217,6 +219,18 @@ function consumePendingWorkflow() {
   const w = pendingWorkflow;
   pendingWorkflow = '';
   return w;
+}
+
+function consumePendingAgentId() {
+  const a = pendingAgentId;
+  pendingAgentId = '';
+  return a;
+}
+
+function consumePendingCompact() {
+  const c = pendingCompact;
+  pendingCompact = false;
+  return c;
 }
 
 function initChatJobs() {
@@ -233,6 +247,13 @@ function initChatJobs() {
     getStreamSessionId,
     setStreamSessionId,
     consumePendingWorkflow,
+    consumePendingAgentId,
+    consumePendingCompact,
+    getChatDebugPrefs: () => (
+      (typeof LocalPrefs !== 'undefined' && LocalPrefs.getChatDebugPrefs)
+        ? LocalPrefs.getChatDebugPrefs()
+        : { verbose: false, trace: false }
+    ),
     isSyncWsConnected,
     syncSessionsToDevice,
     getCurrentMessages,
@@ -1512,6 +1533,7 @@ const SETTINGS_TAB_PANES = {
   model: 'paneModel',
   knowledge: 'paneKnowledge',
   scheduler: 'paneScheduler',
+  platform: 'panePlatform',
   dev: 'paneDev',
 };
 
@@ -1584,6 +1606,9 @@ function activateSettingsTab(name) {
     }
   }
   if (tabName === 'model') loadUsage();
+  if (tabName === 'platform' && typeof PlatformPanel !== 'undefined') {
+    PlatformPanel.onSettingsOpen('platform');
+  }
 }
 
 function openSettingsTab(tab) {
@@ -2317,6 +2342,16 @@ function scrollToBottom() {
 
 const SLASH_COMMAND_DEFS = [
   { id: 'status', icon: '🚗', labelKey: 'slashCmdStatus', descKey: 'slashCmdStatusDesc', promptKey: 'qaVehiclePrompt', enrich: 'status' },
+  { id: 'compact', icon: '🗜️', labelKey: 'slashCmdCompact', descKey: 'slashCmdCompactDesc', action: 'compact' },
+  { id: 'new', icon: '✨', labelKey: 'slashCmdNew', descKey: 'slashCmdNewDesc', action: 'new_session' },
+  { id: 'agent', icon: '🤖', labelKey: 'slashCmdAgent', descKey: 'slashCmdAgentDesc', action: 'agent' },
+  { id: 'think', icon: '💭', labelKey: 'slashCmdThink', descKey: 'slashCmdThinkDesc', action: 'think' },
+  { id: 'verbose', icon: '🔍', labelKey: 'slashCmdVerbose', descKey: 'slashCmdVerboseDesc', action: 'verbose' },
+  { id: 'trace', icon: '📍', labelKey: 'slashCmdTrace', descKey: 'slashCmdTraceDesc', action: 'trace' },
+  { id: 'usage', icon: '📊', labelKey: 'slashCmdUsage', descKey: 'slashCmdUsageDesc', enrich: 'usage' },
+  { id: 'memory', icon: '🧠', labelKey: 'slashCmdMemory', descKey: 'slashCmdMemoryDesc', enrich: 'memory' },
+  { id: 'workspace', icon: '📁', labelKey: 'slashCmdWorkspace', descKey: 'slashCmdWorkspaceDesc', action: 'workspace' },
+  { id: 'office', icon: '🏢', labelKey: 'slashCmdOffice', descKey: 'slashCmdOfficeDesc', action: 'office' },
   { id: 'tsk', icon: '🔐', labelKey: 'slashCmdTsk', descKey: 'slashCmdTskDesc', submenu: 'tsk' },
   { id: 'can', icon: '📡', labelKey: 'slashCmdCan', descKey: 'slashCmdCanDesc', submenu: 'routes' },
   { id: 'logs', icon: '📋', labelKey: 'slashCmdLogs', descKey: 'slashCmdLogsDesc', promptKey: 'qaLogsPrompt' },
@@ -2595,6 +2630,47 @@ function selectSlashCommand(def) {
     els.chatInput.value = '';
     autoResize();
     return;
+  } else if (def.action === 'compact') {
+    els.chatInput.value = '/compact ';
+  } else if (def.action === 'new_session') {
+    SessionStore.createSession();
+    renderSessionList();
+    hideComposerSlashMenu();
+    els.chatInput.value = '';
+    autoResize();
+    return;
+  } else if (def.action === 'workspace') {
+    openSettingsTab('platform');
+    hideComposerSlashMenu();
+    els.chatInput.value = '';
+    return;
+  } else if (def.action === 'office') {
+    if (typeof OfficePanel !== 'undefined') OfficePanel.open();
+    hideComposerSlashMenu();
+    els.chatInput.value = '';
+    return;
+  } else if (def.action === 'verbose' || def.action === 'trace') {
+    if (typeof LocalPrefs !== 'undefined') {
+      const prefs = LocalPrefs.getChatDebugPrefs();
+      if (def.action === 'verbose') prefs.verbose = !prefs.verbose;
+      else prefs.trace = !prefs.trace;
+      LocalPrefs.setChatDebugPrefs(prefs);
+      showToast(`${def.id}: ${prefs[def.action] ? 'on' : 'off'}`);
+    }
+    hideComposerSlashMenu();
+    els.chatInput.value = '';
+    return;
+  } else if (def.action === 'think') {
+    if (typeof LocalPrefs !== 'undefined') {
+      const next = LocalPrefs.getModelProfile() === 'deep' ? 'auto' : 'deep';
+      LocalPrefs.setModelProfile(next);
+      showToast(next === 'deep' ? t('slashThinkOn', '深度思考：开') : t('slashThinkOff', '深度思考：关'));
+    }
+    hideComposerSlashMenu();
+    els.chatInput.value = '';
+    return;
+  } else if (def.action === 'agent') {
+    els.chatInput.value = '/agent ';
   } else {
     els.chatInput.value = `/${def.id} `;
     hideComposerSlashMenu();
@@ -2712,6 +2788,37 @@ async function buildTskSlashMessage(subId) {
   return parts.join('\n');
 }
 
+async function buildUsageSlashMessage() {
+  const parts = [t('slashUsageIntro', 'Current AI usage on this device:')];
+  try {
+    const { data } = await api('GET', '/api/ai/usage/detail', null, { timeoutMs: 10000 });
+    if (data?.ok) {
+      parts.push(`\n${JSON.stringify({
+        calls: data.usage?.calls,
+        total_tokens: data.usage?.total_tokens,
+        by_provider: data.byProvider,
+      }, null, 2)}`);
+    }
+  } catch { /* optional */ }
+  return parts.join('\n');
+}
+
+async function buildMemorySlashMessage() {
+  const parts = [t('slashMemoryIntro', 'Device memory summary:')];
+  try {
+    const { data } = await api('GET', '/api/ai/memory', null, { timeoutMs: 10000 });
+    if (data?.ok) {
+      parts.push(`\nnotes=${(data.notes || []).length}`);
+      parts.push(`vehicle_profile=${JSON.stringify(data.vehicle_profile || {}, null, 2)}`);
+    }
+    const ws = await api('GET', '/api/ai/workspace?key=user');
+    if (ws.data?.content) {
+      parts.push(`\nUSER.md:\n${ws.data.content.slice(0, 1200)}`);
+    }
+  } catch { /* optional */ }
+  return parts.join('\n');
+}
+
 function buildHelpSlashMessage() {
   const lines = [t('slashHelpIntro', 'Available slash commands:')];
   for (const def of SLASH_COMMAND_DEFS) {
@@ -2770,32 +2877,60 @@ async function resolveSlashSend(text) {
     };
   }
 
-  const cmdMatch = trimmed.match(/^\/([a-z]+)\s*$/i);
+  const cmdMatch = trimmed.match(/^\/([a-z]+)(?:\s+(.+))?$/i);
   if (!cmdMatch) return null;
 
-  const def = findSlashDef(cmdMatch[1]);
-  if (!def) return null;
+  const cmd = cmdMatch[1].toLowerCase();
+  const arg = (cmdMatch[2] || '').trim();
 
-  if (def.action === 'cabana') {
-    openCabanaModal();
-    return { blockSend: true, handled: true };
+  if (cmd === 'agent' && arg) {
+    pendingAgentId = arg;
+    return {
+      displayText: trimmed,
+      preview: `agent: ${arg}`,
+      historyContent: buildUserContent(t('slashAgentPrompt', `请作为专员 ${arg} 处理后续问题。`), []),
+      agentId: arg,
+    };
   }
-  if (def.action === 'secoc') {
-    openSecocModal();
-    return { blockSend: true, handled: true };
+
+  if (cmd === 'compact') {
+    return {
+      displayText: trimmed,
+      preview: t('slashCmdCompact', '/compact'),
+      historyContent: buildUserContent(t('slashCompactPrompt', '请压缩本会话历史并写入记忆。'), []),
+      compact: true,
+    };
   }
-  if (def.submenu) return { blockSend: true };
 
-  let msg = def.promptKey ? t(def.promptKey) : trimmed;
-  if (def.enrich === 'status') msg = await buildStatusSlashMessage();
-  else if (def.enrich === 'help') msg = buildHelpSlashMessage();
+  if (!arg && trimmed.match(/^\/[a-z]+\s*$/i)) {
+    const def = findSlashDef(cmd);
+    if (!def) return null;
 
-  return {
-    displayText: trimmed,
-    preview: t(def.labelKey, `/${def.id}`),
-    historyContent: buildUserContent(msg, []),
-    workflow: def.workflow || '',
-  };
+    if (def.action === 'cabana') {
+      openCabanaModal();
+      return { blockSend: true, handled: true };
+    }
+    if (def.action === 'secoc') {
+      openSecocModal();
+      return { blockSend: true, handled: true };
+    }
+    if (def.submenu) return { blockSend: true };
+
+    let msg = def.promptKey ? t(def.promptKey) : trimmed;
+    if (def.enrich === 'status') msg = await buildStatusSlashMessage();
+    else if (def.enrich === 'help') msg = buildHelpSlashMessage();
+    else if (def.enrich === 'usage') msg = await buildUsageSlashMessage();
+    else if (def.enrich === 'memory') msg = await buildMemorySlashMessage();
+
+    return {
+      displayText: trimmed,
+      preview: t(def.labelKey, `/${def.id}`),
+      historyContent: buildUserContent(msg, []),
+      workflow: def.workflow || '',
+    };
+  }
+
+  return null;
 }
 
 function onComposerSlashKeydown(e) {
@@ -2866,6 +3001,8 @@ async function sendChat(e) {
   let historyContent = null;
   let sessionPreview = text || t('imageMessage', '图片消息');
   let slashWorkflow = '';
+  let slashAgentId = '';
+  let slashCompact = false;
 
   if (slashResolved) {
     hideComposerSlashMenu();
@@ -2873,6 +3010,8 @@ async function sendChat(e) {
     sessionPreview = slashResolved.preview || displayText;
     if (slashResolved.historyContent !== undefined) historyContent = slashResolved.historyContent;
     slashWorkflow = slashResolved.workflow || '';
+    slashAgentId = slashResolved.agentId || '';
+    slashCompact = !!slashResolved.compact;
   }
 
   const workflowForSend = slashWorkflow || pendingWorkflow;
@@ -2904,8 +3043,12 @@ async function sendChat(e) {
   syncSessionsToDevice().catch(() => {});
 
   pendingWorkflow = workflowForSend;
+  pendingAgentId = slashAgentId || pendingAgentId;
+  pendingCompact = slashCompact;
   await streamAssistantResponse(history);
   pendingWorkflow = '';
+  pendingAgentId = '';
+  pendingCompact = false;
 }
 
 function savePartialAssistant(sessionId, assistantMessage) {
@@ -4988,6 +5131,9 @@ async function init() {
     });
   }
   initChatJobs();
+  if (typeof PlatformPanel !== 'undefined') {
+    PlatformPanel.init({ api });
+  }
   initModelCombos();
   if (typeof AgentsPanel !== 'undefined') {
     AgentsPanel.init({

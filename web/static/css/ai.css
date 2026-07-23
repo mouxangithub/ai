@@ -3920,3 +3920,40 @@ html, body {
   justify-content: flex-end;
   margin-bottom: 0.5rem;
 }
+
+.platform-editor {
+  width: 100%;
+  margin-top: 0.5rem;
+  min-height: 8rem;
+  font-family: var(--font-mono, monospace);
+  font-size: 0.82rem;
+}
+.platform-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+.assistant-trace-line {
+  font-family: var(--font-mono, monospace);
+  font-size: 0.75rem;
+  color: var(--text-secondary, #9aa);
+  padding: 0.1rem 0;
+}
+.assistant-trace {
+  margin-top: 0.35rem;
+  padding: 0.35rem 0.5rem;
+  border-left: 2px solid var(--accent, #6af);
+  max-height: 6rem;
+  overflow-y: auto;
+}
+.platform-list-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.45rem 0.6rem;
+  border-radius: 8px;
+  background: var(--surface-2, rgba(255,255,255,0.04));
+  font-size: 0.82rem;
+  word-break: break-word;
+}

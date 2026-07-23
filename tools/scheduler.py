@@ -26,7 +26,7 @@ VALID_ACTIONS = frozenset({
   "trip_review_offroad", "reindex_rag_wifi", "check_critical_events",
   "post_drive_review_offroad", "check_param_watchlist_offroad", "git_fetch_wifi",
   "check_runner_health_offroad", "check_device_health_offroad", "check_github_ci_failed",
-  "ota_preflight_offroad",
+  "ota_preflight_offroad", "chat_notify",
 })
 VALID_TRIGGERS = frozenset({"interval", "on_offroad", "on_ignition", "on_wifi", "daily_at"})
 
@@ -68,6 +68,60 @@ def _save_state(params: Params, state: dict[str, Any]) -> None:
 def list_tasks(params: Params | None = None) -> dict[str, Any]:
   params = params or _default_params()
   return {"ok": True, "tasks": _load_tasks(params)}
+
+
+def parse_nl_task_spec(text: str) -> dict[str, Any] | None:
+  """Parse simple Chinese NL cron hints, e.g. '每天9点检查日志'."""
+  import re
+
+  raw = (text or "").strip()
+  if not raw:
+    return None
+  spec: dict[str, Any] = {"name": raw[:80]}
+  if "每天" in raw or "每日" in raw:
+    m = re.search(r"(\d{1,2})\s*点", raw)
+    hour = int(m.group(1)) if m else 9
+    spec.update({
+      "trigger": "daily_at",
+      "interval_minutes": 1440,
+      "payload": {"hour": hour, "minute": 0},
+    })
+  elif "停车" in raw or "offroad" in raw.lower():
+    spec.update({"trigger": "on_offroad", "interval_minutes": 60, "payload": {}})
+  elif "wifi" in raw.lower() or "无线" in raw:
+    spec.update({"trigger": "on_wifi", "interval_minutes": 60, "payload": {}})
+  else:
+    spec.update({"trigger": "interval", "interval_minutes": 60, "payload": {}})
+
+  if any(k in raw for k in ("日志", "log")):
+    spec["action"] = "read_last_log"
+  elif any(k in raw for k in ("用量", "usage", "token")):
+    spec["action"] = "read_usage"
+  elif any(k in raw for k in ("复盘", "trip", "行程")):
+    spec["action"] = "post_drive_review_offroad"
+  elif any(k in raw for k in ("通知", "提醒", "推送")):
+    spec["action"] = "chat_notify"
+    spec["payload"] = {**(spec.get("payload") or {}), "prompt": raw}
+  else:
+    spec["action"] = "chat_notify"
+    spec["payload"] = {**(spec.get("payload") or {}), "prompt": raw}
+  return spec
+
+
+def upsert_task_from_nl(params: Params, text: str) -> dict[str, Any]:
+  spec = parse_nl_task_spec(text)
+  if not spec:
+    return {"ok": False, "error": "empty spec"}
+  return upsert_task(
+    params,
+    task_id=None,
+    name=str(spec.get("name") or "NL task"),
+    action=str(spec.get("action") or "read_last_log"),
+    interval_minutes=int(spec.get("interval_minutes") or 60),
+    enabled=True,
+    payload=spec.get("payload"),
+    trigger=str(spec.get("trigger") or "interval"),
+  )
 
 
 def upsert_task(

@@ -342,6 +342,7 @@ def filter_tools(
   *,
   driving: bool,
   admin: bool = False,
+  toolset_id: str = "",
 ) -> list[dict[str, Any]] | None:
   if not enabled:
     return None
@@ -366,6 +367,10 @@ def filter_tools(
       if not allow:
         continue
     out.append(tool)
+
+  if toolset_id:
+    from ai.tools.toolsets import filter_tools_by_toolset
+    out = filter_tools_by_toolset(out, toolset_id) or []
   return out or None
 
 

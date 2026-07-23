@@ -115,10 +115,21 @@ def delete_note(params: Params, note_id: str) -> dict[str, Any]:
 
 
 def format_memory_prompt(params: Params, *, max_notes: int = 5) -> str:
+  from ai.workspace import read_workspace_file
+
   data = get_memory(params)
   profile = data.get("vehicle_profile") or {}
   notes = data.get("notes") or []
   parts: list[str] = []
+
+  user_md = read_workspace_file("user")
+  if user_md:
+    parts.append("## User profile (USER.md)\n" + user_md[:2000])
+
+  memory_md = read_workspace_file("memory")
+  if memory_md and memory_md.strip() != "# MEMORY — 工作区记忆":
+    parts.append("## Workspace memory (MEMORY.md)\n" + memory_md[:1500])
+
   prof_lines = [f"- {k}: {v}" for k, v in profile.items() if k != "updated_at" and v]
   if prof_lines:
     parts.append("## Vehicle profile\n" + "\n".join(prof_lines))
@@ -129,7 +140,7 @@ def format_memory_prompt(params: Params, *, max_notes: int = 5) -> str:
       if text:
         lines.append(f"- {text}")
     if lines:
-      parts.append("## User memory notes\n" + "\n".join(lines))
+      parts.append("## Recent memory notes\n" + "\n".join(lines))
   if not parts:
     return ""
   return "# Agent memory (device-persistent)\n\n" + "\n\n".join(parts)

@@ -1,7 +1,8 @@
-"""Multi-specialist orchestration — sequential delegate + OP synthesis."""
+"""Multi-specialist orchestration — parallel delegate + OP synthesis."""
 
 from __future__ import annotations
 
+import asyncio
 from typing import Any, Callable
 
 from openpilot.common.params import Params
@@ -115,14 +116,14 @@ async def run_chat_with_agents(
     pass
 
   summaries: list[dict[str, Any]] = []
-  for route_dict in plan:
+
+  async def _run_specialist(route_dict: dict[str, Any]) -> dict[str, Any]:
     if is_cancelled and is_cancelled():
       raise ChatCancelled()
-
     sub_tools = _tools_for_route(tools, route_dict)
     collected: list[str] = []
 
-    async def sub_emit(event: dict[str, Any], _route: dict[str, Any] = route_dict) -> None:
+    async def sub_emit(event: dict[str, Any]) -> None:
       if event.get("type") == "content":
         collected.append(event.get("delta") or "")
         return
@@ -146,16 +147,25 @@ async def run_chat_with_agents(
       is_cancelled=is_cancelled,
     )
     if not result.get("ok"):
-      return result
-
-    summary = {
+      raise RuntimeError(result.get("error") or "specialist failed")
+    return {
       "agentId": route_dict.get("agent_id") or route_dict.get("agentId"),
       "agentName": route_dict.get("agentName", ""),
       "agentIcon": route_dict.get("agentIcon", "🤖"),
       "content": "".join(collected).strip(),
     }
-    summaries.append(summary)
-    await emit({"type": "agent_summary", **summary})
+
+  results = await asyncio.gather(
+    *[_run_specialist(route_dict) for route_dict in plan],
+    return_exceptions=True,
+  )
+  for item in results:
+    if isinstance(item, Exception):
+      if isinstance(item, ChatCancelled):
+        raise item
+      return {"ok": False, "error": str(item)}
+    summaries.append(item)
+    await emit({"type": "agent_summary", **item})
 
   if is_cancelled and is_cancelled():
     raise ChatCancelled()

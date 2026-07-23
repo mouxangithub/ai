@@ -1,68 +1,52 @@
-# OpenClaw 借鉴笔记（op助手）— 更新版
-
-参考：[OpenClaw](https://github.com/openclaw/openclaw) · [Architecture](https://docs.openclaw.ai/concepts/architecture)
-
-## 已落地（完整）
-
-| 能力 | 实现 |
-|------|------|
-| WS hello 快照、stateVersion、幂等、lane | `sync_hub`, `session_store`, `chat_jobs` |
-| 多专员编排 | `agents/orchestrator.py` |
-| 模型 failover | `model_router.py` + **设置 → 备用模型** UI |
-| Plugin hooks | `hooks/registry.py` + `hooks/builtin.py`（行驶写保护、审计、Canvas、Sidecar） |
-| WS 协议 v2 | `sync_protocol.py` connect 握手 + inbound/outbound 校验 |
-| agent.wait + runId | `wait_for_job`, chat job API |
-| 会话 compaction | `session_compaction.py` |
-| Skills 快照 | `skills/snapshot.py` |
-| Stuck 诊断 | `stuck_job_watchdog_loop` |
-| Command queue | steer / followup / **collect（合并）** |
-| Canvas | 筛选、Markdown、导出 JSON |
-| Web 终端 + Sidecar | `terminal.py`, `sidecar_hub.py`, `terminal-sidecar.js` |
-| **Heartbeat 巡检** | `workspace/HEARTBEAT.md` + `heartbeat.py` + scheduler `heartbeat_tick` |
-| **SOUL/AGENTS/TOOLS 人设** | `workspace/*.md` 注入 system prompt + REST API |
-| Usage 详情 API | `/api/ai/usage/detail` |
-| 前端模块化 | `web-api.js`, `web-sync-ws.js`, `web-chat-jobs.js`, `session-sync.js`, … |
-| **Gateway 会话同步** | 见 `SESSION_SYNC.md` — WS hello + stateVersion + 内存 SessionStore（无 localStorage 主存储） |
-| 应用工厂 | `server/app_factory.py`（`aid.py` 薄入口） |
-
-## 行驶中 Shell 策略
-
-- **允许**：`run_shell` / `run_shell_command`、Web PTY 终端（诊断）
-- **禁止**：转向/刹车/油门等控车命令（`shell.py` 正则 + hooks 永久拦截）
-- **静止才允许**：write_param、restart 等写操作（非 admin）
-
-## 刻意不做 / 低优先级
-
-| OpenClaw 能力 | 说明 |
-|---------------|------|
-| 多通道 Ingress（WhatsApp/Telegram） | 聚焦车载 Web |
-| MCP 插件生态 | 远期；已有内置 tools |
-| Subagents 递归 | 扁平专员编排已够用 |
-| Tailscale Gateway | 局域网优先 |
-
-## Command queue 三种模式
-
-| 模式 | 行为 |
-|------|------|
-| **steer（抢占）** | 行驶中立即取消当前 job，发送新消息 |
-| **followup（排队）** | 当前 job 完成后，**逐条**处理队列 |
-| **collect（合并）** | 行驶中多条消息**合并为一次**用户轮次再发送 |
-
-## 配置
-
-### 备用模型
-
-设置 → 模型 → **备用模型（Failover）** → 添加行 → 保存
-
-### Workspace 文件
-
-`ai/workspace/SOUL.md`、`AGENTS.md`、`HEARTBEAT.md` 等；API：`GET/POST /api/ai/workspace`
-
-## 验证清单
-
-1. 主模型 API Key 错误时，备用模型自动接管（日志见 `resolvedModel`）
-2. WS 连接先发 `connect`，收到 `connect_ack` + `hello`
-3. 行驶 + 合并模式：连发 3 条 → 当前 job 结束后 1 次合并请求
-4. 工具返回 `report` → Canvas 面板 + 可导出 JSON
-5. AGNOS 上 Web 终端可交互 bash；行驶中仍可用；终端旁显示 tool sidecar
-6. Scheduler「Heartbeat 巡检」每 30 分钟 tick
+# OpenClaw 借鉴笔记（op助手）— 更新版
+
+参考：[OpenClaw](https://github.com/openclaw/openclaw) · [Architecture](https://docs.openclaw.ai/concepts/architecture)
+
+## 已落地（完整）
+
+| 能力 | 实现 |
+|------|------|
+| WS hello 快照、stateVersion、幂等、lane | `sync_hub`, `session_store`, `chat_jobs` |
+| 多专员编排（并行） | `agents/orchestrator.py` — `asyncio.gather` |
+| 模型 failover | `model_router.py` + **设置 → 备用模型** UI |
+| Plugin hooks | `hooks/registry.py` + `hooks/builtin.py` |
+| 会话 compaction + `/compact` | `session_compaction.py` + 斜杠命令 |
+| **Toolsets** | `tools/toolsets.py` — driving_readonly / offroad_full / secoc / devops / pc_replay |
+| **Session 工具 + FTS** | `tools/session_index.py`, `tools/platform_extensions.py` |
+| **MCP stdio 桥** | `mcp/host.py` + `/api/ai/mcp` |
+| **技能自学习** | `tools/skill_learning.py` + `/api/ai/learned-skills` |
+| **USER.md / MEMORY.md** | `workspace/USER.md`, `workspace/MEMORY.md` 注入 prompt |
+| **Memory nudge** | `chat_runner.py` system 提示 |
+| **Heartbeat LLM 巡检** | `heartbeat.py` — 读 HEARTBEAT.md + LLM 判断，无事静默 |
+| **Cron NL + chat_notify** | `tools/scheduler.py` `parse_nl_task_spec` + `chat_notify` 动作 |
+| 斜杠命令补全 | `/compact` `/agent` `/verbose` `/trace` `/usage` `/memory` `/workspace` `/office` 等 |
+| Web 平台面板 | 设置 → **平台** — 工作区/MCP/技能/搜索/调试开关 |
+| SOUL/AGENTS/TOOLS 人设 | `workspace/*.md` + REST API |
+
+## 刻意不做
+
+| OpenClaw 能力 | 说明 |
+|---------------|------|
+| Exec Approval（危险操作人工确认） | 用户明确排除 |
+| 多通道 Ingress（WhatsApp/Telegram 等 50+） | 聚焦车载 Web |
+| Subagents 递归 | 扁平专员编排已够用 |
+
+## 平台 API
+
+| 端点 | 用途 |
+|------|------|
+| `GET/POST /api/ai/workspace` | SOUL/USER/MEMORY/HEARTBEAT 编辑 |
+| `GET /api/ai/sessions/search?q=` | FTS 跨会话搜索 |
+| `GET/POST /api/ai/mcp` | MCP 服务配置 |
+| `GET/POST /api/ai/learned-skills` | 已学技能列表与批准 |
+| `GET /api/ai/toolsets` | 工具集说明 |
+| `POST /api/ai/scheduler` `{nl: "每天9点…"}` | 自然语言定时任务 |
+
+## 验证清单
+
+1. 设置 → 平台：编辑 USER.md 保存后，新对话 system 含用户画像
+2. `/compact` 触发会话摘要写入 memory notes
+3. 多域问题触发 orchestrator 并行专员 + OP 汇总
+4. Scheduler `chat_notify` / NL 添加任务可推送通知
+5. MCP server 配置后 `discover_mcp_tools` / `call_mcp_tool` 可用
+6. `/verbose` `/trace` 切换后 job body 带标志，SSE 有 trace 事件

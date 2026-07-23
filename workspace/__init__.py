@@ -13,6 +13,7 @@ _FILES = {
   "heartbeat": "HEARTBEAT.md",
   "tools": "TOOLS.md",
   "memory": "MEMORY.md",
+  "user": "USER.md",
 }
 
 
@@ -60,7 +61,11 @@ def ensure_default_workspace_files() -> None:
     ),
     "MEMORY.md": (
       "# MEMORY — 工作区记忆\n\n"
-      "长期记忆见 Params ai_memory_notes；此处可放项目备注。\n"
+      "长期事实与项目备注；用户画像见 USER.md；结构化笔记见 Params ai_memory_notes。\n"
+    ),
+    "USER.md": (
+      "# USER — 用户画像\n\n"
+      "偏好、称呼、常用场景与沟通风格（非车辆参数）。\n"
     ),
   }
   for fname, body in defaults.items():
@@ -72,7 +77,7 @@ def ensure_default_workspace_files() -> None:
 def workspace_prompt_blocks() -> list[str]:
   ensure_default_workspace_files()
   blocks: list[str] = []
-  for key in ("soul", "agents", "tools"):
+  for key in ("soul", "agents", "tools", "user", "memory"):
     text = read_workspace_file(key)
     if text:
       blocks.append(text)

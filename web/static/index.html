@@ -248,6 +248,7 @@
           <button type="button" class="settings-tab active" data-tab="model" id="tabModel" role="tab">模型</button>
           <button type="button" class="settings-tab" data-tab="knowledge" id="tabKnowledge" role="tab">知识库</button>
           <button type="button" class="settings-tab" data-tab="scheduler" id="tabScheduler" role="tab">定时</button>
+          <button type="button" class="settings-tab" data-tab="platform" id="tabPlatform" role="tab">平台</button>
           <button type="button" class="settings-tab" data-tab="dev" id="tabDev" role="tab">开发</button>
         </div>
       </div>
@@ -394,6 +395,8 @@
                     <option value="post_drive_review_offroad">停车语音简报（offroad）</option>
                     <option value="check_param_watchlist_offroad">参数漂移检查（offroad）</option>
                     <option value="git_fetch_wifi">WiFi 时 Git Fetch</option>
+                    <option value="heartbeat_tick">Heartbeat 巡检</option>
+                    <option value="chat_notify">AI 定时提醒</option>
                     <option value="__custom__">自定义…</option>
                   </select>
                   <input type="text" id="schedActionCustom" class="hidden" placeholder="动作 ID，如 read_usage">
@@ -415,6 +418,66 @@
                 <label class="field"><span class="field-label" id="schedMinuteLabel">分</span><input type="number" id="schedMinute" min="0" max="59" value="0"></label>
               </div>
               <button type="button" id="schedAddBtn" class="btn small primary">添加任务</button>
+              <label class="field" style="margin-top:12px">
+                <span class="field-label" id="schedNlLabel">自然语言添加</span>
+                <input type="text" id="schedNlInput" placeholder="每天9点检查日志">
+                <button type="button" id="schedNlBtn" class="btn small">解析添加</button>
+              </label>
+            </div>
+          </section>
+        </div>
+
+        <!-- 平台 -->
+        <div class="settings-pane" id="panePlatform" role="tabpanel">
+          <p class="settings-pane-lead" id="platformPaneDesc">工作区、记忆、MCP 桥接、已学技能与会话搜索</p>
+          <section class="settings-card">
+            <header class="settings-card-head"><h3 class="settings-card-title" id="platformWorkspaceTitle">工作区文件</h3></header>
+            <div class="settings-card-body">
+              <div class="field-row">
+                <select id="platformWorkspaceKey">
+                  <option value="user">USER.md</option>
+                  <option value="memory">MEMORY.md</option>
+                  <option value="soul">SOUL.md</option>
+                  <option value="heartbeat">HEARTBEAT.md</option>
+                </select>
+                <button type="button" id="platformWorkspaceLoad" class="btn small">加载</button>
+                <button type="button" id="platformWorkspaceSave" class="btn small primary">保存</button>
+              </div>
+              <textarea id="platformWorkspaceEditor" rows="8" class="platform-editor" placeholder="工作区 Markdown…"></textarea>
+            </div>
+          </section>
+          <section class="settings-card">
+            <header class="settings-card-head"><h3 class="settings-card-title" id="platformMcpTitle">MCP 服务</h3></header>
+            <div class="settings-card-body">
+              <div id="platformMcpList" class="platform-list"></div>
+              <div class="field-row" style="margin-top:8px">
+                <input type="text" id="platformMcpId" placeholder="server-id">
+                <input type="text" id="platformMcpCmd" placeholder="command (npx/node)">
+                <button type="button" id="platformMcpAdd" class="btn small primary">添加</button>
+              </div>
+            </div>
+          </section>
+          <section class="settings-card">
+            <header class="settings-card-head"><h3 class="settings-card-title" id="platformSkillsTitle">已学技能（待批准）</h3></header>
+            <div class="settings-card-body settings-card-body-flush">
+              <div id="platformLearnedList" class="platform-list"></div>
+            </div>
+          </section>
+          <section class="settings-card">
+            <header class="settings-card-head"><h3 class="settings-card-title" id="platformSearchTitle">历史会话搜索</h3></header>
+            <div class="settings-card-body">
+              <div class="field-row">
+                <input type="search" id="platformSessionQuery" placeholder="搜索历史对话…">
+                <button type="button" id="platformSessionSearch" class="btn small">搜索</button>
+              </div>
+              <div id="platformSessionHits" class="platform-list"></div>
+            </div>
+          </section>
+          <section class="settings-card">
+            <header class="settings-card-head"><h3 class="settings-card-title" id="platformDebugTitle">调试开关</h3></header>
+            <div class="settings-card-body">
+              <label class="field checkbox-field"><input type="checkbox" id="chatVerboseToggle"> <span>Verbose（工具轨迹详情）</span></label>
+              <label class="field checkbox-field"><input type="checkbox" id="chatTraceToggle"> <span>Trace（轮次跟踪事件）</span></label>
             </div>
           </section>
         </div>
@@ -855,6 +918,7 @@
   }
   </script>
   <script type="module" src="/static/js/office-scene-3d.mjs?v=20260724c"></script>
+  <script src="/static/js/platform-panel.js?v=20260724d"></script>
   <script src="/static/js/office-panel.js?v=20260724c"></script>
   <script src="/static/js/command-queue.js?v=20260723k"></script>
   <script src="/static/js/canvas-panel.js?v=20260723a"></script>

@@ -154,6 +154,20 @@ const ChatJobs = (() => {
       }
     }
 
+    if (data.type === 'trace' && data.message) {
+      if (!ui.traceBlock) {
+        ui.traceBlock = document.createElement('div');
+        ui.traceBlock.className = 'assistant-trace hidden';
+        ui.wrapper?.appendChild(ui.traceBlock);
+      }
+      ui.traceBlock.classList.remove('hidden');
+      const line = document.createElement('div');
+      line.className = 'assistant-trace-line';
+      line.textContent = `[${data.round ?? '?'}] ${data.message}`;
+      ui.traceBlock.appendChild(line);
+      deps.scrollToBottom?.();
+    }
+
     if (data.type === 'done') {
       deps.hideAssistantLoading(ui);
       deps.syncThinkingBlock(ui, assistantMessage);
@@ -341,7 +355,10 @@ const ChatJobs = (() => {
       (m) => m.role === 'user' && Array.isArray(m.content) && m.content.some((p) => p.type === 'image_url'),
     );
     const useTools = !hasImages;
-    const workflowId = deps.consumePendingWorkflow?.() || '';
+      const workflowId = deps.consumePendingWorkflow?.() || '';
+      const agentId = deps.consumePendingAgentId?.() || '';
+      const compact = deps.consumePendingCompact?.() || false;
+      const debug = deps.getChatDebugPrefs?.() || {};
 
     const ui = deps.appendAssistantMessage();
     deps.showAssistantLoading(ui);
@@ -380,6 +397,10 @@ const ChatJobs = (() => {
         tools: useTools,
         mode: deps.chatMode || 'unlimited',
         workflow: workflowId || undefined,
+        agentId: agentId || undefined,
+        compact: compact || undefined,
+        verbose: !!debug.verbose,
+        trace: !!debug.trace,
         maxToolRounds: 'infinite',
         ...queueExtras,
       });

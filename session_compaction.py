@@ -47,14 +47,17 @@ async def maybe_compact_messages(
   config: AIConfig,
   *,
   session_id: str = "",
+  force: bool = False,
 ) -> list[dict[str, Any]]:
   """If conversation is long, summarize older turns and store in memory."""
-  if _count_user_turns(messages) < COMPACT_AFTER_USER_TURNS:
+  if not force and _count_user_turns(messages) < COMPACT_AFTER_USER_TURNS:
     return messages
 
   old_msgs, keep_msgs = _split_for_compaction(messages)
-  if not old_msgs:
+  if not old_msgs and not force:
     return messages
+  if force and not old_msgs:
+    old_msgs, keep_msgs = messages[:-2], messages[-2:] if len(messages) > 2 else ([], messages)
 
   transcript_lines: list[str] = []
   for m in old_msgs[-40:]:

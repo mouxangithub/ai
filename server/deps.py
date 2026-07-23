@@ -95,5 +95,17 @@ def resolve_max_tool_rounds(value: Any) -> int:
   return _MAX_TOOL_ROUNDS
 
 
-def filter_tools(enabled: bool, tool_prefs: dict[str, Any], driving: bool = False) -> list[dict[str, Any]] | None:
-  return filter_agent_tools(enabled, tool_prefs, driving=driving, admin=is_admin_mode(_PARAMS))
+def filter_tools(
+  enabled: bool,
+  tool_prefs: dict[str, Any],
+  driving: bool = False,
+  *,
+  toolset_id: str = "",
+) -> list[dict[str, Any]] | None:
+  return filter_agent_tools(
+    enabled,
+    tool_prefs,
+    driving=driving,
+    admin=is_admin_mode(_PARAMS),
+    toolset_id=toolset_id,
+  )

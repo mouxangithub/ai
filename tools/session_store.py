@@ -111,6 +111,12 @@ def save_sessions(params: Params, payload: dict[str, Any]) -> dict[str, Any]:
     _STATE_VERSION += 1
     data["stateVersion"] = _STATE_VERSION
     write_param(params, SESSIONS_KEY, json.dumps(data, ensure_ascii=False))
+    try:
+      from ai.tools.session_index import index_session
+      for session in trimmed:
+        index_session(session)
+    except Exception:
+      pass
     return {
       "ok": True,
       "count": len(trimmed),

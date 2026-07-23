@@ -56,6 +56,17 @@ async def _startup_rag_seed_and_reindex() -> None:
     cloudlog.warning(f"aid: RAG auto-reindex skipped: {e}")
 
 
+async def _startup_session_index() -> None:
+  try:
+    from ai.tools.session_index import rebuild_from_params
+    res = rebuild_from_params(_PARAMS)
+    cloudlog.info(
+      f"aid: session FTS index sessions={res.get('sessions')} messages={res.get('messagesIndexed')}"
+    )
+  except Exception as e:
+    cloudlog.warning(f"aid: session index skipped: {e}")
+
+
 async def _startup_memory_index() -> None:
   try:
     config = read_ai_config()
@@ -115,6 +126,7 @@ def create_app() -> web.Application:
     try:
       ensure_default_scheduler_tasks(_PARAMS)
       application["memory_index_task"] = asyncio.create_task(_startup_memory_index())
+      application["session_index_task"] = asyncio.create_task(_startup_session_index())
     except Exception as e:
       cloudlog.warning(f"aid: default scheduler skipped: {e}")
     application["rag_reindex_task"] = asyncio.create_task(_startup_rag_seed_and_reindex())
@@ -130,7 +142,7 @@ def create_app() -> web.Application:
       cloudlog.warning(f"aid: skills snapshot / stuck watchdog skipped: {e}")
 
   async def _on_cleanup(application: web.Application) -> None:
-    for key in ("scheduler_task", "status_watch_task", "memory_index_task", "rag_reindex_task"):
+    for key in ("scheduler_task", "status_watch_task", "memory_index_task", "session_index_task", "rag_reindex_task"):
       task = application.get(key)
       if task:
         task.cancel()

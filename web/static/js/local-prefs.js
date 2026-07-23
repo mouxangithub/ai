@@ -151,6 +151,19 @@ const LocalPrefs = (() => {
     return v;
   }
 
+  const CHAT_DEBUG_PREFS = 'openpilot-ai-chat-debug';
+
+  function getChatDebugPrefs() {
+    return { verbose: false, trace: false, ...readJson(localStorage, CHAT_DEBUG_PREFS, {}) };
+  }
+
+  function setChatDebugPrefs(prefs) {
+    writeJson(localStorage, CHAT_DEBUG_PREFS, {
+      verbose: !!prefs?.verbose,
+      trace: !!prefs?.trace,
+    });
+  }
+
   return {
     getConfigCache,
     setConfigCache,
@@ -173,5 +186,7 @@ const LocalPrefs = (() => {
     getModelProfile,
     setModelProfile,
     buildDefaultTools,
+    getChatDebugPrefs,
+    setChatDebugPrefs,
   };
 })();

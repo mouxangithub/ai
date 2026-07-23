@@ -132,7 +132,19 @@ def _prepare_chat_run(body: dict[str, Any]) -> dict[str, Any]:
   if route.workflow_id and not body.get("workflow"):
     body["workflow"] = route.workflow_id
 
-  tools = _filter_tools(tools_enabled, tool_prefs, driving=drive_state.is_driving) if tools_enabled else None
+  from ai.tools.toolsets import resolve_toolset
+  toolset_id = resolve_toolset(
+    drive_state.is_driving,
+    agent_id=route.agent_id,
+    explicit=str(body.get("toolset") or body.get("toolsetId") or "").strip(),
+  )
+
+  tools = _filter_tools(
+    tools_enabled,
+    tool_prefs,
+    driving=drive_state.is_driving,
+    toolset_id=toolset_id,
+  ) if tools_enabled else None
   agent = get_agent(route.agent_id)
   if agent and tools:
     tools = filter_tools_for_agent(tools, agent)
@@ -153,6 +165,7 @@ def _prepare_chat_run(body: dict[str, Any]) -> dict[str, Any]:
     "max_tool_rounds": max_tool_rounds,
     "route": route_dict,
     "orchestration_plan": orchestration_plan,
+    "toolset": toolset_id,
   }
 
 
@@ -688,6 +701,10 @@ async def api_scheduler(request: web.Request) -> web.Response:
     body = await request.json()
   except json.JSONDecodeError:
     return _json_response({"ok": False, "error": "Invalid JSON"}, status=400)
+  if body.get("nl") or body.get("natural_language"):
+    from ai.tools.scheduler import upsert_task_from_nl
+    text = str(body.get("nl") or body.get("natural_language") or "")
+    return _json_response(upsert_task_from_nl(_PARAMS, text))
   op = body.get("operation", "upsert")
   if op == "remove":
     return _json_response(remove_task(_PARAMS, str(body.get("task_id", ""))))

@@ -106,7 +106,28 @@ async def scheduler_execute_action(action: str, _payload: dict[str, Any]) -> str
     from ai.heartbeat import run_heartbeat
     res = await run_heartbeat(_PARAMS, get_state_reader=get_state_reader)
     acts = ", ".join(res.get("actions") or [])
-    return f"driving={res.get('driving')} {acts}"[:300]
+    return f"driving={res.get('driving')} notified={res.get('notified')} {acts}"[:300]
+  if action == "chat_notify":
+    prompt = str((_payload or {}).get("prompt") or "").strip()
+    if not prompt:
+      return "chat_notify: empty prompt"
+    from ai.client import load_config_from_params, chat_completion_collect
+    config = load_config_from_params(_PARAMS)
+    if not config.is_configured:
+      return "chat_notify: AI not configured"
+    content, _, err = await chat_completion_collect(
+      config,
+      [
+        {"role": "system", "content": "You are op助手. Reply in concise Chinese."},
+        {"role": "user", "content": prompt},
+      ],
+      max_tokens=600,
+      timeout_total=90,
+    )
+    summary = (content or err or "no response")[:400]
+    await notify_push("定时任务", summary, level="info")
+    append_note(_PARAMS, f"[scheduler] {summary}", tags=["auto", "chat_notify"])
+    return summary
   extra = await execute_scheduler_action(
     action,
     _payload,
