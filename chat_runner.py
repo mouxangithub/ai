@@ -29,6 +29,22 @@ EmitFn = Callable[[dict[str, Any]], Awaitable[None]]
 _MAX_TOOL_ROUNDS = 64
 
 
+async def _broadcast_office_ws() -> None:
+  try:
+    from ai.sync_hub import broadcast_office
+    await broadcast_office()
+  except Exception:
+    pass
+
+
+async def _emit_with_office(emit: EmitFn, event: dict[str, Any]) -> None:
+  await emit(event)
+  if event.get("office") is not None or event.get("type") in {
+    "agent_handoff", "agent_office", "agent_status", "agent_done", "orchestration_start",
+  }:
+    await _broadcast_office_ws()
+
+
 class ChatCancelled(Exception):
   pass
 
@@ -172,8 +188,8 @@ async def run_chat_loop(
   if not body.get("_skip_handoff"):
     handoff = {**route_data, "type": "agent_handoff"}
     office = on_handoff(route_data, session_id=session_id, job_id=job_id)
-    await emit(handoff)
-    await emit({"type": "agent_office", "office": office})
+    await _emit_with_office(emit, handoff)
+    await _emit_with_office(emit, {"type": "agent_office", "office": office})
 
   def _check_cancel() -> None:
     if is_cancelled and is_cancelled():
@@ -270,7 +286,7 @@ async def run_chat_loop(
         "agentId": agent_id,
       })
       office = on_tool_start(agent_id, name)
-      await emit({"type": "agent_status", "agentId": agent_id, "status": "working", "tool": name, "office": office})
+      await _emit_with_office(emit, {"type": "agent_status", "agentId": agent_id, "status": "working", "tool": name, "office": office})
       hook_ctx = await run_hooks("before_tool_call", {
         "name": name,
         "arguments": arguments,
@@ -294,7 +310,7 @@ async def run_chat_loop(
         "result": result,
         "agentId": agent_id,
       })
-      await emit({"type": "agent_status", "agentId": agent_id, "status": "assigned", "office": office})
+      await _emit_with_office(emit, {"type": "agent_status", "agentId": agent_id, "status": "assigned", "office": office})
       chat_messages.append({
         "role": "tool",
         "tool_call_id": tc.get("id", ""),
@@ -313,10 +329,10 @@ async def run_chat_loop(
 
   if body.get("_orchestration_phase") == "specialist":
     office = set_agent_status(agent_id, "idle")
-    await emit({"type": "agent_status", "agentId": agent_id, "status": "idle", "office": office})
+    await _emit_with_office(emit, {"type": "agent_status", "agentId": agent_id, "status": "idle", "office": office})
   else:
     office = on_chat_done(agent_id)
-    await emit({"type": "agent_done", "agentId": agent_id, "office": office})
+    await _emit_with_office(emit, {"type": "agent_done", "agentId": agent_id, "office": office})
   await emit({
     "type": "done",
     "resolvedModel": config.model,

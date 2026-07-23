@@ -8,6 +8,7 @@ from openpilot.common.params import Params
 
 from ai.agents.config import load_disabled_agent_ids
 from ai.agents.registry import filter_tools_for_agent, get_agent, list_agents, orchestrator_id
+from ai.agents.office import on_orchestration_start
 from ai.agents.router import AgentRoute, _last_user_text, _score_agent, resolve_agent_route
 from ai.chat_runner import ChatCancelled, run_chat_loop
 
@@ -98,11 +99,20 @@ async def run_chat_with_agents(
       is_cancelled=is_cancelled,
     )
 
+  session_id = str(body.get("sessionId") or body.get("session_id") or "").strip()
+  job_id = str(body.get("_job_id") or body.get("jobId") or "").strip()
+  office = on_orchestration_start(plan, session_id=session_id, job_id=job_id)
   await emit({
     "type": "orchestration_start",
     "plan": plan,
     "count": len(plan),
+    "office": office,
   })
+  try:
+    from ai.sync_hub import broadcast_office
+    await broadcast_office()
+  except Exception:
+    pass
 
   summaries: list[dict[str, Any]] = []
   for route_dict in plan:

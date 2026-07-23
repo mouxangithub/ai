@@ -1,5 +1,6 @@
 /**
  * Web terminal — xterm.js + PTY WebSocket + Hermes-style AI routing (centered modal).
+ * AI replies render in #terminalAiFeed; shell output stays in xterm only.
  */
 const TerminalPanel = (() => {
   let modal = null;
@@ -9,6 +10,7 @@ const TerminalPanel = (() => {
   let open = false;
   let onVisibilityChange = null;
   let aiOnly = false;
+  let ptyMuted = false;
 
   function wsUrl() {
     const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
@@ -87,26 +89,36 @@ const TerminalPanel = (() => {
     return true;
   }
 
+  function setPtyMuted(muted) {
+    ptyMuted = !!muted;
+  }
+
   function attachInput() {
     if (typeof TerminalAi === 'undefined' || !term) return;
     TerminalAi.attach(term, ws, { aiOnly });
   }
 
-  function startAiOnly() {
+  function enableAiOnlyMode({ clear = false, reason = '' } = {}) {
     aiOnly = true;
     if (!ensureTerm()) return;
-    term.clear();
-    term.writeln('\x1b[33mop助手 Web 终端\x1b[0m — AI 模式（本机无 PTY）');
+    if (clear) term.clear();
+    const msg = reason || '已切换 AI 模式（Shell 不可用，历史已保留）';
+    term.writeln(`\x1b[33m${msg}\x1b[0m`);
     if (typeof TerminalAi !== 'undefined') TerminalAi.printHelp(term, { aiOnly: true });
     term.writeln('');
     attachInput();
     fitTerminal();
   }
 
+  function startAiOnly() {
+    enableAiOnlyMode({ clear: true, reason: 'op助手 Web 终端 — AI 模式（本机无 PTY）' });
+  }
+
   function connect() {
     if (!ensureTerm()) return;
     disconnect();
     aiOnly = false;
+    ptyMuted = false;
     term.clear();
     term.writeln('\x1b[33mop助手 Web 终端\x1b[0m — AGNOS/Linux PTY + AI');
     term.writeln('连接中…\r\n');
@@ -128,16 +140,21 @@ const TerminalPanel = (() => {
       fitTerminal();
     };
     ws.onmessage = (ev) => {
+      if (ptyMuted) return;
       if (typeof ev.data === 'string') term.write(ev.data);
       else term.write(new Uint8Array(ev.data));
     };
     ws.onclose = () => {
-      term.writeln('\r\n\x1b[33mShell 连接已关闭\x1b[0m');
-      if (!aiOnly) startAiOnly();
+      if (!aiOnly) {
+        term.writeln('\r\n\x1b[33mShell 连接已关闭 — 可继续用 AI，或关闭后重开尝试重连\x1b[0m');
+        enableAiOnlyMode({ clear: false });
+      }
     };
     ws.onerror = () => {
-      term.writeln('\r\n\x1b[31m终端错误\x1b[0m');
-      if (!aiOnly) startAiOnly();
+      if (!aiOnly) {
+        term.writeln('\r\n\x1b[31m终端连接错误\x1b[0m');
+        enableAiOnlyMode({ clear: false });
+      }
     };
   }
 
@@ -146,6 +163,7 @@ const TerminalPanel = (() => {
       try { ws.close(); } catch {}
       ws = null;
     }
+    ptyMuted = false;
     if (typeof TerminalAi !== 'undefined') TerminalAi.cancel?.();
   }
 
@@ -154,5 +172,13 @@ const TerminalPanel = (() => {
     ensureDom();
   }
 
-  return { init, setOpen, connect, disconnect, isOpen: () => open };
+  return {
+    init,
+    setOpen,
+    connect,
+    disconnect,
+    isOpen: () => open,
+    setPtyMuted,
+    isPtyMuted: () => ptyMuted,
+  };
 })();

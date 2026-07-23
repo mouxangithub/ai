@@ -1,19 +1,115 @@
 /**
- * Hermes-style terminal AI — natural language in Web terminal routes to op助手.
- * Shell commands still go to PTY; lines like「你好」or `?` / `/ai` prefixes invoke the agent.
+ * Hermes-style terminal AI — natural language routes to op助手.
+ * AI replies render in #terminalAiFeed (DOM); shell stays in xterm only.
  */
 const TerminalAi = (() => {
   let deps = {};
   let running = false;
   let activeJobId = null;
   let lineBuffer = '';
+  let feedEl = null;
+  let paneEl = null;
 
   function init(d = {}) {
     deps = d;
+    feedEl = document.getElementById('terminalAiFeed');
+    paneEl = document.getElementById('terminalAiPane');
+    const clearBtn = document.getElementById('terminalAiPaneClear');
+    if (clearBtn && !clearBtn.dataset.bound) {
+      clearBtn.dataset.bound = '1';
+      clearBtn.addEventListener('click', () => clearFeed());
+    }
   }
 
   function isRunning() {
     return running;
+  }
+
+  function ensureFeed() {
+    if (!feedEl) feedEl = document.getElementById('terminalAiFeed');
+    if (!paneEl) paneEl = document.getElementById('terminalAiPane');
+    return feedEl;
+  }
+
+  function showPane() {
+    if (paneEl) paneEl.removeAttribute('hidden');
+  }
+
+  function clearFeed() {
+    if (feedEl) feedEl.innerHTML = '';
+    if (paneEl && (!feedEl || !feedEl.children.length)) {
+      paneEl.setAttribute('hidden', '');
+    }
+  }
+
+  function scrollFeed() {
+    if (!feedEl) return;
+    requestAnimationFrame(() => {
+      feedEl.scrollTop = feedEl.scrollHeight;
+    });
+  }
+
+  function createTurn(query) {
+    const feed = ensureFeed();
+    if (!feed) return null;
+    showPane();
+
+    const turn = document.createElement('div');
+    turn.className = 'terminal-ai-turn';
+
+    const userEl = document.createElement('div');
+    userEl.className = 'terminal-ai-turn-user';
+    userEl.textContent = query;
+
+    const assistantEl = document.createElement('div');
+    assistantEl.className = 'terminal-ai-turn-assistant';
+
+    const statusEl = document.createElement('div');
+    statusEl.className = 'terminal-ai-status';
+    statusEl.textContent = '处理中…';
+
+    const thinkingEl = document.createElement('div');
+    thinkingEl.className = 'terminal-ai-thinking';
+    thinkingEl.hidden = true;
+    thinkingEl.innerHTML = '<span class="terminal-ai-thinking-label">思考</span><span class="terminal-ai-thinking-body"></span>';
+
+    const contentEl = document.createElement('div');
+    contentEl.className = 'terminal-ai-content';
+    contentEl.hidden = true;
+
+    const toolsEl = document.createElement('div');
+    toolsEl.className = 'terminal-ai-tools';
+
+    assistantEl.append(statusEl, thinkingEl, contentEl, toolsEl);
+    turn.append(userEl, assistantEl);
+    feed.appendChild(turn);
+    scrollFeed();
+
+    return {
+      statusEl,
+      thinkingEl,
+      thinkingBody: thinkingEl.querySelector('.terminal-ai-thinking-body'),
+      contentEl,
+      toolsEl,
+      finish(statusText) {
+        if (statusEl) statusEl.remove();
+        if (statusText) {
+          const s = document.createElement('div');
+          s.className = 'terminal-ai-status';
+          s.textContent = statusText;
+          assistantEl.insertBefore(s, assistantEl.firstChild);
+        }
+        scrollFeed();
+      },
+      setError(msg) {
+        if (statusEl) statusEl.remove();
+        const err = document.createElement('div');
+        err.className = 'terminal-ai-error';
+        err.textContent = msg;
+        assistantEl.appendChild(err);
+        scrollFeed();
+      },
+    };
   }
 
   function shouldRouteToAi(line) {
@@ -50,6 +146,11 @@ const TerminalAi = (() => {
     if (term) term.writeln(text);
   }
 
+  function shellHint(term, text) {
+    if (!term) return;
+    writeln(term, `\x1b[90m${text}\x1b[0m`);
+  }
+
   function prepareMessages(session, userText) {
     const base = Array.isArray(session?.messages) ? session.messages.slice(-40) : [];
     const prepared = typeof deps.prepareMessagesForApi === 'function'
@@ -66,13 +167,12 @@ const TerminalAi = (() => {
     } catch {}
   }
 
-  async function pollJob(jobId, term) {
+  async function pollJob(jobId, ui) {
     let since = 0;
-    let wroteHeader = false;
     while (running && activeJobId === jobId) {
       const { data } = await deps.api('GET', `/api/ai/chat/jobs/${encodeURIComponent(jobId)}?since=${since}`);
       if (!data?.ok) {
-        writeln(term, `\x1b[31m[op助手] ${data?.error || '请求失败'}\x1b[0m\r\n`);
+        ui?.setError(data?.error || '请求失败');
         break;
       }
 
@@ -81,32 +181,42 @@ const TerminalAi = (() => {
         if (seq > since) since = seq;
 
         if (ev.type === 'reasoning') {
-          if (!wroteHeader) {
-            writeln(term, '\x1b[90m[思考]\x1b[0m');
-            wroteHeader = true;
+          if (ui?.thinkingEl) {
+            ui.thinkingEl.hidden = false;
+            if (ui.thinkingBody) ui.thinkingBody.textContent += ev.delta || '';
           }
-          write(term, ev.delta || '');
         } else if (ev.type === 'content') {
-          if (!wroteHeader) {
-            writeln(term, '\x1b[36m[op助手]\x1b[0m');
-            wroteHeader = true;
+          if (ui?.contentEl) {
+            ui.contentEl.hidden = false;
+            ui.contentEl.textContent += ev.delta || '';
           }
-          write(term, ev.delta || '');
         } else if (ev.type === 'tool_call') {
-          writeln(term, `\r\n\x1b[33m[工具] ${ev.name || 'tool'}\x1b[0m`);
+          if (ui?.toolsEl) {
+            const row = document.createElement('div');
+            row.className = 'terminal-ai-tool';
+            row.textContent = `▸ ${ev.name || 'tool'}`;
+            ui.toolsEl.appendChild(row);
+          }
         } else if (ev.type === 'tool_result') {
-          const ok = ev.result?.ok !== false && !ev.result?.error;
-          writeln(term, ok ? '\x1b[32m  ✓ 完成\x1b[0m' : '\x1b[31m  ✗ 失败\x1b[0m');
+          if (ui?.toolsEl?.lastElementChild) {
+            const ok = ev.result?.ok !== false && !ev.result?.error;
+            ui.toolsEl.lastElementChild.classList.add(ok ? 'ok' : 'err');
+            ui.toolsEl.lastElementChild.textContent += ok ? ' ✓' : ' ✗';
+          }
         } else if (ev.type === 'error') {
-          writeln(term, `\r\n\x1b[31m${ev.error || 'error'}\x1b[0m`);
+          ui?.setError(ev.error || 'error');
         }
+        scrollFeed();
       }
 
       if (['done', 'error', 'cancelled'].includes(data.status)) {
         if (data.status === 'error') {
-          writeln(term, `\r\n\x1b[31m${data.error || '任务失败'}\x1b[0m`);
+          ui?.setError(data.error || '任务失败');
+        } else if (data.status === 'cancelled') {
+          ui?.finish('已取消');
+        } else {
+          ui?.finish();
         }
-        writeln(term, '');
         break;
       }
       await sleep(350);
@@ -117,23 +227,30 @@ const TerminalAi = (() => {
     const query = normalizeAiQuery(rawLine);
     if (!query || running) return;
     if (!deps.api || !deps.SessionStore) {
-      writeln(term, '\x1b[31m[op助手] AI 未初始化\x1b[0m\r\n');
+      shellHint(term, '[op助手] AI 未初始化');
+      return;
+    }
+
+    const ui = createTurn(query);
+    if (!ui) {
+      shellHint(term, '[op助手] AI 面板未就绪');
       return;
     }
 
     running = true;
     activeJobId = null;
+    deps.onAiActivity?.(true);
     deps.SessionStore.ensureSessionOnSend?.(query);
     const session = deps.SessionStore.getActive?.();
     const sessionId = session?.id;
     if (!sessionId) {
-      writeln(term, '\x1b[31m[op助手] 无活动会话\x1b[0m\r\n');
+      ui.setError('无活动会话');
       running = false;
+      deps.onAiActivity?.(false);
       return;
     }
 
-    writeln(term, `\r\n\x1b[36m[op助手]\x1b[0m ${query}`);
-    writeln(term, '\x1b[90m处理中…\x1b[0m');
+    shellHint(term, '↑ AI 回复见上方面板');
 
     try {
       const messages = prepareMessages(session, query);
@@ -154,28 +271,29 @@ const TerminalAi = (() => {
       });
 
       if (!startData?.ok) {
-        writeln(term, `\x1b[31m${startData?.error || '无法启动 AI 任务'}\x1b[0m\r\n`);
+        ui.setError(startData?.error || '无法启动 AI 任务');
         return;
       }
       if (startData.queued || startData.action === 'collected') {
         const pos = startData.queuePosition || startData.collectBatch || '?';
-        writeln(term, `\x1b[33m已加入行驶队列（${pos}）\x1b[0m\r\n`);
+        ui.finish(`已加入行驶队列（${pos}）`);
         return;
       }
       if (!startData.jobId) {
-        writeln(term, '\x1b[31m无法启动 AI 任务\x1b[0m\r\n');
+        ui.setError('无法启动 AI 任务');
         return;
       }
 
       activeJobId = startData.jobId;
       deps.SessionStore.setActiveJobId?.(sessionId, startData.jobId);
-      await pollJob(startData.jobId, term);
+      await pollJob(startData.jobId, ui);
       deps.syncSessionsToDevice?.().catch(() => {});
     } catch (e) {
-      writeln(term, `\x1b[31m${e?.message || e}\x1b[0m\r\n`);
+      ui.setError(e?.message || String(e));
     } finally {
       running = false;
       activeJobId = null;
+      deps.onAiActivity?.(false);
     }
   }
 
@@ -190,7 +308,9 @@ const TerminalAi = (() => {
 
       if (ch === '\x1b') {
         const chunk = data.slice(i);
-        if (!aiOnly && ws?.readyState === WebSocket.OPEN) ws.send(chunk);
+        if (!aiOnly && ws?.readyState === WebSocket.OPEN && !deps.ptyMuted?.()) {
+          ws.send(chunk);
+        }
         return;
       }
 
@@ -209,9 +329,9 @@ const TerminalAi = (() => {
           continue;
         }
         if (aiOnly) {
-          writeln(term, '\x1b[90m（AI 模式：输入自然语言，或 ! 前缀强制 Shell）\x1b[0m');
+          shellHint(term, '（AI 模式：自然语言，或 ! 前缀强制 Shell）');
           writePrompt(term);
-        } else if (ws?.readyState === WebSocket.OPEN) {
+        } else if (ws?.readyState === WebSocket.OPEN && !deps.ptyMuted?.()) {
           ws.send(ch);
         }
         i += 1;
@@ -227,7 +347,7 @@ const TerminalAi = (() => {
         if (aiOnly) {
           term.write('^C\r\n');
           writePrompt(term);
-        } else if (ws?.readyState === WebSocket.OPEN) {
+        } else if (ws?.readyState === WebSocket.OPEN && !deps.ptyMuted?.()) {
           ws.send(ch);
         }
         i += 1;
@@ -237,7 +357,9 @@ const TerminalAi = (() => {
         if (aiOnly) term.write(ch);
       }
 
-      if (!aiOnly && ws?.readyState === WebSocket.OPEN) ws.send(ch);
+      if (!aiOnly && ws?.readyState === WebSocket.OPEN && !deps.ptyMuted?.()) {
+        ws.send(ch);
+      }
       i += 1;
     }
   }
@@ -255,7 +377,7 @@ const TerminalAi = (() => {
   }
 
   function printHelp(term, { aiOnly = false } = {}) {
-    writeln(term, '\x1b[33m终端 AI\x1b[0m：直接输入中文/自然语言，或以 \x1b[36m?\x1b[0m / \x1b[36m/ai\x1b[0m 开头调用 op助手；\x1b[36m!\x1b[0m 前缀强制 Shell。');
+    writeln(term, '\x1b[33m终端 AI\x1b[0m：自然语言 / \x1b[36m?\x1b[0m / \x1b[36m/ai\x1b[0m → 上方 AI 面板；\x1b[36m!\x1b[0m 强制 Shell。');
     if (aiOnly) writePrompt(term);
   }
 
@@ -268,5 +390,6 @@ const TerminalAi = (() => {
     shouldRouteToAi,
     printHelp,
     resetLineBuffer,
+    clearFeed,
   };
 })();

@@ -109,6 +109,27 @@ def log_office_task(
   _touch()
 
 
+def on_orchestration_start(
+  plan: list[dict[str, Any]],
+  *,
+  session_id: str = "",
+  job_id: str = "",
+) -> dict[str, Any]:
+  """Mark OP + planned specialists for multi-agent orchestration visualization."""
+  reset_office(session_id, job_id)
+  op = orchestrator_id()
+  log_office_task(op, "多专员编排启动", status="working")
+  set_agent_status(op, "working", task="编排指挥", session_id=session_id, job_id=job_id)
+  for route in plan or []:
+    aid = str(route.get("agent_id") or route.get("agentId") or "").strip()
+    if not aid:
+      continue
+    name = route.get("agentName") or aid
+    log_office_task(aid, f"「{name}」排队待执行", status="assigned")
+    set_agent_status(aid, "assigned", task="orchestrate", session_id=session_id, job_id=job_id)
+  return office_snapshot()
+
+
 def on_handoff(route: dict[str, Any], session_id: str = "", job_id: str = "") -> dict[str, Any]:
   aid = route.get("agent_id") or orchestrator_id()
   name = route.get("agentName") or aid

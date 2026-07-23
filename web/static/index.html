@@ -6,8 +6,8 @@
   <title>op助手</title>
   <link rel="icon" type="image/svg+xml" href="/static/img/favicon.svg">
   <link rel="stylesheet" href="/static/css/ai.css?v=20260723c">
-  <link rel="stylesheet" href="/static/css/office-panel.css?v=20260722l">
-  <link rel="stylesheet" href="/static/css/canvas-panel.css?v=20260723a">
+  <link rel="stylesheet" href="/static/css/office-panel.css?v=20260723h">
+  <link rel="stylesheet" href="/static/css/canvas-panel.css?v=20260723c">
   <link rel="stylesheet" href="/static/css/cabana-panel.css?v=20260723a">
   <link rel="stylesheet" href="/static/vendor/xterm/xterm.css?v=20260722i">
 </head>
@@ -246,7 +246,6 @@
       <div class="settings-tabs-scroll">
         <div class="settings-tabs" id="settingsTabs" role="tablist">
           <button type="button" class="settings-tab active" data-tab="model" id="tabModel" role="tab">模型</button>
-          <button type="button" class="settings-tab" data-tab="agents" id="tabAgents" role="tab">专员</button>
           <button type="button" class="settings-tab" data-tab="knowledge" id="tabKnowledge" role="tab">知识库</button>
           <button type="button" class="settings-tab" data-tab="scheduler" id="tabScheduler" role="tab">定时</button>
           <button type="button" class="settings-tab" data-tab="dev" id="tabDev" role="tab">开发</button>
@@ -327,18 +326,6 @@
 
           <label class="field settings-lang-field"><span id="langLabel" data-i18n="langLabel">界面语言</span><select id="langSelect" class="toolbar-select"><option value="en">English</option><option value="zh">中文</option><option value="ja">日本語</option><option value="ko">한국어</option></select></label>
           <label class="field settings-lang-field"><span id="timezoneLabel" data-i18n="timezoneLabel">时区</span><select id="timezoneSelect" class="toolbar-select"></select></label>
-        </div>
-
-        <!-- 内置专员 -->
-        <div class="settings-pane" id="paneAgents" role="tabpanel">
-          <p class="settings-pane-lead" id="agentsPaneDesc">启用或禁用内置专员。主调度 OP 始终在线，多域问题将自动编排分工。</p>
-          <section class="settings-card">
-            <header class="settings-card-head settings-card-head-row">
-              <h3 class="settings-card-title" id="agentsSectionTitle">内置专员</h3>
-              <button type="button" id="agentsSaveBtn" class="btn small primary">保存</button>
-            </header>
-            <div class="settings-card-body agents-settings-list" id="agentsSettingsList"></div>
-          </section>
         </div>
 
         <!-- 知识库 / Embedding -->
@@ -624,7 +611,7 @@
       <div class="modal-header office-modal-header">
         <div class="office-modal-head-text">
           <h2 id="officeTitle">OP 办公室</h2>
-          <p class="settings-pane-desc" id="officeDesc">内置专员自动派活 · openpilot 研发助手</p>
+          <p class="settings-pane-desc" id="officeDesc">3D 动态办公室 · 专员自动派活与生活状态</p>
         </div>
         <button type="button" id="officeCloseBtn" class="btn icon" aria-label="Close office">
           <svg class="icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg>
@@ -632,7 +619,13 @@
       </div>
       <div class="modal-body office-modal-body">
         <div class="office-stats" id="officeStats"></div>
-        <div class="office-grid" id="officeGrid"></div>
+        <div class="office-main-row">
+          <div class="office-scene-wrap" id="officeSceneWrap">
+            <canvas id="officeSceneCanvas" class="office-scene-canvas" aria-label="OP 办公室 3D 场景"></canvas>
+          </div>
+          <aside class="office-roster" id="officeRoster" aria-label="专员列表"></aside>
+        </div>
+        <div class="office-agent-detail" id="officeAgentDetail" hidden></div>
         <div class="office-tasks-wrap">
           <div class="office-tasks-title" id="officeTasksTitle">任务动态</div>
           <div id="officeTasks"></div>
@@ -752,6 +745,13 @@
         </button>
       </div>
       <div class="modal-body terminal-modal-body">
+        <div class="terminal-ai-pane" id="terminalAiPane" hidden>
+          <div class="terminal-ai-pane-head">
+            <span class="terminal-ai-pane-title">op助手 AI</span>
+            <button type="button" id="terminalAiPaneClear" class="btn ghost small">清空</button>
+          </div>
+          <div class="terminal-ai-feed" id="terminalAiFeed" aria-live="polite"></div>
+        </div>
         <div class="terminal-body">
           <div class="terminal-host" id="terminalHost"></div>
           <aside class="terminal-sidecar" id="terminalSidecar" aria-label="Tool sidecar">
@@ -849,13 +849,14 @@
   <script src="/static/js/fallback-models.js?v=20260722h"></script>
   <script src="/static/js/web-sync-ws.js?v=20260722h"></script>
   <script src="/static/js/terminal-sidecar.js?v=20260723b"></script>
-  <script src="/static/js/terminal-ai.js?v=20260723b"></script>
-  <script src="/static/js/agents-panel.js?v=20260722h"></script>
-  <script src="/static/js/office-panel.js?v=20260722l"></script>
+  <script src="/static/js/terminal-ai.js?v=20260723c"></script>
+  <script src="/static/js/agents-panel.js?v=20260723h"></script>
+  <script src="/static/js/office-scene.js?v=20260723h"></script>
+  <script src="/static/js/office-panel.js?v=20260723h"></script>
   <script src="/static/js/command-queue.js?v=20260722h"></script>
   <script src="/static/js/canvas-panel.js?v=20260723a"></script>
-  <script src="/static/js/terminal-panel.js?v=20260723b"></script>
-  <script src="/static/js/ai.js?v=20260723c"></script>
+  <script src="/static/js/terminal-panel.js?v=20260723c"></script>
+  <script src="/static/js/ai.js?v=20260723h"></script>
   <script src="/static/js/cabana-panel.js?v=20260723a"></script>
 </body>
 </html>

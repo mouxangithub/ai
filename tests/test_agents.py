@@ -70,6 +70,20 @@ class AgentRoutingTests(unittest.TestCase):
     self.assertTrue(any(a["id"] == "triage" and a["status"] == "assigned" for a in snap["agents"]))
     self.assertGreater(len(office_snapshot()["tasks"]), 0)
 
+  def test_office_orchestration_start(self):
+    from ai.agents.office import on_orchestration_start
+
+    plan = [
+      {"agent_id": "triage", "agentName": "分诊员"},
+      {"agent_id": "tune", "agentName": "调参师"},
+    ]
+    snap = on_orchestration_start(plan, session_id="s2", job_id="j2")
+    self.assertEqual(snap["sessionId"], "s2")
+    statuses = {a["id"]: a["status"] for a in snap["agents"]}
+    self.assertEqual(statuses.get("triage"), "assigned")
+    self.assertEqual(statuses.get("tune"), "assigned")
+    self.assertEqual(statuses.get("op"), "working")
+
   def test_orchestrate_multi_domain(self):
     from ai.agents.orchestrator import detect_orchestration_plan
 

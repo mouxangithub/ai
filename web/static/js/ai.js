@@ -55,8 +55,6 @@ const els = {
   secocModal: $('#secocModal'),
   secocBackdrop: $('#secocBackdrop'),
   secocCloseBtn: $('#secocCloseBtn'),
-  agentsSettingsList: $('#agentsSettingsList'),
-  agentsSaveBtn: $('#agentsSaveBtn'),
   providerSelect: $('#providerSelect'),
   apiKeyInput: $('#apiKeyInput'),
   baseUrlField: $('#baseUrlField'),
@@ -298,14 +296,6 @@ function abortActiveChat() {
 
 function applyBuiltinAgents(data) {
   if (typeof AgentsPanel !== 'undefined') AgentsPanel.applyBuiltinAgents(data);
-}
-
-function renderAgentsSettings() {
-  if (typeof AgentsPanel !== 'undefined') AgentsPanel.renderAgentsSettings();
-}
-
-async function saveAgentsSettings() {
-  if (typeof AgentsPanel !== 'undefined') await AgentsPanel.saveAgentsSettings();
 }
 
 function handleAgentStreamEvent(data) {
@@ -896,6 +886,9 @@ function applyStatusFromPayload(data) {
   };
   if (data.hostEnvironment) hostEnvironment = data.hostEnvironment;
   applyStatusPill(data);
+  if (typeof OfficePanel !== 'undefined') {
+    OfficePanel.setDrivingMode?.(!!data.driving);
+  }
 }
 
 function handleWsNotifications(data) {
@@ -1502,7 +1495,6 @@ function toggleSessionsPanel() {
 const SETTINGS_TAB_PANES = {
   api: 'paneModel',
   model: 'paneModel',
-  agents: 'paneAgents',
   knowledge: 'paneKnowledge',
   scheduler: 'paneScheduler',
   dev: 'paneDev',
@@ -1577,7 +1569,6 @@ function activateSettingsTab(name) {
     }
   }
   if (tabName === 'model') loadUsage();
-  if (tabName === 'agents') renderAgentsSettings();
 }
 
 function openSettingsTab(tab) {
@@ -4275,8 +4266,7 @@ function renderDevPane() {
 async function loadStatus() {
   const { data } = await api('GET', '/api/ai/status');
   if (!data.ok) return;
-  state = data;
-  applyStatusPill(data);
+  applyStatusFromPayload(data);
 }
 
 function startStatusPolling() {
@@ -4703,7 +4693,6 @@ function bindUiEvents() {
   els.langSelect?.addEventListener('change', onLangChange);
   els.chatInput?.addEventListener('input', onComposerInput);
   els.saveBtn?.addEventListener('click', () => saveConfig({ silent: false }));
-  els.agentsSaveBtn?.addEventListener('click', () => saveAgentsSettings().catch(console.error));
   bindConfigPersistence();
   if (savedConfig && Object.keys(savedConfig).length) {
     configSaveState = reconcileConfigDraft(savedConfig) ? 'dirty' : 'saved';
@@ -4799,10 +4788,13 @@ async function init() {
   }
   if (typeof OfficePanel !== 'undefined') {
     OfficePanel.init({
+      api: WebApi.api,
+      showToast,
       onOpen: () => {
         if (typeof AgentsPanel !== 'undefined') AgentsPanel.refreshOfficeUsage();
       },
       onVisibilityChange: () => syncBodyScrollLock(),
+      getDriving: () => !!state.driving,
     });
   }
   if (typeof CommandQueue !== 'undefined') CommandQueue.bindUi();
@@ -4821,6 +4813,8 @@ async function init() {
         syncSessionsToDevice,
         getState: () => state,
         chatMode: CHAT_MODE,
+        onAiActivity: (active) => TerminalPanel.setPtyMuted?.(active),
+        ptyMuted: () => TerminalPanel.isPtyMuted?.() ?? false,
       });
     }
     TerminalPanel.init({ onVisibilityChange: () => syncBodyScrollLock() });

@@ -4,7 +4,6 @@
 const AgentsPanel = (() => {
   let deps = {};
   let builtinAgents = [];
-  let agentsDisabled = new Set();
   let currentActiveAgentId = 'op';
   let orchestrationActive = false;
 
@@ -25,59 +24,9 @@ const AgentsPanel = (() => {
       builtinAgents = data.agents;
       if (typeof OfficePanel !== 'undefined') OfficePanel.setAgents(builtinAgents);
     }
-    const disabled = data?.agentsConfig?.disabled || data?.disabled;
-    if (Array.isArray(disabled)) {
-      agentsDisabled = new Set(disabled);
-    }
-    renderAgentsSettings();
     if (data?.office && typeof OfficePanel !== 'undefined') {
       OfficePanel.applyOffice(data.office);
     }
-  }
-
-  function renderAgentsSettings() {
-    const list = deps.els?.agentsSettingsList;
-    if (!list) return;
-    const specialists = builtinAgents.filter((a) => a.id && a.id !== 'op');
-    if (!specialists.length) {
-      list.innerHTML = '<p class="field-hint">暂无专员数据，请刷新页面。</p>';
-      return;
-    }
-    const escapeHtml = deps.escapeHtml || ((s) => String(s || ''));
-    list.innerHTML = specialists.map((agent) => {
-      const enabled = !agentsDisabled.has(agent.id);
-      const desc = escapeHtml(agent.description || agent.role || '');
-      return `
-        <label class="agents-setting-row">
-          <input type="checkbox" data-agent-id="${escapeHtml(agent.id)}" ${enabled ? 'checked' : ''}>
-          <span class="agents-setting-icon">${agent.icon || '🤖'}</span>
-          <span class="agents-setting-body">
-            <span class="agents-setting-name">${escapeHtml(agent.name || agent.id)}</span>
-            ${desc ? `<span class="agents-setting-desc">${desc}</span>` : ''}
-          </span>
-        </label>
-      `;
-    }).join('');
-  }
-
-  async function saveAgentsSettings() {
-    const disabled = [];
-    deps.els?.agentsSettingsList?.querySelectorAll('input[data-agent-id]').forEach((input) => {
-      if (!input.checked) disabled.push(input.dataset.agentId);
-    });
-    const { data } = await deps.api('POST', '/api/ai/agents', { disabled });
-    if (!data.ok) {
-      deps.showToast?.(data.error || '保存失败');
-      return;
-    }
-    agentsDisabled = new Set(data.disabled || disabled);
-    if (Array.isArray(data.agents)) {
-      builtinAgents = data.agents;
-      if (typeof OfficePanel !== 'undefined') OfficePanel.setAgents(builtinAgents);
-    }
-    if (data.office && typeof OfficePanel !== 'undefined') OfficePanel.applyOffice(data.office);
-    renderAgentsSettings();
-    deps.showToast?.('专员设置已保存');
   }
 
   async function refreshOfficeUsage() {
@@ -162,6 +111,9 @@ const AgentsPanel = (() => {
     if (data.type === 'orchestration_start') {
       orchestrationActive = true;
       appendOrchestrationBanner(data);
+      if (data.office && typeof OfficePanel !== 'undefined') {
+        OfficePanel.applyOffice(data.office);
+      }
     }
     if (data.type === 'agent_summary') appendAgentSummaryBlock(data);
     if (data.type === 'orchestration_synthesis') appendOrchestrationSynthesisBanner();
@@ -194,8 +146,6 @@ const AgentsPanel = (() => {
   return {
     init,
     applyBuiltinAgents,
-    renderAgentsSettings,
-    saveAgentsSettings,
     refreshOfficeUsage,
     handleStreamEvent,
     getCurrentAgentId,

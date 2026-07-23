@@ -8,6 +8,7 @@
 |-------------|-------------|------|
 | Web 终端（xterm + PTY WS + AI 路由） | `server/terminal.py` + `terminal-panel.js` + `terminal-ai.js` | 自然语言/`?` 前缀调用 op助手；Shell 命令仍走 PTY |
 | **Sidecar 工具事件** | `sidecar_hub.py` + `terminal-sidecar.js` | `/api/ai/sidecar/ws`，终端旁 live tool 列表 |
+| **3D 动态办公室** | `office-scene.js` + `office-panel.js` | 等距场景：idle 喝咖啡/溜达/打盹，派活走向工位 |
 | 结构化 + 终端双轨 | 聊天 Web UI + 终端面板 | Hermes Chat = TUI + JSON sidecar；我们 = 聊天 + 终端侧栏 |
 | 会话/job 持久 | `chat_jobs` + SessionStore | 刷新可恢复后台 job |
 | Sync WS v2 | `web-sync-ws.js` + `sync_protocol.py` | connect 握手，ai.js 经 SyncWsClient 统一连接 |
@@ -29,6 +30,7 @@
 ## 刻意不照搬
 
 - **完整 Hermes TUI in browser**：主界面是 Web 聊天，不是 Ink TUI 克隆
+- **Claw3D 全量 Next.js 栈**：车载/C3 用轻量 Canvas 等距引擎；桌面可后续接 [Claw3D](https://github.com/fathah/hermes-office) 真 3D
 - **Node.js TUI 依赖**：直接用 bash PTY
 - **Nous Portal OAuth**：无公网 Dashboard 需求
 - **PTY 内逐字节命令过滤**：交互式 shell 靠启动提示 + 工具层 `assert_shell_safe`；完整 PTY 过滤成本高
