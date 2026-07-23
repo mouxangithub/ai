@@ -1,121 +1,129 @@
 /**
  * Hermes-style terminal AI — natural language routes to op助手.
- * AI replies render in #terminalAiFeed (DOM); shell stays in xterm only.
+ * Replies stream inline in xterm (PTY muted during AI to avoid layout clash).
  */
 const TerminalAi = (() => {
   let deps = {};
   let running = false;
   let activeJobId = null;
   let lineBuffer = '';
-  let feedEl = null;
-  let paneEl = null;
 
   function init(d = {}) {
     deps = d;
-    feedEl = document.getElementById('terminalAiFeed');
-    paneEl = document.getElementById('terminalAiPane');
-    const clearBtn = document.getElementById('terminalAiPaneClear');
-    if (clearBtn && !clearBtn.dataset.bound) {
-      clearBtn.dataset.bound = '1';
-      clearBtn.addEventListener('click', () => clearFeed());
-    }
   }
 
   function isRunning() {
     return running;
   }
 
-  function ensureFeed() {
-    if (!feedEl) feedEl = document.getElementById('terminalAiFeed');
-    if (!paneEl) paneEl = document.getElementById('terminalAiPane');
-    return feedEl;
+  function sanitizeText(s) {
+    return String(s || '')
+      .replace(/\x1b\[[0-9;]*[a-zA-Z]/g, '')
+      .replace(/[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/g, '');
   }
 
-  function showPane() {
-    if (paneEl) paneEl.removeAttribute('hidden');
-  }
-
-  function clearFeed() {
-    if (feedEl) feedEl.innerHTML = '';
-    if (paneEl && (!feedEl || !feedEl.children.length)) {
-      paneEl.setAttribute('hidden', '');
+  class TermInlineWriter {
+    constructor(term) {
+      this.term = term;
+      this.buf = { content: '', reasoning: '' };
     }
-  }
 
-  function scrollFeed() {
-    if (!feedEl) return;
-    requestAnimationFrame(() => {
-      feedEl.scrollTop = feedEl.scrollHeight;
-    });
-  }
+    cols() {
+      return Math.max(40, (this.term?.cols || 80) - 2);
+    }
 
-  function createTurn(query) {
-    const feed = ensureFeed();
-    if (!feed) return null;
-    showPane();
+    scrollBottom() {
+      try {
+        this.term?.scrollToBottom?.();
+      } catch {}
+    }
 
-    const turn = document.createElement('div');
-    turn.className = 'terminal-ai-turn';
-
-    const userEl = document.createElement('div');
-    userEl.className = 'terminal-ai-turn-user';
-    userEl.textContent = query;
-
-    const assistantEl = document.createElement('div');
-    assistantEl.className = 'terminal-ai-turn-assistant';
-
-    const statusEl = document.createElement('div');
-    statusEl.className = 'terminal-ai-status';
-    statusEl.textContent = '处理中…';
-
-    const thinkingEl = document.createElement('div');
-    thinkingEl.className = 'terminal-ai-thinking';
-    thinkingEl.hidden = true;
-    thinkingEl.innerHTML = '<span class="terminal-ai-thinking-label">思考</span><span class="terminal-ai-thinking-body"></span>';
-
-    const contentEl = document.createElement('div');
-    contentEl.className = 'terminal-ai-content';
-    contentEl.hidden = true;
-
-    const toolsEl = document.createElement('div');
-    toolsEl.className = 'terminal-ai-tools';
-
-    assistantEl.append(statusEl, thinkingEl, contentEl, toolsEl);
-    turn.append(userEl, assistantEl);
-    feed.appendChild(turn);
-    scrollFeed();
-
-    return {
-      statusEl,
-      thinkingEl,
-      thinkingBody: thinkingEl.querySelector('.terminal-ai-thinking-body'),
-      contentEl,
-      toolsEl,
-      finish(statusText) {
-        if (statusEl) statusEl.remove();
-        if (statusText) {
-          const s = document.createElement('div');
-          s.className = 'terminal-ai-status';
-          s.textContent = statusText;
-          assistantEl.insertBefore(s, assistantEl.firstChild);
+    wrapLines(text) {
+      const max = this.cols();
+      const out = [];
+      let remaining = String(text || '').replace(/\r/g, '');
+      while (remaining.length > 0) {
+        if (remaining.length <= max) {
+          out.push(remaining);
+          break;
         }
-        scrollFeed();
-      },
-      setError(msg) {
-        if (statusEl) statusEl.remove();
-        const err = document.createElement('div');
-        err.className = 'terminal-ai-error';
-        err.textContent = msg;
-        assistantEl.appendChild(err);
-        scrollFeed();
-      },
-    };
+        let breakAt = max;
+        const slice = remaining.slice(0, max + 1);
+        const lastSpace = slice.lastIndexOf(' ');
+        if (lastSpace > max * 0.4) breakAt = lastSpace;
+        out.push(remaining.slice(0, breakAt).trimEnd());
+        remaining = remaining.slice(breakAt).trimStart();
+      }
+      return out.length ? out : [''];
+    }
+
+    writelnStyled(text, style = '') {
+      if (!this.term || text === '') return;
+      for (const line of this.wrapLines(text)) {
+        this.term.writeln(style ? `${style}${line}\x1b[0m` : line);
+      }
+      this.scrollBottom();
+    }
+
+    flushBuf(key) {
+      const buf = this.buf[key];
+      const nl = buf.indexOf('\n');
+      if (nl === -1) return;
+      const line = buf.slice(0, nl);
+      this.buf[key] = buf.slice(nl + 1);
+      if (key === 'reasoning') {
+        this.writelnStyled(`[思考] ${line}`, '\x1b[90m');
+      } else {
+        this.writelnStyled(line);
+      }
+      if (this.buf[key]) this.flushBuf(key);
+    }
+
+    append(delta, type) {
+      const key = type === 'reasoning' ? 'reasoning' : 'content';
+      this.buf[key] += sanitizeText(delta);
+      this.flushBuf(key);
+    }
+
+    flushAll() {
+      for (const key of ['reasoning', 'content']) {
+        const text = this.buf[key].trim();
+        if (!text) continue;
+        if (key === 'reasoning') {
+          this.writelnStyled(`[思考] ${text}`, '\x1b[90m');
+        } else {
+          this.writelnStyled(text);
+        }
+        this.buf[key] = '';
+      }
+    }
+
+    toolCall(name) {
+      if (!this.term) return;
+      this.term.writeln(`\x1b[33m  ▸ ${name || 'tool'}\x1b[0m`);
+      this.scrollBottom();
+    }
+
+    toolResult(ok) {
+      if (!this.term) return;
+      this.term.writeln(`\x1b[${ok ? '32' : '31'}m    ${ok ? '✓' : '✗'}\x1b[0m`);
+      this.scrollBottom();
+    }
+
+    error(msg) {
+      this.writelnStyled(`[错误] ${msg}`, '\x1b[31m');
+    }
+
+    done(statusText) {
+      if (statusText) this.writelnStyled(`[op助手] ${statusText}`, '\x1b[90m');
+    }
   }
 
   function shouldRouteToAi(line) {
     const t = (line || '').trim();
     if (!t) return false;
     if (t.startsWith('!')) return false;
+    if (t === '/help' || t === 'help' || t === '?') return true;
     if (t.startsWith('?') || t.startsWith('/ai ') || t.startsWith('ai:')) return true;
     if (/[\u4e00-\u9fff\u3040-\u30ff\uac00-\ud7af]/.test(t)) return true;
     if (/^(help|what|how|why|who|when|where|list|show|find|check|explain|diagnose|排查|分析|查看|怎么|为什么|如何)\b/i.test(t)) {
@@ -127,6 +135,7 @@ const TerminalAi = (() => {
 
   function normalizeAiQuery(line) {
     let t = (line || '').trim();
+    if (t === '/help' || t === 'help' || t === '?') return '';
     if (t.startsWith('!')) t = t.slice(1).trim();
     if (t.startsWith('?')) t = t.slice(1).trim();
     if (t.startsWith('/ai ')) t = t.slice(4).trim();
@@ -167,12 +176,12 @@ const TerminalAi = (() => {
     } catch {}
   }
 
-  async function pollJob(jobId, ui) {
+  async function pollJob(jobId, writer) {
     let since = 0;
     while (running && activeJobId === jobId) {
       const { data } = await deps.api('GET', `/api/ai/chat/jobs/${encodeURIComponent(jobId)}?since=${since}`);
       if (!data?.ok) {
-        ui?.setError(data?.error || '请求失败');
+        writer?.error(data?.error || '请求失败');
         break;
       }
 
@@ -181,41 +190,27 @@ const TerminalAi = (() => {
         if (seq > since) since = seq;
 
         if (ev.type === 'reasoning') {
-          if (ui?.thinkingEl) {
-            ui.thinkingEl.hidden = false;
-            if (ui.thinkingBody) ui.thinkingBody.textContent += ev.delta || '';
-          }
+          writer?.append(ev.delta || '', 'reasoning');
         } else if (ev.type === 'content') {
-          if (ui?.contentEl) {
-            ui.contentEl.hidden = false;
-            ui.contentEl.textContent += ev.delta || '';
-          }
+          writer?.append(ev.delta || '', 'content');
         } else if (ev.type === 'tool_call') {
-          if (ui?.toolsEl) {
-            const row = document.createElement('div');
-            row.className = 'terminal-ai-tool';
-            row.textContent = `▸ ${ev.name || 'tool'}`;
-            ui.toolsEl.appendChild(row);
-          }
+          writer?.flushAll();
+          writer?.toolCall(ev.name || 'tool');
         } else if (ev.type === 'tool_result') {
-          if (ui?.toolsEl?.lastElementChild) {
-            const ok = ev.result?.ok !== false && !ev.result?.error;
-            ui.toolsEl.lastElementChild.classList.add(ok ? 'ok' : 'err');
-            ui.toolsEl.lastElementChild.textContent += ok ? ' ✓' : ' ✗';
-          }
+          const ok = ev.result?.ok !== false && !ev.result?.error;
+          writer?.toolResult(ok);
         } else if (ev.type === 'error') {
-          ui?.setError(ev.error || 'error');
+          writer?.flushAll();
+          writer?.error(ev.error || 'error');
         }
-        scrollFeed();
       }
 
       if (['done', 'error', 'cancelled'].includes(data.status)) {
+        writer?.flushAll();
         if (data.status === 'error') {
-          ui?.setError(data.error || '任务失败');
+          writer?.error(data.error || '任务失败');
         } else if (data.status === 'cancelled') {
-          ui?.finish('已取消');
-        } else {
-          ui?.finish();
+          writer?.done('已取消');
         }
         break;
       }
@@ -223,20 +218,19 @@ const TerminalAi = (() => {
     }
   }
 
-  async function runQuery(rawLine, term) {
+  async function runQuery(rawLine, term, { aiOnly = false } = {}) {
     const query = normalizeAiQuery(rawLine);
+    if (rawLine.trim() === '/help' || rawLine.trim() === 'help' || rawLine.trim() === '?') {
+      printHelp(term, { aiOnly });
+      return;
+    }
     if (!query || running) return;
     if (!deps.api || !deps.SessionStore) {
       shellHint(term, '[op助手] AI 未初始化');
       return;
     }
 
-    const ui = createTurn(query);
-    if (!ui) {
-      shellHint(term, '[op助手] AI 面板未就绪');
-      return;
-    }
-
+    const writer = new TermInlineWriter(term);
     running = true;
     activeJobId = null;
     deps.onAiActivity?.(true);
@@ -244,13 +238,15 @@ const TerminalAi = (() => {
     const session = deps.SessionStore.getActive?.();
     const sessionId = session?.id;
     if (!sessionId) {
-      ui.setError('无活动会话');
+      writer.error('无活动会话');
       running = false;
       deps.onAiActivity?.(false);
+      if (aiOnly) writePrompt(term);
       return;
     }
 
-    shellHint(term, '↑ AI 回复见上方面板');
+    writeln(term, `\x1b[36m[你]\x1b[0m ${query}`);
+    shellHint(term, '[op助手] 处理中…');
 
     try {
       const messages = prepareMessages(session, query);
@@ -271,29 +267,31 @@ const TerminalAi = (() => {
       });
 
       if (!startData?.ok) {
-        ui.setError(startData?.error || '无法启动 AI 任务');
+        writer.error(startData?.error || '无法启动 AI 任务');
         return;
       }
       if (startData.queued || startData.action === 'collected') {
         const pos = startData.queuePosition || startData.collectBatch || '?';
-        ui.finish(`已加入行驶队列（${pos}）`);
+        writer.done(`已加入行驶队列（${pos}）`);
         return;
       }
       if (!startData.jobId) {
-        ui.setError('无法启动 AI 任务');
+        writer.error('无法启动 AI 任务');
         return;
       }
 
       activeJobId = startData.jobId;
       deps.SessionStore.setActiveJobId?.(sessionId, startData.jobId);
-      await pollJob(startData.jobId, ui);
+      await pollJob(startData.jobId, writer);
       deps.syncSessionsToDevice?.().catch(() => {});
+      writeln(term, '');
     } catch (e) {
-      ui.setError(e?.message || String(e));
+      writer.error(e?.message || String(e));
     } finally {
       running = false;
       activeJobId = null;
       deps.onAiActivity?.(false);
+      if (aiOnly) writePrompt(term);
     }
   }
 
@@ -323,12 +321,8 @@ const TerminalAi = (() => {
             ws.send('\x15');
             ws.send('\r');
           }
-          runQuery(line, term);
-          if (aiOnly) writePrompt(term);
-          i += 1;
-          continue;
-        }
-        if (aiOnly) {
+          runQuery(line, term, { aiOnly });
+        } else if (aiOnly) {
           shellHint(term, '（AI 模式：自然语言，或 ! 前缀强制 Shell）');
           writePrompt(term);
         } else if (ws?.readyState === WebSocket.OPEN && !deps.ptyMuted?.()) {
@@ -377,7 +371,7 @@ const TerminalAi = (() => {
   }
 
   function printHelp(term, { aiOnly = false } = {}) {
-    writeln(term, '\x1b[33m终端 AI\x1b[0m：自然语言 / \x1b[36m?\x1b[0m / \x1b[36m/ai\x1b[0m → 上方 AI 面板；\x1b[36m!\x1b[0m 强制 Shell。');
+    writeln(term, '\x1b[33m终端 AI\x1b[0m：自然语言 / \x1b[36m?\x1b[0m / \x1b[36m/ai\x1b[0m 直接在此对话；\x1b[36m!\x1b[0m 强制 Shell；\x1b[36m/help\x1b[0m 显示本帮助。');
     if (aiOnly) writePrompt(term);
   }
 
@@ -390,6 +384,5 @@ const TerminalAi = (() => {
     shouldRouteToAi,
     printHelp,
     resetLineBuffer,
-    clearFeed,
   };
 })();

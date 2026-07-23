@@ -767,6 +767,79 @@ html, body {
   overflow-y: auto;
 }
 
+/* Agent / specialist calls */
+.agent-calls-block {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  width: 100%;
+  overflow: hidden;
+}
+
+.agent-calls-block.hidden { display: none; }
+.agent-calls-block.collapsed .agent-calls-list { display: none; }
+.agent-calls-block.collapsed .chevron { transform: rotate(0deg); }
+.agent-calls-block .chevron { display: inline-block; transform: rotate(90deg); transition: transform 0.15s; margin-left: auto; }
+
+.agent-calls-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  cursor: pointer;
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  user-select: none;
+}
+
+.agent-calls-header:hover { background: var(--surface-hover); }
+
+.agent-calls-count {
+  color: var(--text-muted);
+  font-size: 0.75rem;
+}
+
+.agent-calls-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  padding: 0.35rem 0.5rem 0.5rem;
+  border-top: 1px solid var(--border);
+}
+
+.agent-call {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-size: 0.8rem;
+  overflow: hidden;
+}
+
+.agent-call.collapsed .agent-call-body { display: none; }
+.agent-call.collapsed .chevron { transform: rotate(0deg); }
+.agent-call .chevron { display: inline-block; transform: rotate(90deg); transition: transform 0.15s; margin-left: auto; }
+
+.agent-call-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  cursor: pointer;
+  color: var(--text-secondary);
+  user-select: none;
+}
+
+.agent-call-header:hover { background: var(--surface-hover); }
+
+.agent-call-body {
+  padding: 0.65rem 0.75rem;
+  border-top: 1px solid var(--border);
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  white-space: pre-wrap;
+  line-height: 1.45;
+}
+
 /* Tool calls */
 .tool-calls-block {
   background: var(--bg-card);
@@ -777,7 +850,8 @@ html, body {
 }
 
 .tool-calls-block.hidden,
-.thinking-block.hidden {
+.thinking-block.hidden,
+.agent-calls-block.hidden {
   display: none;
 }
 
@@ -3642,6 +3716,24 @@ html, body {
   display: flex;
   gap: 0.65rem;
   align-items: flex-start;
+}
+
+.tsk-status-main {
+  flex: 1;
+  min-width: 0;
+}
+
+.tsk-status-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.tsk-status-title-row .btn {
+  flex-shrink: 0;
+  margin-left: auto;
 }
 
 .tsk-status-dot,

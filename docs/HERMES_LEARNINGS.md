@@ -6,7 +6,7 @@
 
 | Hermes 能力 | op助手 实现 | 说明 |
 |-------------|-------------|------|
-| Web 终端（xterm + PTY WS + AI 路由） | `server/terminal.py` + `terminal-panel.js` + `terminal-ai.js` | 自然语言/`?` 前缀调用 op助手；Shell 命令仍走 PTY |
+| Web 终端（xterm + PTY WS + AI 路由） | `server/terminal.py` + `terminal-panel.js` + `terminal-ai.js` | 自然语言/`?` 在 xterm 内联流式回复；`!` 强制 Shell；AI 期间 mute PTY |
 | **Sidecar 工具事件** | `sidecar_hub.py` + `terminal-sidecar.js` | `/api/ai/sidecar/ws`，终端旁 live tool 列表 |
 | **3D 动态办公室** | `office-scene.js` + `office-panel.js` | 等距场景：idle 喝咖啡/溜达/打盹，派活走向工位 |
 | 结构化 + 终端双轨 | 聊天 Web UI + 终端面板 | Hermes Chat = TUI + JSON sidecar；我们 = 聊天 + 终端侧栏 |

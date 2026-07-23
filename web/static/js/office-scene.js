@@ -230,6 +230,64 @@ const OfficeScene = (() => {
     }
   }
 
+  function drawBackdrop() {
+    const g = ctx.createRadialGradient(width / 2, height * 0.15, 20, width / 2, height * 0.35, width * 0.7);
+    g.addColorStop(0, 'rgba(78, 205, 196, 0.14)');
+    g.addColorStop(0.45, 'rgba(30, 41, 59, 0.35)');
+    g.addColorStop(1, 'rgba(8, 12, 20, 0)');
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, width, height);
+  }
+
+  function drawWalls() {
+    const backL = project(-ROOM.floorW / 2, 0, -ROOM.floorH / 2);
+    const backR = project(ROOM.floorW / 2, 0, -ROOM.floorH / 2);
+    const backLTop = project(-ROOM.floorW / 2, 2.8, -ROOM.floorH / 2);
+    const backRTop = project(ROOM.floorW / 2, 2.8, -ROOM.floorH / 2);
+    const leftB = project(-ROOM.floorW / 2, 0, ROOM.floorH / 2);
+    const leftT = project(-ROOM.floorW / 2, 2.8, -ROOM.floorH / 2);
+
+    ctx.beginPath();
+    ctx.moveTo(backL.x, backL.y);
+    ctx.lineTo(backR.x, backR.y);
+    ctx.lineTo(backRTop.x, backRTop.y);
+    ctx.lineTo(backLTop.x, backLTop.y);
+    ctx.closePath();
+    const wallG = ctx.createLinearGradient(0, backLTop.y, 0, backL.y);
+    wallG.addColorStop(0, 'rgba(51, 65, 85, 0.55)');
+    wallG.addColorStop(1, 'rgba(15, 23, 42, 0.25)');
+    ctx.fillStyle = wallG;
+    ctx.fill();
+
+    ctx.beginPath();
+    ctx.moveTo(backL.x, backL.y);
+    ctx.lineTo(leftB.x, leftB.y);
+    ctx.lineTo(leftT.x, leftT.y);
+    ctx.lineTo(backLTop.x, backLTop.y);
+    ctx.closePath();
+    const sideG = ctx.createLinearGradient(backL.x, 0, leftB.x, 0);
+    sideG.addColorStop(0, 'rgba(30, 41, 59, 0.45)');
+    sideG.addColorStop(1, 'rgba(15, 23, 42, 0.15)');
+    ctx.fillStyle = sideG;
+    ctx.fill();
+  }
+
+  function drawAmbientParticles(t) {
+    const n = 18;
+    for (let i = 0; i < n; i += 1) {
+      const phase = t * 0.35 + i * 1.7;
+      const wx = Math.sin(phase) * 3.2;
+      const wz = Math.cos(phase * 0.8) * 2.4;
+      const wy = 1.2 + Math.sin(phase * 1.3) * 0.6;
+      const p = project(wx, wy, wz);
+      const alpha = 0.15 + Math.sin(phase * 2) * 0.1;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, 1.2 * zoom, 0, Math.PI * 2);
+      ctx.fillStyle = `rgba(78, 205, 196, ${alpha})`;
+      ctx.fill();
+    }
+  }
+
   function drawFloor() {
     const corners = [
       project(-ROOM.floorW / 2, 0, -ROOM.floorH / 2),
@@ -246,9 +304,18 @@ const OfficeScene = (() => {
     g.addColorStop(1, 'rgba(12, 18, 28, 0.95)');
     ctx.fillStyle = g;
     ctx.fill();
-    ctx.strokeStyle = 'rgba(78, 205, 196, 0.22)';
+    ctx.strokeStyle = 'rgba(78, 205, 196, 0.28)';
     ctx.lineWidth = 1.5;
     ctx.stroke();
+
+    const center = project(0, 0, 0);
+    const spot = ctx.createRadialGradient(center.x, center.y, 0, center.x, center.y, 120 * zoom);
+    spot.addColorStop(0, 'rgba(78, 205, 196, 0.08)');
+    spot.addColorStop(1, 'rgba(78, 205, 196, 0)');
+    ctx.fillStyle = spot;
+    ctx.beginPath();
+    ctx.ellipse(center.x, center.y, 120 * zoom, 60 * zoom, 0, 0, Math.PI * 2);
+    ctx.fill();
 
     for (let i = -3; i <= 3; i += 1) {
       const a = project(i * 1.2, 0, -ROOM.floorH / 2);
@@ -263,21 +330,59 @@ const OfficeScene = (() => {
 
   function drawDesk(wx, wz) {
     const base = project(wx, 0, wz);
-    const top = project(wx, 0.35, wz);
-    const w = 34 * zoom;
-    const h = 18 * zoom;
-    ctx.fillStyle = 'rgba(30, 41, 59, 0.9)';
-    ctx.strokeStyle = 'rgba(78, 205, 196, 0.25)';
+    const top = project(wx, 0.42, wz);
+    const legL = project(wx - 0.18, 0, wz + 0.12);
+    const legR = project(wx + 0.18, 0, wz - 0.12);
+    const w = 36 * zoom;
+    const h = 20 * zoom;
+
+    ctx.strokeStyle = 'rgba(51, 65, 85, 0.9)';
+    ctx.lineWidth = 2 * zoom;
+    ctx.beginPath();
+    ctx.moveTo(top.x - w * 0.15, top.y);
+    ctx.lineTo(legL.x, legL.y + 4 * zoom);
+    ctx.moveTo(top.x + w * 0.15, top.y);
+    ctx.lineTo(legR.x, legR.y + 4 * zoom);
+    ctx.stroke();
+
+    ctx.fillStyle = 'rgba(0,0,0,0.28)';
+    ctx.beginPath();
+    ctx.ellipse(base.x, base.y + 5 * zoom, w * 0.58, h * 0.38, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    const deskG = ctx.createLinearGradient(top.x, top.y - h, top.x, top.y + h);
+    deskG.addColorStop(0, 'rgba(71, 85, 105, 0.98)');
+    deskG.addColorStop(1, 'rgba(30, 41, 59, 0.95)');
+    ctx.fillStyle = deskG;
+    ctx.strokeStyle = 'rgba(78, 205, 196, 0.32)';
     ctx.lineWidth = 1;
     ctx.beginPath();
-    ctx.ellipse(base.x, base.y + 4 * zoom, w * 0.55, h * 0.35, 0, 0, Math.PI * 2);
+    ctx.ellipse(top.x, top.y, w * 0.52, h * 0.32, 0, 0, Math.PI * 2);
     ctx.fill();
     ctx.stroke();
-    ctx.fillStyle = 'rgba(51, 65, 85, 0.95)';
+
+    const mon = project(wx, 0.72, wz - 0.08);
+    ctx.fillStyle = 'rgba(15, 23, 42, 0.95)';
+    ctx.strokeStyle = 'rgba(78, 205, 196, 0.45)';
+    ctx.lineWidth = 1;
+    const mw = 14 * zoom;
+    const mh = 10 * zoom;
+    if (typeof ctx.roundRect === 'function') {
+      ctx.beginPath();
+      ctx.roundRect(mon.x - mw / 2, mon.y - mh, mw, mh, 2 * zoom);
+      ctx.fill();
+      ctx.stroke();
+    } else {
+      ctx.fillRect(mon.x - mw / 2, mon.y - mh, mw, mh);
+      ctx.strokeRect(mon.x - mw / 2, mon.y - mh, mw, mh);
+    }
+    const glow = ctx.createRadialGradient(mon.x, mon.y - mh * 0.5, 0, mon.x, mon.y - mh * 0.5, 22 * zoom);
+    glow.addColorStop(0, 'rgba(78, 205, 196, 0.35)');
+    glow.addColorStop(1, 'rgba(78, 205, 196, 0)');
+    ctx.fillStyle = glow;
     ctx.beginPath();
-    ctx.ellipse(top.x, top.y, w * 0.5, h * 0.3, 0, 0, Math.PI * 2);
+    ctx.arc(mon.x, mon.y - mh * 0.5, 22 * zoom, 0, Math.PI * 2);
     ctx.fill();
-    ctx.stroke();
   }
 
   function drawPoi(key) {
@@ -308,7 +413,10 @@ const OfficeScene = (() => {
 
     ctx.beginPath();
     ctx.arc(p.x, p.y - 14 * scale, 16 * scale, 0, Math.PI * 2);
-    ctx.fillStyle = 'rgba(15, 23, 42, 0.92)';
+    const headG = ctx.createRadialGradient(p.x - 4 * scale, p.y - 18 * scale, 2, p.x, p.y - 14 * scale, 18 * scale);
+    headG.addColorStop(0, 'rgba(30, 41, 59, 0.98)');
+    headG.addColorStop(1, 'rgba(15, 23, 42, 0.92)');
+    ctx.fillStyle = headG;
     ctx.fill();
     ctx.strokeStyle = ring;
     ctx.lineWidth = active ? 2.5 : 1.2;
@@ -382,7 +490,10 @@ const OfficeScene = (() => {
 
     ctx.clearRect(0, 0, width, height);
     hitTargets = [];
+    drawBackdrop();
+    drawWalls();
     drawFloor();
+    if (!reducedMotion) drawAmbientParticles(now);
     Object.keys(POIs).forEach(drawPoi);
 
     const deskDrawn = new Set();

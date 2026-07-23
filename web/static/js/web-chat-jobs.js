@@ -63,7 +63,7 @@ const ChatJobs = (() => {
     const { assistantMessage, streamActive } = ctx;
     if (!streamActive()) return 'stop';
 
-    deps.handleAgentStreamEvent?.(data);
+    deps.handleAgentStreamEvent?.(data, ctx);
 
     if (data.type === 'error') {
       deps.hideAssistantLoading(ui);
@@ -91,8 +91,23 @@ const ChatJobs = (() => {
         ui.thinkingLabel.textContent = deps.t('thinking', 'Thinking');
       }
       ctx.contentStarted = true;
-      assistantMessage.content += data.delta;
-      ui.content.textContent += data.delta;
+      ctx.rawContent = (ctx.rawContent || '') + (data.delta || '');
+      const clean = typeof deps.stripLeakedToolCalls === 'function'
+        ? deps.stripLeakedToolCalls(ctx.rawContent)
+        : ctx.rawContent;
+      const prevLen = ctx.displayedContentLen || 0;
+      const newPart = clean.slice(prevLen);
+      ctx.displayedContentLen = clean.length;
+      assistantMessage.content = clean;
+      if (newPart) {
+        if (typeof Markdown !== 'undefined' && ui.content.classList.contains('md-content')) {
+          ui.content.textContent = clean;
+        } else {
+          ui.content.textContent = clean;
+        }
+      } else if (!clean && ui.content.textContent) {
+        ui.content.textContent = '';
+      }
       deps.scrollToBottom();
     }
 
@@ -331,7 +346,14 @@ const ChatJobs = (() => {
     const ui = deps.appendAssistantMessage();
     deps.showAssistantLoading(ui);
     deps.markLiveStreamUi(ui);
-    const assistantMessage = { role: 'assistant', content: '', reasoning_content: '', tool_calls: [], tool_results: {} };
+    const assistantMessage = {
+      role: 'assistant',
+      content: '',
+      reasoning_content: '',
+      tool_calls: [],
+      tool_results: {},
+      agent_events: [],
+    };
 
     const ctx = {
       ui,
@@ -340,6 +362,8 @@ const ChatJobs = (() => {
       streamActive,
       thinkingStarted: false,
       contentStarted: false,
+      rawContent: '',
+      displayedContentLen: 0,
       since: 0,
     };
     contexts.set(`pending:${sessionId}`, ctx);
@@ -439,6 +463,7 @@ const ChatJobs = (() => {
         reasoning_content: '',
         tool_calls: [],
         tool_results: {},
+        agent_events: [],
         ...(initialData?.assistant || {}),
       };
       if (initialData?.assistant) deps.hydrateAssistantUi?.(ui, assistantMessage);
@@ -451,6 +476,7 @@ const ChatJobs = (() => {
         reasoning_content: '',
         tool_calls: [],
         tool_results: {},
+        agent_events: [],
         ...(initialData?.assistant || {}),
       };
       if (initialData?.assistant) deps.hydrateAssistantUi?.(ui, assistantMessage);
@@ -476,6 +502,8 @@ const ChatJobs = (() => {
       ),
       thinkingStarted: Boolean(assistantMessage.reasoning_content),
       contentStarted: Boolean(assistantMessage.content),
+      rawContent: assistantMessage.content || '',
+      displayedContentLen: (assistantMessage.content || '').length,
       since,
       lastSeq: since,
     };

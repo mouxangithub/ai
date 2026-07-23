@@ -262,6 +262,7 @@ function initChatJobs() {
     clearLiveStreamChrome,
     getLiveStreamUi,
     getLastAssistantUi,
+    stripLeakedToolCalls,
     hydrateAssistantUi,
     assistantMessageHasContent,
     isLocallyStreaming,
@@ -298,7 +299,11 @@ function applyBuiltinAgents(data) {
   if (typeof AgentsPanel !== 'undefined') AgentsPanel.applyBuiltinAgents(data);
 }
 
-function handleAgentStreamEvent(data) {
+function handleAgentStreamEvent(data, ctx) {
+  const ui = ctx?.ui || getLiveStreamUi() || getLastAssistantUi();
+  if (ui && data?.type) {
+    recordAgentStreamEvent(ui, data, ctx?.assistantMessage);
+  }
   if (typeof AgentsPanel !== 'undefined') AgentsPanel.handleStreamEvent(data);
 }
 
@@ -954,6 +959,10 @@ function normalizeStoredMessage(msg) {
   if (out.role === 'assistant') {
     if (!out.tool_results) out.tool_results = {};
     if (!out.tool_calls) out.tool_calls = [];
+    if (!out.agent_events) out.agent_events = [];
+    if (typeof out.content === 'string') {
+      out.content = stripLeakedToolCalls(out.content);
+    }
   }
   return out;
 }
@@ -1279,10 +1288,12 @@ function reconcileStreamUi(ctx) {
 
 function assistantMessageHasContent(msg) {
   if (!msg) return false;
+  const text = stripLeakedToolCalls(messageText(msg.content) || (typeof msg.content === 'string' ? msg.content : ''));
   return Boolean(
-    (msg.content && String(messageText(msg.content) || msg.content).trim())
+    text
     || (msg.reasoning_content && String(msg.reasoning_content).trim())
     || (msg.tool_calls && msg.tool_calls.length)
+    || (msg.agent_events && msg.agent_events.length)
   );
 }
 
@@ -1350,6 +1361,7 @@ function endChatStream(sessionId) {
 
 function wrapperToAssistantUi(wrapper) {
   const thinking = wrapper.querySelector('.thinking-block');
+  const agentCallsBlock = wrapper.querySelector('.agent-calls-block');
   const toolsBlock = wrapper.querySelector('.tool-calls-block');
   return {
     wrapper,
@@ -1357,6 +1369,8 @@ function wrapperToAssistantUi(wrapper) {
     thinking,
     thinkingLabel: thinking?.querySelector('.thinking-label'),
     thinkingBody: thinking?.querySelector('.thinking-body'),
+    agentCallsBlock,
+    agentCallsList: agentCallsBlock?.querySelector('.agent-calls-list'),
     toolsBlock,
     toolsList: toolsBlock?.querySelector('.tool-calls-list'),
     content: wrapper.querySelector('.message.assistant'),
@@ -1994,12 +2008,199 @@ function renderMarkdownContent(el, text) {
     if (el) el.textContent = '';
     return;
   }
+  const clean = stripLeakedToolCalls(text);
+  if (!clean) {
+    el.textContent = '';
+    return;
+  }
   if (typeof Markdown !== 'undefined') {
     el.classList.add('md-content');
-    el.innerHTML = Markdown.render(text);
+    el.innerHTML = Markdown.render(clean);
   } else {
-    el.textContent = text;
+    el.textContent = clean;
   }
+}
+
+/** Remove function-call syntax some models leak into content (e.g. Kimi code). */
+function stripLeakedToolCalls(text) {
+  if (!text) return '';
+  let s = String(text);
+  let out = '';
+  let i = 0;
+  while (i < s.length) {
+    const rest = s.slice(i);
+    const m = rest.match(/(?:^|\s)(functions\.[a-zA-Z_][\w.]*)\s*:/);
+    if (!m || m.index === undefined) {
+      out += rest;
+      break;
+    }
+    const lead = m[0].startsWith(' ') ? 1 : 0;
+    const start = i + m.index + lead;
+    out += s.slice(i, start);
+    i = start + m[1].length + 1;
+    while (i < s.length && /\s/.test(s[i])) i += 1;
+    if (s[i] === '{') {
+      let depth = 0;
+      let inStr = false;
+      let esc = false;
+      while (i < s.length) {
+        const ch = s[i];
+        if (inStr) {
+          if (esc) esc = false;
+          else if (ch === '\\') esc = true;
+          else if (ch === '"') inStr = false;
+        } else if (ch === '"') inStr = true;
+        else if (ch === '{') depth += 1;
+        else if (ch === '}') {
+          depth -= 1;
+          if (depth === 0) { i += 1; break; }
+        }
+        i += 1;
+      }
+    } else if (s[i] === '"') {
+      i += 1;
+      while (i < s.length) {
+        if (s[i] === '\\') { i += 2; continue; }
+        if (s[i] === '"') { i += 1; break; }
+        i += 1;
+      }
+    } else {
+      while (i < s.length && !/\s/.test(s[i])) i += 1;
+    }
+    const badge = s.slice(i).match(/^\s*\[\d+\]/);
+    if (badge) i += badge[0].length;
+  }
+  return out.replace(/[ \t]{2,}/g, ' ').replace(/\n{3,}/g, '\n\n').trim();
+}
+
+function createAgentCallsBlock() {
+  const block = document.createElement('div');
+  block.className = 'agent-calls-block collapsed hidden';
+  block.innerHTML = `
+    <div class="agent-calls-header">
+      <span class="agent-icon">🧭</span>
+      <span class="agent-calls-label">${t('agentCalls', '专员调用')}</span>
+      <span class="agent-calls-count"></span>
+      <span class="chevron">▶</span>
+    </div>
+    <div class="agent-calls-list"></div>
+  `;
+  block.querySelector('.agent-calls-header').addEventListener('click', () => {
+    block.classList.toggle('collapsed');
+  });
+  return block;
+}
+
+function updateAgentCallsSummary(block) {
+  if (!block) return;
+  const count = block.querySelectorAll('.agent-call').length;
+  const countEl = block.querySelector('.agent-calls-count');
+  if (countEl) countEl.textContent = count ? `(${count})` : '';
+  if (count) block.classList.remove('hidden');
+}
+
+function renderAgentCallItem(list, event) {
+  if (!list || !event) return;
+  const id = event.id || `${event.type}:${event.agentId || event.agent_id || Date.now()}`;
+  if (list.querySelector(`[data-agent-event-id="${CSS.escape(id)}"]`)) return;
+  const aid = event.agentId || event.agent_id || 'op';
+  const meta = typeof OfficePanel !== 'undefined' ? OfficePanel.agentMeta(aid) : { icon: '🤖', name: aid };
+  const div = document.createElement('div');
+  div.className = 'agent-call collapsed';
+  div.dataset.agentEventId = id;
+  const title = event.title || meta.name || aid;
+  const body = event.body || '';
+  div.innerHTML = `
+    <div class="agent-call-header">
+      <span class="agent-call-icon">${event.icon || meta.icon || '🤖'}</span>
+      <span class="agent-call-title">${escapeHtml(title)}</span>
+      <span class="chevron">▶</span>
+    </div>
+    <div class="agent-call-body">${body ? escapeHtml(body) : ''}</div>
+  `;
+  div.querySelector('.agent-call-header').addEventListener('click', () => {
+    div.classList.toggle('collapsed');
+  });
+  list.appendChild(div);
+  scrollToBottom();
+}
+
+function hydrateAgentEvents(ui, events) {
+  if (!ui?.agentCallsBlock || !events?.length) return;
+  ui.agentCallsBlock.classList.remove('hidden');
+  for (const ev of events) renderAgentCallItem(ui.agentCallsList, ev);
+  updateAgentCallsSummary(ui.agentCallsBlock);
+}
+
+function agentEventFromStream(data) {
+  const aid = data.agentId || data.agent_id || 'op';
+  const meta = typeof OfficePanel !== 'undefined' ? OfficePanel.agentMeta(aid) : { icon: '🤖', name: aid };
+  if (data.type === 'orchestration_start') {
+    const plan = (data.plan || []).map((p) => {
+      const id = p.agent_id || p.agentId;
+      const m = typeof OfficePanel !== 'undefined' ? OfficePanel.agentMeta(id) : { icon: '🤖', name: id };
+      return `${m.icon} ${m.name || id}`;
+    }).join(' → ');
+    return {
+      id: `orch:${Date.now()}`,
+      type: 'orchestration',
+      icon: '🧭',
+      title: '多专员编排',
+      body: plan || '已启动',
+    };
+  }
+  if (data.type === 'agent_handoff') {
+    if (!aid || aid === 'op') return null;
+    return {
+      id: `handoff:${aid}:${Date.now()}`,
+      type: 'handoff',
+      agentId: aid,
+      icon: meta.icon,
+      title: `${meta.name} 已接手`,
+      body: data.workflow_id ? `工作流：${data.workflow_id}` : (data.reason || ''),
+    };
+  }
+  if (data.type === 'agent_summary') {
+    return {
+      id: `summary:${aid}:${Date.now()}`,
+      type: 'summary',
+      agentId: aid,
+      icon: meta.icon,
+      title: `${meta.name} 子任务完成`,
+      body: (data.content || '').trim() || '（已通过工具完成子任务）',
+    };
+  }
+  if (data.type === 'orchestration_synthesis') {
+    return {
+      id: `synth:${Date.now()}`,
+      type: 'synthesis',
+      icon: '🎯',
+      title: 'OP 主调度',
+      body: '正在汇总结论…',
+    };
+  }
+  if (data.type === 'agent_status' && data.tool) {
+    return {
+      id: `status:${aid}:${data.tool}`,
+      type: 'status',
+      agentId: aid,
+      icon: meta.icon,
+      title: `${meta.name} · ${data.tool}`,
+      body: data.status === 'working' ? '执行工具中…' : (data.status || ''),
+    };
+  }
+  return null;
+}
+
+function recordAgentStreamEvent(ui, data, assistantMessage) {
+  const event = agentEventFromStream(data);
+  if (!event || !ui?.agentCallsBlock) return;
+  if (assistantMessage) {
+    if (!assistantMessage.agent_events) assistantMessage.agent_events = [];
+    assistantMessage.agent_events.push(event);
+  }
+  renderAgentCallItem(ui.agentCallsList, event);
+  updateAgentCallsSummary(ui.agentCallsBlock);
 }
 
 function renderMessageImages(container, images) {
@@ -2062,6 +2263,9 @@ function appendAssistantMessage({ withLoading = true } = {}) {
     thinking.classList.toggle('collapsed');
   });
 
+  const agentCallsBlock = createAgentCallsBlock();
+  const agentCallsList = agentCallsBlock.querySelector('.agent-calls-list');
+
   const content = document.createElement('div');
   content.className = 'message assistant md-content';
 
@@ -2083,6 +2287,7 @@ function appendAssistantMessage({ withLoading = true } = {}) {
   const toolsList = toolsBlock.querySelector('.tool-calls-list');
 
   wrapper.appendChild(thinking);
+  wrapper.appendChild(agentCallsBlock);
   wrapper.appendChild(toolsBlock);
   wrapper.appendChild(content);
   els.messages.appendChild(wrapper);
@@ -2093,6 +2298,8 @@ function appendAssistantMessage({ withLoading = true } = {}) {
     thinking,
     thinkingLabel: thinking.querySelector('.thinking-label'),
     thinkingBody: thinking.querySelector('.thinking-body'),
+    agentCallsBlock,
+    agentCallsList,
     toolsBlock,
     toolsList,
     content,
@@ -2708,10 +2915,11 @@ function savePartialAssistant(sessionId, assistantMessage) {
   const msgs = (session.messages || []).map(normalizeStoredMessage);
   const partial = {
     role: 'assistant',
-    content: assistantMessage.content || '',
+    content: stripLeakedToolCalls(assistantMessage.content || ''),
     reasoning_content: assistantMessage.reasoning_content || '',
     tool_calls: assistantMessage.tool_calls || [],
     tool_results: assistantMessage.tool_results || {},
+    agent_events: assistantMessage.agent_events || [],
   };
   if (msgs[msgs.length - 1]?.role === 'assistant') {
     msgs[msgs.length - 1] = partial;
@@ -2724,8 +2932,9 @@ function savePartialAssistant(sessionId, assistantMessage) {
 }
 
 function hydrateAssistantUi(ui, assistantMessage) {
-  const text = messageText(assistantMessage.content) || assistantMessage.content || '';
+  const text = stripLeakedToolCalls(messageText(assistantMessage.content) || assistantMessage.content || '');
   syncThinkingBlock(ui, assistantMessage);
+  hydrateAgentEvents(ui, assistantMessage.agent_events);
   if (assistantMessage.tool_calls?.length) {
     hideAssistantLoading(ui);
     ui.toolsBlock.classList.remove('hidden');
@@ -2769,10 +2978,11 @@ function finishAssistant(ui, assistantMessage, sessionId) {
   clearLiveStreamChrome(ui);
   hideAssistantLoading(ui);
   syncThinkingBlock(ui, assistantMessage);
+  assistantMessage.content = stripLeakedToolCalls(assistantMessage.content || '');
   if (!assistantMessage.content && !assistantMessage.reasoning_content && assistantMessage.tool_calls.length === 0) {
     assistantMessage.content = t('noResponse', 'No response');
   }
-  const text = messageText(assistantMessage.content) || assistantMessage.content || '';
+  const text = stripLeakedToolCalls(messageText(assistantMessage.content) || assistantMessage.content || '');
   if (text) {
     renderMarkdownContent(ui.content, text);
   } else {
@@ -4474,6 +4684,7 @@ function renderAssistantFromHistory(msg) {
     ui.thinkingBody.textContent = msg.reasoning_content;
     ui.thinking.classList.add('collapsed');
   }
+  hydrateAgentEvents(ui, msg.agent_events);
   const toolResults = msg.tool_results || {};
   if (msg.tool_calls?.length) {
     ui.toolsBlock.classList.remove('hidden');
@@ -4485,7 +4696,7 @@ function renderAssistantFromHistory(msg) {
     }
     updateToolCallsSummary(ui.toolsBlock);
   }
-  const text = messageText(msg.content) || (typeof msg.content === 'string' ? msg.content : '');
+  const text = stripLeakedToolCalls(messageText(msg.content) || (typeof msg.content === 'string' ? msg.content : ''));
   if (text) {
     renderMarkdownContent(ui.content, text);
   } else if (!msg.tool_calls?.length) {

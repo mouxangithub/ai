@@ -1,6 +1,6 @@
 /**
  * Web terminal — xterm.js + PTY WebSocket + Hermes-style AI routing (centered modal).
- * AI replies render in #terminalAiFeed; shell output stays in xterm only.
+ * AI replies stream inline in xterm; PTY is muted while AI is active.
  */
 const TerminalPanel = (() => {
   let modal = null;

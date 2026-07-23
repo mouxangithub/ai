@@ -5,9 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>op助手</title>
   <link rel="icon" type="image/svg+xml" href="/static/img/favicon.svg">
-  <link rel="stylesheet" href="/static/css/ai.css?v=20260723c">
+  <link rel="stylesheet" href="/static/css/ai.css?v=20260723f">
   <link rel="stylesheet" href="/static/css/office-panel.css?v=20260723h">
-  <link rel="stylesheet" href="/static/css/canvas-panel.css?v=20260723c">
+  <link rel="stylesheet" href="/static/css/canvas-panel.css?v=20260723e">
   <link rel="stylesheet" href="/static/css/cabana-panel.css?v=20260723a">
   <link rel="stylesheet" href="/static/vendor/xterm/xterm.css?v=20260722i">
 </head>
@@ -655,8 +655,11 @@
         <div class="tsk-hero-card tsk-status-card">
           <div class="tsk-status-row">
             <span class="tsk-status-dot" id="tskKeyLight"></span>
-            <div>
-              <div class="tsk-status-title" id="tskKeyTitle" data-i18n="tskKeyNotInstalled">密钥未安装</div>
+            <div class="tsk-status-main">
+              <div class="tsk-status-title-row">
+                <div class="tsk-status-title" id="tskKeyTitle" data-i18n="tskKeyNotInstalled">密钥未安装</div>
+                <button type="button" class="btn ghost small danger hidden" id="tskUninstallBtn" data-i18n="tskUninstallBtn">卸载密钥</button>
+              </div>
               <pre class="tsk-key-detail" id="tskKeyDetail"></pre>
             </div>
           </div>
@@ -681,7 +684,7 @@
           </div>
         </details>
 
-        <details class="settings-accordion" open>
+        <details class="settings-accordion">
           <summary class="settings-accordion-summary" data-i18n="tskCanDfTitle">CAN + DataFlash 查找</summary>
           <div class="settings-accordion-body">
             <div class="tsk-steps">
@@ -705,7 +708,6 @@
             <div class="tsk-actions">
               <button type="button" class="btn primary block" id="tskMatcherBtn" disabled data-i18n="tskMatcherBtn">查找丰田 SecOC 密钥</button>
               <button type="button" class="btn ghost small block" id="tskCleanerBtn" disabled data-i18n="tskCleanerBtn">清除提取缓存</button>
-              <button type="button" class="btn ghost small block danger" id="tskUninstallBtn" disabled data-i18n="tskUninstallBtn">卸载密钥</button>
             </div>
           </div>
         </details>
@@ -745,13 +747,6 @@
         </button>
       </div>
       <div class="modal-body terminal-modal-body">
-        <div class="terminal-ai-pane" id="terminalAiPane" hidden>
-          <div class="terminal-ai-pane-head">
-            <span class="terminal-ai-pane-title">op助手 AI</span>
-            <button type="button" id="terminalAiPaneClear" class="btn ghost small">清空</button>
-          </div>
-          <div class="terminal-ai-feed" id="terminalAiFeed" aria-live="polite"></div>
-        </div>
         <div class="terminal-body">
           <div class="terminal-host" id="terminalHost"></div>
           <aside class="terminal-sidecar" id="terminalSidecar" aria-label="Tool sidecar">
@@ -842,21 +837,21 @@
   <script src="/static/js/model-combobox.js?v=20260722j"></script>
   <script src="/static/js/local-prefs.js?v=20260722k"></script>
   <script src="/static/js/quick-actions.js?v=20260715h"></script>
-  <script src="/static/js/tsk-panel.js?v=20260715ab"></script>
-  <script src="/static/js/web-chat-jobs.js?v=20260723c"></script>
+  <script src="/static/js/tsk-panel.js?v=20260723g"></script>
+  <script src="/static/js/web-chat-jobs.js?v=20260723f"></script>
   <script src="/static/js/web-api.js?v=20260722h"></script>
   <script src="/static/js/web-config.js?v=20260722h"></script>
   <script src="/static/js/fallback-models.js?v=20260722h"></script>
   <script src="/static/js/web-sync-ws.js?v=20260722h"></script>
   <script src="/static/js/terminal-sidecar.js?v=20260723b"></script>
-  <script src="/static/js/terminal-ai.js?v=20260723c"></script>
-  <script src="/static/js/agents-panel.js?v=20260723h"></script>
-  <script src="/static/js/office-scene.js?v=20260723h"></script>
+  <script src="/static/js/terminal-ai.js?v=20260723e"></script>
+  <script src="/static/js/agents-panel.js?v=20260723f"></script>
+  <script src="/static/js/office-scene.js?v=20260723f"></script>
   <script src="/static/js/office-panel.js?v=20260723h"></script>
   <script src="/static/js/command-queue.js?v=20260722h"></script>
   <script src="/static/js/canvas-panel.js?v=20260723a"></script>
-  <script src="/static/js/terminal-panel.js?v=20260723c"></script>
-  <script src="/static/js/ai.js?v=20260723h"></script>
+  <script src="/static/js/terminal-panel.js?v=20260723e"></script>
+  <script src="/static/js/ai.js?v=20260723f"></script>
   <script src="/static/js/cabana-panel.js?v=20260723a"></script>
 </body>
 </html>

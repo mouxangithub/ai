@@ -9,6 +9,7 @@ from typing import Any
 from openpilot.common.params import Params
 
 from ai.client import AIConfig, expand_messages_for_api
+from ai.content_sanitize import strip_leaked_tool_calls
 from ai.embedding import load_embedding_config
 from ai.model_router import chat_completion_with_failover, resolve_chat_config
 from ai.skills.snapshot import get_skills_prompt
@@ -234,7 +235,9 @@ async def run_chat_loop(
 
       if chunk.content:
         assistant_content += chunk.content
-        await emit({"type": "content", "delta": chunk.content})
+        stripped = strip_leaked_tool_calls(chunk.content)
+        if stripped:
+          await emit({"type": "content", "delta": stripped})
 
       if chunk.tool_calls:
         for tc in chunk.tool_calls:
@@ -254,9 +257,11 @@ async def run_chat_loop(
 
     assistant_msg: dict[str, Any] = {"role": "assistant"}
     if assistant_content:
-      assistant_msg["content"] = assistant_content
-    elif pending_tool_calls:
-      assistant_msg["content"] = None
+      cleaned_content = strip_leaked_tool_calls(assistant_content)
+      if cleaned_content:
+        assistant_msg["content"] = cleaned_content
+      elif pending_tool_calls:
+        assistant_msg["content"] = None
     if assistant_reasoning:
       assistant_msg["reasoning_content"] = assistant_reasoning
     if pending_tool_calls:

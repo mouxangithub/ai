@@ -8,6 +8,7 @@ from typing import Any
 from openpilot.common.params import Params
 
 from ai.tools.comma_docs_rag import COMMA_DOCS_RAG
+from ai.tools.wiki_rag import WIKI_RAG
 from ai.tools.rag_store import list_documents, remove_document, upsert_document_sync
 
 _BUILTIN_PREFIX = "builtin_"
@@ -199,6 +200,7 @@ manager 离路且电压>9V、非计量网络时 systemctl 启停；github_runner
 文档：ai/docs/GITHUB_RUNNER.md；技能 github-runner。""",
   },
   *COMMA_DOCS_RAG,
+  *WIKI_RAG,
 ]
 
 

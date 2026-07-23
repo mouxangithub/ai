@@ -74,6 +74,12 @@ const TskPanel = (() => {
       e.keyTitle.textContent = t('tskKeyNotInstalled', '密钥未安装');
       if (e.keyDetail) e.keyDetail.textContent = '';
     }
+    if (e.uninstallBtn) {
+      const show = !!state.key;
+      e.uninstallBtn.hidden = !show;
+      e.uninstallBtn.classList.toggle('hidden', !show);
+      e.uninstallBtn.disabled = !show || state.running;
+    }
     syncActionButtons();
   }
 
@@ -101,10 +107,6 @@ const TskPanel = (() => {
 
     const hasCache = state.canReady || state.dfReady || state.dfPartial;
     if (e.cleanerBtn) e.cleanerBtn.disabled = !hasCache;
-    if (e.uninstallBtn) {
-      e.uninstallBtn.disabled = !state.key;
-      e.uninstallBtn.classList.toggle('danger', !!state.key);
-    }
   }
 
   function setRunning(running) {
