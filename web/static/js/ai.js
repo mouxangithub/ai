@@ -49,6 +49,7 @@ const els = {
   sessionList: $('#sessionList'),
   newSessionBtn: $('#newSessionBtn'),
   activeAgentBadge: $('#activeAgentBadge'),
+  modelBadge: $('#modelBadge'),
   officeBtn: $('#officeBtn'),
   secocBtn: $('#secocBtn'),
   secocModal: $('#secocModal'),
@@ -824,16 +825,23 @@ function startSyncWebSocket() {
     if (document.visibilityState === 'visible') {
       connectSyncWebSocket();
       refreshSessionViewFromRemote().catch(() => {});
+      if (typeof ChatJobs !== 'undefined') ChatJobs.recoverStuckStreams?.().catch(() => {});
     } else if (typeof SyncWsClient !== 'undefined') SyncWsClient.close();
   });
   connectSyncWebSocket();
   setInterval(() => {
     if (isSyncWsConnected()) sendSyncWs({ type: 'ping' });
   }, 25000);
+  setInterval(() => {
+    if (typeof ChatJobs !== 'undefined') ChatJobs.recoverStuckStreams?.().catch(() => {});
+  }, 12000);
   if (typeof SyncWsClient !== 'undefined') {
     SyncWsClient.startFallbackPolling(() => {
       refreshSessionViewFromRemote().catch(() => {});
-      if (typeof ChatJobs !== 'undefined') ChatJobs.resumePolling();
+      if (typeof ChatJobs !== 'undefined') {
+        ChatJobs.resumePolling();
+        ChatJobs.recoverStuckStreams?.().catch(() => {});
+      }
     }, 15000);
   }
 }
@@ -1394,9 +1402,11 @@ function createNewSession() {
 
 function updateModelBadge(model) {
   if (!els.modelBadge) return;
-  const label = model || t('modelUnset', 'Not configured');
+  const raw = String(model || savedConfig?.model || '').trim();
+  const label = raw || t('modelUnset', 'Not configured');
   els.modelBadge.textContent = label;
-  els.modelBadge.classList.toggle('unset', !model);
+  els.modelBadge.title = raw || label;
+  els.modelBadge.classList.toggle('unset', !raw);
 }
 
 function updateModelBadgeFromSaved() {
@@ -4859,6 +4869,8 @@ async function init() {
   loadSessionMode();
   renderSessionList();
   renderStoredMessages();
+  updateModelBadgeFromSaved();
+  if (typeof ChatJobs !== 'undefined') ChatJobs.recoverStuckStreams?.().catch(() => {});
   if (typeof CanvasPanel !== 'undefined') {
     CanvasPanel.loadSession(SessionStore.activeId).catch(() => {});
   }

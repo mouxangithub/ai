@@ -175,6 +175,36 @@ const ChatJobs = (() => {
     deps.syncSessionsToDevice?.().catch(() => {});
   }
 
+  function pollDelayMs() {
+    return deps.isSyncWsConnected?.() ? 1200 : 400;
+  }
+
+  async function applyTerminalJobState(jobId, sessionId, ctx, status, payload = {}) {
+    if (ctx) {
+      await finalizeCtx(jobId, sessionId, ctx, status, payload);
+      return;
+    }
+    contexts.delete(jobId);
+    deps.SessionStore?.clearActiveJobId(sessionId);
+    if (deps.SessionStore?.activeId !== sessionId) return;
+    if (status === 'done') {
+      const assistant = deps.normalizeStoredMessage({
+        role: 'assistant',
+        content: '',
+        reasoning_content: '',
+        tool_calls: [],
+        tool_results: {},
+        ...(payload.assistant || {}),
+      });
+      if (deps.assistantMessageHasContent?.(assistant)) {
+        deps.commitAssistantMessage?.(sessionId, assistant);
+        deps.renderStoredMessages?.();
+      }
+    }
+    deps.endChatStream?.(sessionId);
+    deps.syncSessionsToDevice?.().catch(() => {});
+  }
+
   async function handleSyncWsEvent(payload) {
     const { jobId, sessionId, event, status } = payload;
     let ctx = findCtx(jobId, sessionId);
@@ -191,11 +221,21 @@ const ChatJobs = (() => {
       });
       ctx = findCtx(jobId, sessionId);
     }
-    if (!ctx) return;
+    if (!ctx) {
+      if (['done', 'error', 'cancelled'].includes(status)) {
+        await applyTerminalJobState(jobId, sessionId, null, status, payload);
+      }
+      return;
+    }
 
     if (event) {
       const seq = event._seq || 0;
-      if (seq <= (ctx.lastSeq || 0)) return;
+      if (seq <= (ctx.lastSeq || 0)) {
+        if (['done', 'error', 'cancelled'].includes(status)) {
+          await finalizeCtx(jobId, sessionId, ctx, status, payload);
+        }
+        return;
+      }
       ctx.lastSeq = seq;
       const result = await handleStreamEvent(event, ctx);
       if (result === 'error') {
@@ -215,71 +255,54 @@ const ChatJobs = (() => {
     ctx.since = ctx.lastSeq;
     ctx._pollActive = false;
     registerCtx(jobId, sessionId, ctx);
-    if (!deps.isSyncWsConnected?.()) poll(jobId, sessionId, ctx);
+    poll(jobId, sessionId, ctx);
   }
 
   function poll(jobId, sessionId, ctx) {
-    if (deps.isSyncWsConnected?.()) return;
     ctx._pollActive = true;
     let since = ctx.since || 0;
     let finished = false;
 
     const tick = async () => {
       if (finished) return;
-      const streamActive = ctx.streamActive;
-      if (!streamActive() && deps.SessionStore?.getActiveJobId(sessionId) !== jobId) {
-        finished = true;
-        return;
-      }
 
       try {
         const { data } = await deps.api('GET', `/api/ai/chat/jobs/${encodeURIComponent(jobId)}?since=${since}`);
         if (!data?.ok) {
-          if (!streamActive()) finished = true;
-          else pollTimer = setTimeout(tick, 1000);
+          if (deps.SessionStore?.getActiveJobId(sessionId) === jobId) {
+            deps.SessionStore?.clearActiveJobId(sessionId);
+            if (deps.SessionStore?.activeId === sessionId) deps.endChatStream?.(sessionId);
+          }
+          finished = true;
+          contexts.delete(jobId);
           return;
         }
 
+        const streamActive = ctx.streamActive;
         for (const ev of data.events || []) {
           since = Math.max(since, ev._seq || since);
+          ctx.since = since;
+          ctx.lastSeq = since;
           const result = await handleStreamEvent(ev, ctx);
           if (result === 'error') {
             finished = true;
-            contexts.delete(jobId);
-            if (streamActive()) deps.finishAssistant(ctx.ui, ctx.assistantMessage, sessionId);
-            deps.SessionStore?.clearActiveJobId(sessionId);
-            deps.endChatStream?.(sessionId);
-            deps.syncSessionsToDevice?.().catch(() => {});
+            await applyTerminalJobState(jobId, sessionId, ctx, 'error', data);
             return;
           }
-          if (result === 'stop') {
-            finished = true;
-            return;
-          }
+          if (result === 'stop') break;
         }
 
         if (streamActive()) deps.savePartialAssistant?.(sessionId, ctx.assistantMessage);
 
         if (['done', 'error', 'cancelled'].includes(data.status)) {
           finished = true;
-          contexts.delete(jobId);
-          if (data.status === 'done' && streamActive()) {
-            deps.finishAssistant(ctx.ui, ctx.assistantMessage, sessionId);
-          } else if (data.status === 'error' && streamActive()) {
-            ctx.assistantMessage.content = deps.formatApiError(data.error || 'Error');
-            deps.finishAssistant(ctx.ui, ctx.assistantMessage, sessionId);
-          } else if (data.status === 'cancelled' && streamActive() && ctx.ui.wrapper?.isConnected) {
-            ctx.ui.wrapper.remove();
-          }
-          deps.SessionStore?.clearActiveJobId(sessionId);
-          deps.endChatStream?.(sessionId);
-          deps.syncSessionsToDevice?.().catch(() => {});
+          await applyTerminalJobState(jobId, sessionId, ctx, data.status, data);
           return;
         }
 
-        pollTimer = setTimeout(tick, 400);
+        pollTimer = setTimeout(tick, pollDelayMs());
       } catch {
-        if (!finished) pollTimer = setTimeout(tick, 1000);
+        if (!finished) pollTimer = setTimeout(tick, pollDelayMs());
       }
     };
 
@@ -524,6 +547,41 @@ const ChatJobs = (() => {
     }
   }
 
+  async function recoverStuckStreams() {
+    const sessionId = deps.SessionStore?.activeId;
+    if (!sessionId) {
+      if (deps.getAbortController?.() && !contexts.size) deps.endChatStream?.();
+      return;
+    }
+
+    let jobId = deps.SessionStore.getActiveJobId(sessionId) || activeJobId;
+    if (!jobId) {
+      if (deps.getAbortController?.() && !contexts.size) deps.endChatStream?.(sessionId);
+      return;
+    }
+
+    const ctx = findCtx(jobId, sessionId);
+    if (ctx && !ctx._pollActive) poll(jobId, sessionId, ctx);
+
+    const { data } = await deps.api('GET', `/api/ai/chat/jobs/${encodeURIComponent(jobId)}?since=0`);
+    if (!data?.ok) {
+      deps.SessionStore.clearActiveJobId(sessionId);
+      if (deps.SessionStore.activeId === sessionId) deps.endChatStream?.(sessionId);
+      return;
+    }
+
+    if (data.status === 'running') {
+      if (!ctx && deps.SessionStore.activeId === sessionId) {
+        await attach(sessionId, jobId, data);
+      }
+      return;
+    }
+
+    if (['done', 'error', 'cancelled'].includes(data.status)) {
+      await applyTerminalJobState(jobId, sessionId, ctx, data.status, data);
+    }
+  }
+
   return {
     init,
     stream,
@@ -537,5 +595,6 @@ const ChatJobs = (() => {
     endPoll,
     forEachPollingCtx,
     resumePolling,
+    recoverStuckStreams,
   };
 })();
