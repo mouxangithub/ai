@@ -16,6 +16,7 @@ const OfficePanel = (() => {
   let onOpenCallback = null;
   let onVisibilityChange = null;
   let getDriving = () => false;
+  let getVehicleState = () => null;
   let showToast = null;
   let apiFn = null;
   let open = false;
@@ -240,6 +241,7 @@ const OfficePanel = (() => {
         showToast?.('行驶中：办公室动画已暂停，不影响辅助驾驶');
       }
       setDrivingMode(getDriving());
+      setVehicleState(getVehicleState());
       ensureAgentsLoaded().catch(() => {});
       ensureScene().then(() => {
         if (sceneReady) {
@@ -272,6 +274,12 @@ const OfficePanel = (() => {
     }
   }
 
+  function setVehicleState(vs) {
+    if (typeof OfficeScene !== 'undefined') {
+      OfficeScene.setVehicleState?.(vs);
+    }
+  }
+
   function init(opts = {}) {
     root = opts.modal || opts.panel || document.getElementById('officeModal');
     tasksEl = opts.tasks || document.getElementById('officeTasks');
@@ -283,6 +291,7 @@ const OfficePanel = (() => {
     const closeBtn = opts.closeBtn || document.getElementById('officeCloseBtn');
     onVisibilityChange = opts.onVisibilityChange || null;
     getDriving = typeof opts.getDriving === 'function' ? opts.getDriving : getDriving;
+    getVehicleState = typeof opts.getVehicleState === 'function' ? opts.getVehicleState : getVehicleState;
     showToast = opts.showToast || null;
     apiFn = opts.api || null;
     onOpenCallback = opts.onOpen || null;
@@ -307,6 +316,7 @@ const OfficePanel = (() => {
     toggle,
     isOpen: () => open,
     setDrivingMode,
+    setVehicleState,
     selectAgent,
   };
 })();

@@ -1631,6 +1631,18 @@ html, body {
 
 .onboarding-content {
   max-width: 28rem;
+  overflow: visible;
+}
+
+.onboarding-modal .modal-body {
+  overflow: visible;
+}
+
+/* 模型下拉在底部字段区向上展开，避免被 footer 裁切 */
+.onboarding-modal .model-combobox-list {
+  top: auto;
+  bottom: calc(100% + 4px);
+  z-index: 5;
 }
 
 .onboarding-modal .modal-footer {

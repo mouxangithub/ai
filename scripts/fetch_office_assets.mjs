@@ -1,7 +1,12 @@
 #!/usr/bin/env node
 /**
- * Download CC0 office GLB assets into ai/web/static/vendor/office/
- * Run: node ai/scripts/fetch_office_assets.mjs
+ * Download optional CC0 office GLB assets into ai/web/static/vendor/office/
+ *
+ * Run on a dev machine (needs network), then commit the files:
+ *   node ai/scripts/fetch_office_assets.mjs
+ *
+ * The 3D office works fully offline with procedural geometry (car, desks,
+ * lane markings, Panda, steering wheel, etc.). GLB is optional polish only.
  */
 import fs from 'node:fs';
 import path from 'node:path';
@@ -10,18 +15,24 @@ import { fileURLToPath } from 'node:url';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const OUT = path.join(__dirname, '../web/static/vendor/office');
 
-/** Public mirrors / samples — all CC0 or Khronos sample (replace via poly.pizza if needed). */
+/**
+ * Khronos sample URLs moved/404 on jsdelivr. Prefer manual Kenney CC0 zips:
+ * - https://kenney.nl/assets/furniture-kit  → desk.glb, chair.glb, plant.glb, sofa.glb
+ * - https://kenney.nl/assets/car-kit        → optional car.glb
+ *
+ * Place extracted GLBs in ai/web/static/vendor/office/ and update manifest.json.
+ */
 const ASSETS = [
   {
     name: 'chair.glb',
     urls: [
-      'https://cdn.jsdelivr.net/gh/KhronosGroup/glTF-Sample-Models@master/2.0/Chair/glTF-Binary/Chair.glb',
+      'https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/main/Models/Chair/glTF-Binary/Chair.glb',
     ],
   },
   {
     name: 'plant.glb',
     urls: [
-      'https://cdn.jsdelivr.net/gh/KhronosGroup/glTF-Sample-Models@master/2.0/PottedPlant/glTF-Binary/PottedPlant.glb',
+      'https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/main/Models/PottedPlant/glTF-Binary/PottedPlant.glb',
     ],
   },
 ];
@@ -56,10 +67,10 @@ async function main() {
         console.warn(`  failed: ${e.message}`);
       }
     }
-    if (!saved) console.warn(`! could not fetch ${asset.name}`);
+    if (!saved) console.warn(`! could not fetch ${asset.name} — use Kenney CC0 manual drop`);
   }
   console.log(`\nDone: ${ok}/${ASSETS.length} models in ${OUT}`);
-  console.log('Tip: add desk.glb / sofa.glb from https://kenney.nl/assets/furniture-kit (CC0) for best look.');
+  console.log('Procedural office theme does not require GLB. Optional: Kenney furniture-kit (CC0).');
 }
 
 main().catch((e) => {

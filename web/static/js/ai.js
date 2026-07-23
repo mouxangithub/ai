@@ -893,6 +893,7 @@ function applyStatusFromPayload(data) {
   applyStatusPill(data);
   if (typeof OfficePanel !== 'undefined') {
     OfficePanel.setDrivingMode?.(!!data.driving);
+    OfficePanel.setVehicleState?.(data.state);
   }
 }
 
@@ -3932,7 +3933,7 @@ function applyStatusPill(data) {
   const queueBadge = document.getElementById('queueModeBadge');
   if (queueBadge) {
     queueBadge.classList.toggle('hidden', !data.driving);
-    if (typeof CommandQueue !== 'undefined') CommandQueue.renderBadge();
+    if (typeof CommandQueue !== 'undefined') CommandQueue.renderBadge?.();
   }
 }
 
@@ -5006,6 +5007,7 @@ async function init() {
       },
       onVisibilityChange: () => syncBodyScrollLock(),
       getDriving: () => !!state.driving,
+      getVehicleState: () => state.state || null,
     });
   }
   if (typeof CommandQueue !== 'undefined') CommandQueue.bindUi();

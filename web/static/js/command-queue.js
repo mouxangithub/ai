@@ -62,5 +62,5 @@ const CommandQueue = (() => {
     return { queueMode: getMode() };
   }
 
-  return { getMode, setMode, cycleMode, label, bindUi, payloadExtras };
+  return { getMode, setMode, cycleMode, label, describe, bindUi, renderBadge, payloadExtras };
 })();
