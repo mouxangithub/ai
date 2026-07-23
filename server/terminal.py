@@ -52,8 +52,8 @@ async def terminal_ws(request: web.Request) -> web.WebSocketResponse:
   await ws.prepare(request)
   cloudlog.info("aid: terminal ws connected")
   await ws.send_str(
-    "\x1b[33mop助手终端\x1b[0m — 行驶中可用诊断命令；"
-    "禁止转向/刹车/油门等控车操作。\r\n"
+    "\x1b[33mop助手终端\x1b[0m — Shell + AI（自然语言或 ? 前缀调用 op助手）；"
+    "行驶中可用诊断命令；禁止转向/刹车/油门等控车操作。\r\n"
   )
 
   master_fd, slave_fd = pty.openpty()

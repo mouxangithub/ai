@@ -1,5 +1,5 @@
 /**
- * Web terminal — xterm.js + PTY WebSocket (centered modal).
+ * Web terminal — xterm.js + PTY WebSocket + Hermes-style AI routing (centered modal).
  */
 const TerminalPanel = (() => {
   let modal = null;
@@ -8,6 +8,7 @@ const TerminalPanel = (() => {
   let fitAddon = null;
   let open = false;
   let onVisibilityChange = null;
+  let aiOnly = false;
 
   function wsUrl() {
     const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
@@ -62,13 +63,13 @@ const TerminalPanel = (() => {
     }
   }
 
-  function connect() {
+  function ensureTerm() {
     if (typeof Terminal === 'undefined') {
       console.warn('xterm.js not loaded');
-      return;
+      return false;
     }
     const host = document.getElementById('terminalHost');
-    if (!host) return;
+    if (!host) return false;
     if (!term) {
       term = new Terminal({
         cursorBlink: true,
@@ -81,31 +82,63 @@ const TerminalPanel = (() => {
         term.loadAddon(fitAddon);
       }
       term.open(host);
-      term.writeln('\x1b[33mop助手 Web 终端\x1b[0m — AGNOS/Linux PTY');
-      term.writeln('连接中…\r\n');
       window.addEventListener('resize', () => fitTerminal());
     }
+    return true;
+  }
+
+  function attachInput() {
+    if (typeof TerminalAi === 'undefined' || !term) return;
+    TerminalAi.attach(term, ws, { aiOnly });
+  }
+
+  function startAiOnly() {
+    aiOnly = true;
+    if (!ensureTerm()) return;
+    term.clear();
+    term.writeln('\x1b[33mop助手 Web 终端\x1b[0m — AI 模式（本机无 PTY）');
+    if (typeof TerminalAi !== 'undefined') TerminalAi.printHelp(term, { aiOnly: true });
+    term.writeln('');
+    attachInput();
+    fitTerminal();
+  }
+
+  function connect() {
+    if (!ensureTerm()) return;
     disconnect();
+    aiOnly = false;
+    term.clear();
+    term.writeln('\x1b[33mop助手 Web 终端\x1b[0m — AGNOS/Linux PTY + AI');
+    term.writeln('连接中…\r\n');
+
     try {
       ws = new WebSocket(wsUrl());
       ws.binaryType = 'arraybuffer';
     } catch (e) {
       term.writeln(`\x1b[31mWebSocket 失败: ${e.message}\x1b[0m`);
+      startAiOnly();
       return;
     }
+
     ws.onopen = () => {
       term.writeln('\x1b[32m已连接\x1b[0m');
+      if (typeof TerminalAi !== 'undefined') TerminalAi.printHelp(term);
+      term.writeln('');
+      attachInput();
       fitTerminal();
     };
     ws.onmessage = (ev) => {
       if (typeof ev.data === 'string') term.write(ev.data);
       else term.write(new Uint8Array(ev.data));
     };
-    ws.onclose = () => term.writeln('\r\n\x1b[33m连接已关闭\x1b[0m');
-    ws.onerror = () => term.writeln('\r\n\x1b[31m终端错误\x1b[0m');
-    term.onData((data) => {
-      if (ws?.readyState === WebSocket.OPEN) ws.send(data);
-    });
+    ws.onclose = () => {
+      term.writeln('\r\n\x1b[33mShell 连接已关闭\x1b[0m');
+      if (!aiOnly) startAiOnly();
+    };
+    ws.onerror = () => {
+      term.writeln('\r\n\x1b[31m终端错误\x1b[0m');
+      if (!aiOnly) startAiOnly();
+    };
   }
 
   function disconnect() {
@@ -113,6 +146,7 @@ const TerminalPanel = (() => {
       try { ws.close(); } catch {}
       ws = null;
     }
+    if (typeof TerminalAi !== 'undefined') TerminalAi.cancel?.();
   }
 
   function init(opts = {}) {

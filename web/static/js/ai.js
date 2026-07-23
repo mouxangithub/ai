@@ -4803,6 +4803,16 @@ async function init() {
   bindUiEvents();
   if (typeof TskPanel !== 'undefined') TskPanel.bind();
   if (typeof TerminalPanel !== 'undefined') {
+    if (typeof TerminalAi !== 'undefined') {
+      TerminalAi.init({
+        api: WebApi.api,
+        SessionStore,
+        prepareMessagesForApi,
+        syncSessionsToDevice,
+        getState: () => state,
+        chatMode: CHAT_MODE,
+      });
+    }
     TerminalPanel.init({ onVisibilityChange: () => syncBodyScrollLock() });
   }
   els.secocBtn?.addEventListener('click', () => {
