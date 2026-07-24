@@ -591,12 +591,29 @@ class TestExtensionTools(unittest.TestCase):
     self.assertIn("cancel_github_workflow_run", schema_names)
 
   def test_panda_flash_tools_preview(self):
-    from ai.tools.panda_flash_tools import recover_dos_panda, panda_recovery_hint
+    from ai.tools.panda_flash_tools import recover_dos_panda, panda_recovery_hint, flash_panda_firmware
 
     preview = recover_dos_panda(confirm=False, internal=True)
     self.assertTrue(preview.get("needs_confirmation"))
     self.assertIn("preview", preview)
     self.assertEqual(preview["preview"].get("implementation"), "inline (no script required)")
+
+    flash_preview = flash_panda_firmware(confirm=False, all_pandas=True)
+    self.assertTrue(flash_preview.get("needs_confirmation") or flash_preview.get("onroad") is not None)
+    self.assertIn("preview", flash_preview)
+
+    from ai.tools.panda_flash_tools import detect_onroad, offroad_flash_guard
+    from unittest.mock import MagicMock
+
+    mock_state = MagicMock()
+    mock_state.started = True
+    mock_state.force_offroad = False
+    mock_reader = MagicMock()
+    mock_reader.update.return_value = mock_state
+    info = detect_onroad(get_state_reader=lambda: mock_reader)
+    self.assertTrue(info.get("onroad"))
+    blocked = offroad_flash_guard(get_state_reader=lambda: mock_reader)
+    self.assertFalse(blocked.get("ok"))
 
     hint = panda_recovery_hint(get_state_reader=None)
     self.assertTrue(hint.get("ok"))
@@ -611,11 +628,27 @@ class TestExtensionTools(unittest.TestCase):
     ])
     self.assertEqual(multi.get("scenario"), "heterogeneous_f4_h7")
 
+    from ai.tools.panda_flash_tools import _firmware_scenario_guidance
+
+    single_f4 = _firmware_scenario_guidance({"count": 1, "f4_count": 1, "h7_count": 0})
+    self.assertEqual(single_f4.get("scenario"), "single_f4")
+    self.assertTrue(single_f4.get("build_f4"))
+    self.assertFalse(single_f4.get("build_h7"))
+    self.assertIn("panda/", single_f4.get("summary_zh", ""))
+
+    hetero = _firmware_scenario_guidance(
+      {"scenario": "heterogeneous_f4_h7", "count": 2, "f4_count": 1, "h7_count": 1}
+    )
+    self.assertTrue(hetero.get("build_f4"))
+    self.assertTrue(hetero.get("build_h7"))
+    self.assertIn("panda_h7", hetero.get("summary_zh", "") + hetero.get("mads_zh", ""))
+
   def test_sp_extension_panda_tools_registered(self):
     from ai.tools.sp_tool_extensions import SP_EXTENSION_TOOL_META, SP_EXTENSION_SCHEMAS
     for name in (
-      "list_f4_pandas", "list_all_pandas", "recover_dos_panda", "rebuild_pandad_tici",
-      "panda_recovery_hint", "build_panda_firmware",
+      "list_f4_pandas", "list_all_pandas", "recover_dos_panda", "flash_panda_firmware",
+      "rebuild_pandad", "rebuild_pandad_tici",
+      "panda_recovery_hint", "build_panda_firmware", "build_panda_h7_firmware", "build_panda_tici_firmware",
       "github_runner_status", "github_runner_recovery_hint", "install_github_runner",
       "github_actions_auth_status", "set_github_actions_pat", "list_github_workflow_runs",
       "get_github_workflow_run", "cancel_github_workflow_run", "list_github_runners",
@@ -624,6 +657,7 @@ class TestExtensionTools(unittest.TestCase):
       self.assertIn(name, SP_EXTENSION_TOOL_META)
     schema_names = {s["function"]["name"] for s in SP_EXTENSION_SCHEMAS}
     self.assertIn("recover_dos_panda", schema_names)
+    self.assertIn("flash_panda_firmware", schema_names)
 
   def test_batch_compare_empty(self):
     from ai.tools.route_scoring_tools import batch_compare_routes_tune

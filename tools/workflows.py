@@ -190,10 +190,26 @@ WORKFLOWS: dict[str, dict[str, Any]] = {
       "panda_status",
       "panda_recovery_hint",
       "若 F4 异常: recover_dos_panda",
-      "若 pandad 缺失: rebuild_pandad_tici(confirm=true)",
+      "若 pandad 缺失: rebuild_pandad(confirm=true)",
       "tsk_restart_pandad if black screen",
     ],
     "prompt": "C3 内置 F4 + 外接 H7 双 Panda：先 list_all_pandas 识别场景，按 panda_recovery_hint 恢复。",
+  },
+  "panda_flash": {
+    "name": "刷 Panda 固件",
+    "mode": "execute",
+    "steps": [
+      "panda_firmware_status or list_all_pandas",
+      "若固件缺失: build_panda_firmware",
+      "flash_panda_firmware(confirm=true, all_pandas=true)",
+      "panda_firmware_status 验证签名",
+      "rebuild_pandad(confirm=true) if dual USB",
+    ],
+    "prompt": (
+      "执行 Panda 刷机工作流（offroad）：先 panda_firmware_status 列出设备与签名是否匹配；"
+      "用户确认后 flash_panda_firmware(confirm=true, all_pandas=true) 刷所有已连接 Panda（H7 走 pandad，F4 走 panda/）；"
+      "完成后再次查签名；双 USB 时提示 rebuild_pandad。"
+    ),
   },
   "sunnylink_backup_flow": {
     "name": "Sunnylink 备份一条龙",

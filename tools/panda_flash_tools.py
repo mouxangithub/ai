@@ -14,15 +14,194 @@ from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
 from typing import Any
 
-from ai.system.paths import openpilot_root, source_path, tools_path
+from ai.system.paths import is_comma_device, openpilot_root, source_path, tools_path
 
 FW_REL = Path("panda", "board", "obj", "panda.bin.signed")
-REBUILD_SCRIPT = Path("tools", "rebuild_pandad_tici.sh")
+TICI_FW_REL = Path("panda", "board", "obj", "panda_h7.bin.signed")
+REBUILD_SCRIPT = Path("tools", "rebuild_pandad.sh")
 RECOVER_SCRIPT = Path("tools", "recover_dos_panda.py")
+
+OFFROAD_FLASH_ERROR = (
+  "当前处于 onroad，Panda 刷写仅能在 offroad（停车）下进行。"
+  "请挂 P 挡、退出 openpilot 后再试。"
+)
+
+
+def _default_state_reader():
+  try:
+    from ai.server.deps import get_state_reader
+    return get_state_reader()
+  except Exception:
+    return None
+
+
+def detect_onroad(*, get_state_reader=None) -> dict[str, Any]:
+  """Return onroad/offroad snapshot for UI and guards."""
+  reader_fn = get_state_reader or _default_state_reader
+  force_offroad = False
+  try:
+    reader = reader_fn()
+    if reader is not None:
+      state = reader.update(timeout=0)
+      force_offroad = bool(getattr(state, "force_offroad", False))
+      onroad = bool(getattr(state, "started", False)) and not force_offroad
+      return {
+        "onroad": onroad,
+        "offroad": not onroad,
+        "source": "state_reader",
+        "force_offroad": force_offroad,
+        "started": bool(getattr(state, "started", False)),
+      }
+  except Exception:
+    pass
+
+  try:
+    from openpilot.common.params import Params
+
+    params = Params()
+    force_offroad = params.get_bool("OffroadMode")
+    onroad = params.get_bool("IsOnroad") and not force_offroad
+    return {
+      "onroad": onroad,
+      "offroad": not onroad,
+      "source": "params:IsOnroad",
+      "force_offroad": force_offroad,
+      "started": onroad,
+    }
+  except Exception:
+    pass
+
+  return {
+    "onroad": False,
+    "offroad": True,
+    "source": None,
+    "force_offroad": force_offroad,
+    "started": False,
+  }
+
+
+def offroad_flash_guard(*, get_state_reader=None) -> dict[str, Any] | None:
+  """Block Panda flash/write firmware when onroad. Returns error dict or None."""
+  info = detect_onroad(get_state_reader=get_state_reader)
+  if info.get("onroad"):
+    return {
+      "ok": False,
+      "onroad": True,
+      "offroad": False,
+      "error": OFFROAD_FLASH_ERROR,
+      "onroad_source": info.get("source"),
+    }
+  if is_comma_device() and info.get("source") is None:
+    return {
+      "ok": False,
+      "onroad": None,
+      "error": "无法确认 offroad 状态，为安全起见已拒绝刷写。",
+    }
+  return None
+
+
+def _attach_offroad_flash_policy(payload: dict[str, Any], *, get_state_reader=None) -> dict[str, Any]:
+  info = detect_onroad(get_state_reader=get_state_reader)
+  payload.update(info)
+  blocked = offroad_flash_guard(get_state_reader=get_state_reader)
+  payload["flash_allowed"] = blocked is None
+  if blocked:
+    payload["flash_blocked_reason"] = blocked.get("error")
+  return payload
 
 
 def _fw_path() -> Path:
   return openpilot_root() / FW_REL
+
+
+def _tici_fw_path() -> Path:
+  return openpilot_root() / TICI_FW_REL
+
+
+def _firmware_scenario_guidance(multi: dict[str, Any] | None) -> dict[str, Any]:
+  """Human-readable build/flash guidance from connected Panda layout (C3 DOS / aux H7)."""
+  multi = multi or {}
+  scenario = multi.get("scenario")
+  count = int(multi.get("count") or 0)
+  f4_count = int(multi.get("f4_count") or 0)
+  h7_count = int(multi.get("h7_count") or 0)
+
+  if scenario == "heterogeneous_f4_h7":
+    return {
+      "scenario": scenario,
+      "build_f4": True,
+      "build_h7": True,
+      "summary_zh": (
+        "内置 F4 + 外接 H7（红熊）：一次 scons panda/board 产出 F4 与 H7 固件，分别刷两块。"
+        "控车 safety（含 MADS）在外接 H7；内置 F4 为 noOutput，只刷 F4 不能解决 MADS。"
+      ),
+      "summary_en": (
+        "Internal F4 + external H7 (red panda): one scons panda/board builds both images; flash both."
+        "Vehicle safety (incl. MADS) runs on external H7; internal F4 is noOutput."
+      ),
+      "mads_zh": "修改 opendbc/safety（如 mads.h）后 scons panda/board，再刷 F4 + H7（panda_h7.bin.signed）。",
+      "mads_en": "After opendbc/safety changes (e.g. mads.h), scons panda/board, then flash F4 + H7 (panda_h7.bin.signed).",
+    }
+
+  if count <= 1 and f4_count == 1 and h7_count == 0:
+    return {
+      "scenario": "single_f4",
+      "build_f4": True,
+      "build_h7": False,
+      "summary_zh": "单内置 F4（C3 DOS）：MADS / safety 由 panda/board/obj/panda.bin.signed 决定，只需编译并刷 panda/。",
+      "summary_en": "Single internal F4 (C3 DOS): MADS/safety comes from panda/board/obj/panda.bin.signed — build and flash panda/ only.",
+      "mads_zh": "改 mads.h 后 scons panda/board → 刷 F4 即可。",
+      "mads_en": "After mads.h changes: scons panda/board → flash F4.",
+    }
+
+  if count <= 1 and h7_count == 1 and f4_count == 0:
+    return {
+      "scenario": "single_h7",
+      "build_f4": False,
+      "build_h7": True,
+      "summary_zh": "仅 H7（红熊）：固件为 panda/board/obj/panda_h7.bin.signed，由 pandad 自动刷写。",
+      "summary_en": "H7 only (red panda): firmware is panda/board/obj/panda_h7.bin.signed, flashed via pandad.",
+      "mads_zh": "MADS 在 H7 固件内；改 opendbc 后 scons panda/board 并刷 H7。",
+      "mads_en": "MADS lives in H7 firmware; after opendbc edits, scons panda/board and flash H7.",
+    }
+
+  if count == 0:
+    return {
+      "scenario": "none_detected",
+      "build_f4": True,
+      "build_h7": False,
+      "summary_zh": "未检测到 Panda：C3 DOS 默认只需 panda/ 固件；若已接外接红熊请插好 USB 后刷新状态。",
+      "summary_en": "No Panda detected: C3 DOS normally needs panda/ only; plug external red panda and refresh if used.",
+      "mads_zh": "单内置 F4：改 safety 后编 panda/board；双 Panda（F4+H7）同一次 scons 产出两镜像。",
+      "mads_en": "Single internal F4: rebuild panda/board after safety edits; F4+H7 uses one scons for both images.",
+    }
+
+  if h7_count >= 1 and f4_count == 0:
+    return {
+      "scenario": scenario or "multi_h7",
+      "build_f4": False,
+      "build_h7": True,
+      "summary_zh": f"检测到 {h7_count} 块 H7：scons panda/board 后由 flash_panda_firmware 刷写。",
+      "summary_en": f"{h7_count} H7 panda(s): scons panda/board, then flash_panda_firmware.",
+      "mads_zh": "MADS 由 H7 固件执行（panda_h7.bin.signed）。",
+      "mads_en": "MADS is enforced on H7 firmware (panda_h7.bin.signed).",
+    }
+
+  return {
+    "scenario": scenario or "multi_mixed",
+    "build_f4": f4_count > 0,
+    "build_h7": h7_count > 0,
+    "summary_zh": (
+      f"多 Panda（F4×{f4_count} H7×{h7_count}）：F4/H7 均来自 panda/board/obj；"
+      "含外接红熊时控车 safety 在 H7 上。"
+    ),
+    "summary_en": (
+      f"Multi panda (F4×{f4_count} H7×{h7_count}): both images from panda/board/obj; "
+      "with external red panda, vehicle safety runs on H7."
+    ),
+    "mads_zh": "异构双 Panda 时须两边 opendbc safety 同步编译。",
+    "mads_en": "Heterogeneous dual panda: sync opendbc safety in both firmware builds.",
+  }
 
 
 def _tool_script(rel: Path) -> Path:
@@ -126,6 +305,8 @@ def _analyze_multi_panda(entries: list[dict[str, Any]]) -> dict[str, Any]:
     "external_count": len(external),
     "scenario": scenario,
     "heterogeneous_f4_h7": scenario == "heterogeneous_f4_h7",
+    "needs_pandad_dual_usb": scenario in ("heterogeneous_f4_h7", "dual_h7", "dual_f4"),
+    # backward compat for older UI/tests
     "needs_pandad_tici_dual_usb": scenario in ("heterogeneous_f4_h7", "dual_h7", "dual_f4"),
   }
 
@@ -160,8 +341,7 @@ def _pandad_process_snapshot() -> dict[str, Any]:
       tail = log_path.read_text(encoding="utf-8", errors="replace")[-12000:]
       crash_markers = (
         "USBErrorBusy",
-        "pandad_tici",
-        "selfdrive.pandad_tici.pandad",
+        "selfdrive.pandad.pandad",
         "exitcode -6",
         "BOARDD_SKIP_FW_CHECK",
       )
@@ -382,15 +562,14 @@ def list_all_pandas() -> dict[str, Any]:
   multi = _analyze_multi_panda(entries)
   pandad = _pandad_process_snapshot()
   fw = _fw_path()
+  tici_fw = _tici_fw_path()
   script = _tool_script(RECOVER_SCRIPT)
-  hint = "F4/DOS 固件在 panda/，不要用 panda_tici 固件。刷机用 recover_dos_panda(confirm=true)。"
+  guidance = _firmware_scenario_guidance(multi)
+  hint = guidance.get("summary_zh", "")
   if multi.get("heterogeneous_f4_h7"):
-    hint += (
-      " 检测到内置 F4 + 外接 H7（红熊）：需 pandad_tici 双 USB 支持；"
-      "若 GUI Panda 否且 pgrep 无 pandad，先 rebuild_pandad_tici(confirm=true) 并查 manager.log 的 USBErrorBusy。"
-    )
-  elif multi.get("needs_pandad_tici_dual_usb"):
-    hint += " 双 Panda USB：确认 pgrep -af pandad 含两个 serial；崩溃时 rebuild_pandad_tici + 查 USBErrorBusy。"
+    hint += " 若 GUI Panda 否且 pgrep 无 pandad，先 rebuild_pandad(confirm=true) 并查 USBErrorBusy。"
+  elif multi.get("needs_pandad_dual_usb"):
+    hint += " 双 Panda USB：确认 pgrep -af pandad 含两个 serial。"
 
   return {
     "ok": True,
@@ -402,6 +581,9 @@ def list_all_pandas() -> dict[str, Any]:
     "pandad": pandad,
     "firmware_path": str(fw),
     "firmware_exists": fw.is_file(),
+    "tici_firmware_path": str(tici_fw),
+    "tici_firmware_exists": tici_fw.is_file(),
+    "firmware_guidance": guidance,
     "recover_script": str(script),
     "recover_script_present": script.is_file(),
     "flash_implementation": "inline (ai.tools.panda_flash_tools); script optional",
@@ -431,47 +613,124 @@ def list_f4_pandas() -> dict[str, Any]:
   }
 
 
-def build_panda_firmware(*, jobs: int = 4) -> dict[str, Any]:
-  """Compile panda/board F4 firmware (panda.bin.signed)."""
-  board = openpilot_root() / "panda" / "board"
-  if not board.is_dir():
-    return {"ok": False, "error": f"missing panda/board at {board}"}
+def _scons_board(board_dir: Path, *, jobs: int, firmware_path: Path) -> dict[str, Any]:
+  if not board_dir.is_dir():
+    return {"ok": False, "error": f"missing board dir: {board_dir}"}
   if not shutil_which("scons"):
     return {"ok": False, "error": "scons not found in PATH"}
   jobs = max(1, min(int(jobs or 4), 32))
   try:
     proc = subprocess.run(
       ["scons", f"-j{jobs}"],
-      cwd=str(board),
+      cwd=str(board_dir),
       env=_sub_env(),
       capture_output=True,
       text=True,
       timeout=600,
     )
-    fw = _fw_path()
     return {
-      "ok": proc.returncode == 0 and fw.is_file(),
+      "ok": proc.returncode == 0 and firmware_path.is_file(),
       "returncode": proc.returncode,
-      "firmware_path": str(fw),
-      "firmware_exists": fw.is_file(),
+      "board_dir": str(board_dir),
+      "firmware_path": str(firmware_path),
+      "firmware_exists": firmware_path.is_file(),
       "stdout_tail": (proc.stdout or "")[-2000:],
       "stderr_tail": (proc.stderr or "")[-1000:],
     }
   except subprocess.TimeoutExpired:
-    return {"ok": False, "error": "scons timed out after 600s"}
+    return {"ok": False, "error": "scons timed out after 600s", "board_dir": str(board_dir)}
   except Exception as e:
-    return {"ok": False, "error": str(e)}
+    return {"ok": False, "error": str(e), "board_dir": str(board_dir)}
 
 
-def rebuild_pandad_tici(*, confirm: bool = False) -> dict[str, Any]:
-  """Re-link pandad_tici binary after git reset (offroad). Script optional on some forks."""
+def build_panda_h7_firmware(*, jobs: int = 4) -> dict[str, Any]:
+  """Compile H7 firmware from panda/board (panda_h7.bin.signed)."""
+  board = openpilot_root() / "panda" / "board"
+  fw = _tici_fw_path()
+  if not board.is_dir():
+    return {
+      "ok": False,
+      "error": f"missing panda/board at {board}",
+      "hint": "git submodule update --init panda",
+      "kind": "h7",
+    }
+  result = _scons_board(board, jobs=jobs, firmware_path=fw)
+  result["kind"] = "h7"
+  return result
+
+
+def build_panda_tici_firmware(*, jobs: int = 4) -> dict[str, Any]:
+  """Deprecated alias — H7 firmware now builds from panda/board."""
+  out = build_panda_h7_firmware(jobs=jobs)
+  out["deprecated_alias"] = "build_panda_tici_firmware → build_panda_h7_firmware"
+  return out
+
+
+def build_panda_firmware(*, jobs: int = 4, target: str = "auto") -> dict[str, Any]:
+  """
+  Compile Panda firmware from the openpilot tree.
+
+  target:
+    auto — from connected pandas (via list_all_pandas); C3 single F4 → panda/ only
+    f4   — panda/board (panda.bin.signed)
+    h7   — panda/board (panda_h7.bin.signed, same scons as F4)
+    all  — scons panda/board (both binaries)
+  """
+  listing = list_all_pandas()
+  multi = listing.get("multi_panda") if listing.get("ok") else None
+  guidance = _firmware_scenario_guidance(multi)
+  target = (target or "auto").strip().lower()
+  if target == "auto":
+    build_f4 = bool(guidance.get("build_f4"))
+    build_h7 = bool(guidance.get("build_h7"))
+  elif target == "f4":
+    build_f4, build_h7 = True, False
+  elif target == "h7":
+    build_f4, build_h7 = False, True
+  elif target == "all":
+    build_f4, build_h7 = True, True
+  else:
+    return {"ok": False, "error": f"unknown target: {target}", "allowed_targets": ["auto", "f4", "h7", "all"]}
+
+  out: dict[str, Any] = {
+    "ok": True,
+    "target": target,
+    "guidance": guidance,
+    "build_f4": build_f4,
+    "build_h7": build_h7,
+  }
+  parts: list[dict[str, Any]] = []
+  if build_f4:
+    board = openpilot_root() / "panda" / "board"
+    f4 = _scons_board(board, jobs=jobs, firmware_path=_fw_path())
+    f4["kind"] = "f4"
+    out["f4"] = f4
+    parts.append(f4)
+  if build_h7:
+    h7 = build_panda_h7_firmware(jobs=jobs)
+    out["h7"] = h7
+    parts.append(h7)
+  if not parts:
+    out["ok"] = False
+    out["error"] = "nothing to build for this target/scenario"
+  else:
+    out["ok"] = all(p.get("ok") for p in parts)
+  out["firmware_path"] = str(_fw_path())
+  out["firmware_exists"] = _fw_path().is_file()
+  out["tici_firmware_path"] = str(_tici_fw_path())
+  out["tici_firmware_exists"] = _tici_fw_path().is_file()
+  return out
+
+
+def rebuild_pandad(*, confirm: bool = False) -> dict[str, Any]:
+  """Re-link pandad binary after git reset (offroad)."""
   script = _tool_script(REBUILD_SCRIPT)
-  pandad_dir = source_path("selfdrive", "pandad_tici")
+  pandad_dir = source_path("selfdrive", "pandad")
   if not script.is_file() and not pandad_dir.is_dir():
     return {
       "ok": False,
-      "error": "pandad_tici not found in this fork",
-      "hint": "SP/sunnypilot C3 forks: tools/rebuild_pandad_tici.sh; others: manager_control(rebuild) or full scons.",
+      "error": "pandad not found in this tree",
+      "hint": "tools/rebuild_pandad.sh or full scons selfdrive/pandad",
     }
   if not confirm:
     return {
@@ -484,7 +743,7 @@ def rebuild_pandad_tici(*, confirm: bool = False) -> dict[str, Any]:
     return {
       "ok": False,
       "error": f"missing {script}",
-      "hint": "Fork has pandad_tici but no rebuild script; run full build or copy script from sunnypilot.",
+      "hint": "Run full scons or manager_control(rebuild).",
       "pandad_dir": str(pandad_dir),
     }
   try:
@@ -506,6 +765,13 @@ def rebuild_pandad_tici(*, confirm: bool = False) -> dict[str, Any]:
     return {"ok": False, "error": str(e)}
 
 
+def rebuild_pandad_tici(*, confirm: bool = False) -> dict[str, Any]:
+  """Deprecated alias for rebuild_pandad."""
+  out = rebuild_pandad(confirm=confirm)
+  out["deprecated_alias"] = "rebuild_pandad_tici → rebuild_pandad"
+  return out
+
+
 def recover_dos_panda(
   *,
   confirm: bool = False,
@@ -515,8 +781,8 @@ def recover_dos_panda(
   build_firmware: bool = False,
 ) -> dict[str, Any]:
   """
-  Flash F4 panda with panda/ firmware (not panda_tici).
-  Requires confirm=true. Offroad recommended. Works without tools/recover_dos_panda.py.
+  Flash F4 panda with panda/ firmware.
+  Requires confirm=true. Offroad required. Works without tools/recover_dos_panda.py.
   """
   listing = list_f4_pandas()
   fw = _fw_path()
@@ -536,16 +802,29 @@ def recover_dos_panda(
     "build_firmware": build_firmware,
     "warnings": [
       "内置 DOS / 外接黑熊必须用 panda/board/obj/panda.bin.signed",
-      "不要用 panda_tici 固件或 Panda.flash()（SUPPORTED_DEVICES 仅 H7）",
-      "刷机后若 fork 有 rebuild_pandad_tici 则运行；否则 reboot",
+      "F4 勿用 Panda.flash()（H7 由 pandad 刷写）",
+      "刷机后可 rebuild_pandad(confirm=true) 或 reboot",
     ],
   }
 
   if not confirm:
+    preview = _attach_offroad_flash_policy(preview)
+    if not preview.get("flash_allowed"):
+      return {
+        "ok": False,
+        "needs_confirmation": False,
+        "onroad": preview.get("onroad"),
+        "error": preview.get("flash_blocked_reason") or OFFROAD_FLASH_ERROR,
+        "preview": preview,
+      }
     return {"ok": True, "needs_confirmation": True, "preview": preview, "hint": "Set confirm=true to flash (offroad)."}
 
+  blocked = offroad_flash_guard()
+  if blocked:
+    return blocked
+
   if build_firmware and not fw.is_file():
-    built = build_panda_firmware()
+    built = build_panda_firmware(target="auto")
     if not built.get("ok"):
       return {"ok": False, "error": "firmware build failed", "build": built}
 
@@ -563,7 +842,7 @@ def recover_dos_panda(
     try_dfu=True,
   )
   result["next_steps"] = [
-    "rebuild_pandad_tici(confirm=true) if fork provides it",
+    "rebuild_pandad(confirm=true)",
     "reboot_device",
     "panda_status to verify",
   ]
@@ -602,20 +881,20 @@ def panda_recovery_hint(get_state_reader=None) -> dict[str, Any]:
   if pandad.get("possible_crash_loop"):
     diagnosis.append("manager.log 含 USBErrorBusy/exitcode -6，pandad 可能崩溃循环")
     steps.extend([
-      "grep_log USBErrorBusy|exitcode -6|pandad_tici — 确认 pandad 崩溃",
-      "rebuild_pandad_tici(confirm=true) — offroad，修复双 USB libusb_open 后需重链二进制",
+      "grep_log USBErrorBusy|exitcode -6|pandad — 确认 pandad 崩溃",
+      "rebuild_pandad(confirm=true) — offroad，双 USB libusb_open 修复后需重链二进制",
       "reboot_device",
     ])
   elif usb_count >= 2 and not pandad.get("running"):
     diagnosis.append("pgrep 无 pandad 进程，但 USB 已枚举多 Panda")
-    steps.append("rebuild_pandad_tici(confirm=true) — offroad")
+    steps.append("rebuild_pandad(confirm=true) — offroad")
 
   if not live:
     steps.extend([
       "tsk_restart_pandad(confirm=true) — offroad",
       "若仍 NO PANDA：list_f4_pandas → recover_dos_panda(confirm=true)（仅 F4）",
       "C3 内置：recover_dos_panda(internal=true)；外接 aux 黑熊：external=true",
-      "外接红熊 (H7) 勿用 recover_dos_panda；由 pandad_tici 自动刷 panda_tici 固件",
+      "外接红熊 (H7) 勿用 recover_dos_panda；由 pandad 自动刷 panda_h7.bin.signed",
       "无需 tools/recover_dos_panda.py，op 助手内联刷机",
     ])
     if usb_count >= 2:
@@ -625,12 +904,12 @@ def panda_recovery_hint(get_state_reader=None) -> dict[str, Any]:
 
     info = tici_info()
     device_type = info.get("device_type")
-    if device_type == "tici" and info.get("use_tici_panda_stack"):
-      steps.append("C3 DOS：F4 固件 panda/ 非 panda_tici；单内置走 DOS 快速路径不自动刷机")
+    if device_type == "tici":
+      steps.append("C3 DOS：F4 固件 panda.bin.signed；单内置走 DOS 快速路径不自动刷机")
       if scenario == "heterogeneous_f4_h7":
         steps.append(
-          "异构双 Panda：pandad_tici 须 set_aux_panda + 双 serial；"
-          "has_non_h7_panda 用于 BOARDD_SKIP_FW_CHECK（勿在 p.close() 后再读 hw_type）"
+          "异构双 Panda：pandad 须 set_aux_panda + 双 serial；"
+          "has_non_h7_panda 用于 BOARDD_SKIP_FW_CHECK"
         )
   except Exception:
     pass
@@ -649,4 +928,227 @@ def panda_recovery_hint(get_state_reader=None) -> dict[str, Any]:
     "recommended_steps": steps,
     "skill": "c3-dos-panda",
     "doc": "ai/docs/PANDA_FLASH.md",
+  }
+
+
+def _resolve_pandad_flash():
+  """Import flash_panda + get_expected_signature from the active pandad wrapper."""
+  for modname in ("openpilot.selfdrive.pandad.pandad",):
+    try:
+      mod = __import__(modname, fromlist=["flash_panda", "get_expected_signature"])
+      return mod.flash_panda, mod.get_expected_signature, modname
+    except ImportError:
+      continue
+  return None, None, None
+
+
+def _panda_signature_info(serial: str, entry: dict[str, Any]) -> dict[str, Any]:
+  """Attach firmware signature match info for one panda."""
+  out = dict(entry)
+  try:
+    from panda import Panda
+
+    p = Panda(serial)
+    cur = b"" if p.bootstub else p.get_signature()
+    exp = b""
+    if entry.get("is_f4"):
+      fw = _fw_path()
+      if fw.is_file():
+        exp = Panda.get_signature_from_firmware(str(fw))
+    elif entry.get("is_h7"):
+      _, get_sig, _ = _resolve_pandad_flash()
+      if get_sig is not None:
+        exp = get_sig(p)
+    out["signature"] = cur.hex()[:16] if cur else None
+    out["expected_signature"] = exp.hex()[:16] if exp else None
+    out["firmware_match"] = (cur == exp) if (cur and exp) else None
+    out["bootstub"] = p.bootstub
+    p.close()
+  except Exception as e:
+    out["firmware_match"] = None
+    out["status_error"] = str(e)
+  return out
+
+
+def panda_firmware_status() -> dict[str, Any]:
+  """List pandas with firmware signature match (read-only)."""
+  listing = list_all_pandas()
+  if not listing.get("ok"):
+    return listing
+
+  enriched: list[dict[str, Any]] = []
+  for entry in listing.get("pandas", []):
+    if "error" in entry:
+      enriched.append({**entry, "firmware_match": None})
+      continue
+    enriched.append(_panda_signature_info(entry["serial"], entry))
+
+  matches = [e.get("firmware_match") for e in enriched if e.get("firmware_match") is not None]
+  listing["pandas"] = enriched
+  listing["all_firmware_match"] = bool(matches) and all(matches)
+  listing["any_firmware_mismatch"] = any(e.get("firmware_match") is False for e in enriched)
+  listing["firmware_guidance"] = listing.get("firmware_guidance") or _firmware_scenario_guidance(
+    listing.get("multi_panda")
+  )
+  listing["tici_firmware_path"] = str(_tici_fw_path())
+  listing["tici_firmware_exists"] = _tici_fw_path().is_file()
+  flash_fn, _, flash_source = _resolve_pandad_flash()
+  listing["h7_flash_source"] = flash_source
+  listing["h7_flash_available"] = flash_fn is not None
+  return _attach_offroad_flash_policy(listing)
+
+
+def flash_h7_serial(serial: str) -> dict[str, Any]:
+  """Flash one H7 panda via pandad flash_panda."""
+  flash_fn, get_sig, source = _resolve_pandad_flash()
+  if flash_fn is None:
+    return {"ok": False, "error": "pandad flash_panda unavailable", "serial": serial, "hw": "h7"}
+
+  try:
+    p = flash_fn(serial)
+    sig = p.get_signature()
+    exp = get_sig(p) if get_sig else b""
+    ok = (not p.bootstub) and bool(exp) and sig == exp
+    version = "bootstub" if p.bootstub else p.get_version()
+    p.close()
+    return {
+      "ok": ok,
+      "serial": serial,
+      "hw": "h7",
+      "flash_source": source,
+      "version": version,
+      "signature": sig.hex()[:16] if sig else None,
+      "expected_signature": exp.hex()[:16] if exp else None,
+      "skipped": False,
+    }
+  except Exception as e:
+    return {"ok": False, "error": str(e), "serial": serial, "hw": "h7", "flash_source": source}
+
+
+def flash_panda_firmware(
+  *,
+  confirm: bool = False,
+  serial: str = "",
+  all_pandas: bool = True,
+  external: bool = False,
+  internal: bool = False,
+  build_firmware: bool = False,
+) -> dict[str, Any]:
+  """
+  Flash connected pandas with repo firmware (H7 via pandad, F4 via panda/).
+  Requires confirm=true. Offroad required.
+  """
+  status = panda_firmware_status()
+  guidance = status.get("firmware_guidance") or {}
+  preview = {
+    "pandas": status.get("pandas", []),
+    "firmware_path": status.get("firmware_path"),
+    "firmware_exists": status.get("firmware_exists"),
+    "tici_firmware_path": status.get("tici_firmware_path"),
+    "tici_firmware_exists": status.get("tici_firmware_exists"),
+    "firmware_guidance": guidance,
+    "h7_flash_available": status.get("h7_flash_available"),
+    "h7_flash_source": status.get("h7_flash_source"),
+    "target": {
+      "serial": serial or None,
+      "all_pandas": all_pandas and not (serial or external or internal),
+      "external": external,
+      "internal": internal,
+    },
+    "build_firmware": build_firmware,
+    "warnings": [
+      "请在 offroad 下刷机；刷机期间 manager/pandad 可能占用 USB（LIBUSB_ERROR_BUSY 可忽略若签名已匹配）",
+      "F4/DOS/黑熊 → panda/board/obj/panda.bin.signed；H7/红熊 → panda/board/obj/panda_h7.bin.signed（pandad 刷写）",
+      guidance.get("summary_zh") or "单内置 F4：只需 panda/board；外接红熊控车时还须刷 H7 镜像",
+      guidance.get("mads_zh") or "",
+    ],
+  }
+
+  if not confirm:
+    preview = _attach_offroad_flash_policy(preview)
+    if not preview.get("flash_allowed"):
+      return {
+        "ok": False,
+        "needs_confirmation": False,
+        "onroad": preview.get("onroad"),
+        "error": preview.get("flash_blocked_reason") or OFFROAD_FLASH_ERROR,
+        "preview": preview,
+      }
+    return {"ok": True, "needs_confirmation": True, "preview": preview, "hint": "Set confirm=true to flash (offroad)."}
+
+  blocked = offroad_flash_guard()
+  if blocked:
+    return blocked
+
+  if build_firmware:
+    need_f4 = guidance.get("build_f4") and not _fw_path().is_file()
+    need_h7 = guidance.get("build_h7") and not _tici_fw_path().is_file()
+    if need_f4 or need_h7:
+      built = build_panda_firmware(target="auto")
+      if not built.get("ok"):
+        return {"ok": False, "error": "firmware build failed", "build": built}
+
+  try:
+    from panda import Panda
+  except ImportError as e:
+    return {"ok": False, "error": f"panda module unavailable: {e}"}
+
+  serials = Panda.list()
+  if not serials:
+    serials, dfu_log = recover_dfu()
+    if not serials:
+      return {"ok": False, "error": "no panda found", "log": dfu_log}
+
+  targets: list[str] = []
+  if serial:
+    if serial not in serials:
+      return {"ok": False, "error": f"serial not found: {serial}", "serials": serials}
+    targets = [serial]
+  elif external or internal:
+    picked = pick_serial(serials, external=external, internal=internal)
+    if not picked:
+      kind = "external" if external else "internal"
+      return {"ok": False, "error": f"no {kind} panda found", "serials": serials}
+    targets = [picked]
+  elif all_pandas:
+    targets = list(serials)
+  else:
+    picked = pick_serial(serials)
+    targets = [picked] if picked else []
+
+  if not targets:
+    return {"ok": False, "error": "no flash target", "serials": serials}
+
+  results: list[dict[str, Any]] = []
+  for target in targets:
+    entry = next((e for e in status.get("pandas", []) if e.get("serial") == target), {})
+    if entry.get("is_h7"):
+      results.append(flash_h7_serial(target))
+    elif entry.get("is_f4"):
+      results.append({**flash_serial(target), "hw": "f4"})
+    else:
+      desc = _describe_panda(target)
+      if desc.get("is_h7"):
+        results.append(flash_h7_serial(target))
+      elif desc.get("is_f4"):
+        results.append({**flash_serial(target), "hw": "f4"})
+      else:
+        results.append({
+          "ok": False,
+          "serial": target,
+          "error": f"unsupported hw_type: {desc.get('hw_type_name', desc.get('hw_type'))}",
+        })
+
+  ok = all(r.get("ok") for r in results)
+  skipped = all(r.get("skipped") for r in results if r.get("ok"))
+  return {
+    "ok": ok,
+    "skipped": skipped and ok,
+    "results": results,
+    "targets": targets,
+    "next_steps": [
+      "panda_firmware_status 验证签名",
+      "rebuild_pandad(confirm=true) if dual USB",
+      "reboot_device",
+    ],
   }

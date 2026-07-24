@@ -82,7 +82,7 @@ def get_tsk_manager_status() -> dict[str, Any]:
     "ai_rule": (
       "offroad 下可用 TSK 工具：一键提取（RAV4 Prime/Sienna）、手动安装、"
       "CAN→DataFlash→查找（或 tsk_run_pipeline 一条龙）、等待作业 tsk_wait_for_job、"
-      "取消 tsk_cancel_job、重启本机 pandad（C3→pandad_tici，C3X/C4→pandad）tsk_restart_pandad。"
+      "取消 tsk_cancel_job、重启 pandad tsk_restart_pandad。"
       "写操作需 confirm=true。勿复述完整密钥。设备对照见 ai/docs/COMMA_DEVICES.md。"
     ),
   })
@@ -159,7 +159,7 @@ def tsk_start_can_collect(*, confirm: bool = False, get_state_reader: Callable[.
     return _attach_ui_card({
       "ok": True,
       "needs_confirmation": True,
-      "hint": "将停止 manager 并采集 CAN（READY 模式）；会终止本机 pandad（C3→pandad_tici，C3X/C4→pandad）。设置 confirm=true 执行。",
+      "hint": "将停止 manager 并采集 CAN（READY 模式）；会终止 pandad。设置 confirm=true 执行。",
     })
   if get_state_reader:
     err = _offroad_guard(get_state_reader)
@@ -238,7 +238,7 @@ def tsk_restart_pandad(
     return _attach_ui_card({
       "ok": True,
       "needs_confirmation": True,
-      "hint": f"将终止本机 {proc} 进程（黑屏恢复常用；C3 为 pandad_tici，C3X/C4 为 pandad）。设置 confirm=true 执行。",
+      "hint": f"将终止本机 {proc} 进程（黑屏恢复常用）。设置 confirm=true 执行。",
     })
   if get_state_reader:
     err = _offroad_guard(get_state_reader)

@@ -164,4 +164,9 @@ def create_app() -> web.Application:
     register_tsk_routes(app)
   except Exception as e:
     cloudlog.warning(f"aid: tsk routes skipped: {e}")
+  try:
+    from ai.panda_routes import register_panda_routes
+    register_panda_routes(app)
+  except Exception as e:
+    cloudlog.warning(f"aid: panda routes skipped: {e}")
   return app

@@ -20,6 +20,9 @@ const TskPanel = (() => {
     dfTotal: 32768,
     job: null,
     pandadProcess: 'pandad',
+    onroad: false,
+    flashAllowed: true,
+    flashBlockedReason: '',
   };
 
   let pollTimer = null;
@@ -44,6 +47,9 @@ const TskPanel = (() => {
       rebootDeviceBtn: $('tskRebootDeviceBtn'),
       restartManagerBtn: $('tskRestartManagerBtn'),
       restartPandadBtn: $('tskRestartPandadBtn'),
+      flashPandaBtn: $('tskFlashPandaBtn'),
+      pandaStatusDetail: $('tskPandaStatusDetail'),
+      pandaGuidance: $('tskPandaGuidance'),
       cancelJobBtn: $('tskCancelJobBtn'),
       jobLog: $('tskJobLog'),
       jobTitle: $('tskJobTitle'),
@@ -112,7 +118,7 @@ const TskPanel = (() => {
   function setRunning(running) {
     state.running = running;
     const e = els();
-    const all = [e.canBtn, e.dfBtn, e.matcherBtn, e.cleanerBtn, e.uninstallBtn, e.manualInstallBtn, e.extractBtn];
+    const all = [e.canBtn, e.dfBtn, e.matcherBtn, e.cleanerBtn, e.uninstallBtn, e.manualInstallBtn, e.extractBtn, e.flashPandaBtn];
     if (running) {
       all.forEach((btn) => {
         if (btn) btn.disabled = true;
@@ -164,6 +170,60 @@ const TskPanel = (() => {
     }
   }
 
+  function firmwareGuidanceText(guidance) {
+    if (!guidance) return '';
+    const lang = (document.documentElement.lang || 'zh').toLowerCase();
+    const en = lang.startsWith('en');
+    const summary = en ? (guidance.summary_en || guidance.summary_zh) : (guidance.summary_zh || guidance.summary_en);
+    const mads = en ? (guidance.mads_en || guidance.mads_zh) : (guidance.mads_zh || guidance.mads_en);
+    if (!summary && !mads) return '';
+    return mads ? `${summary}\n${mads}` : summary;
+  }
+
+  function formatPandaStatus(data) {
+    const pandas = data?.pandas || [];
+    if (!pandas.length) return t('pandaStatusNone', '未检测到 Panda');
+    return pandas.map((p) => {
+      if (p.error) return `${p.serial}: ${p.error}`;
+      const role = p.internal ? t('pandaInternal', '内置') : t('pandaExternal', '外接');
+      const hw = p.hw_type_name || p.hw_type || '?';
+      let match = '—';
+      if (p.firmware_match === true) match = t('pandaFwMatch', '已匹配');
+      else if (p.firmware_match === false) match = t('pandaFwMismatch', '需刷写');
+      const sig = p.signature ? ` sig ${p.signature}` : '';
+      return `${role} ${hw} · ${match}${sig}`;
+    }).join('\n');
+  }
+
+  async function refreshPandaStatus() {
+    const e = els();
+    if (!e.pandaStatusDetail) return;
+    try {
+      const data = await fetchJson('/api/panda/status');
+      state.onroad = !!data.onroad;
+      state.flashAllowed = data.flash_allowed !== false;
+      state.flashBlockedReason = data.flash_blocked_reason || '';
+      let text = formatPandaStatus(data);
+      if (!state.flashAllowed) {
+        text += `\n\n${state.flashBlockedReason || t('pandaFlashOffroadBody', '当前 onroad，请在 offroad 下刷写。')}`;
+      }
+      e.pandaStatusDetail.textContent = text;
+      if (e.pandaGuidance) {
+        const guideText = firmwareGuidanceText(data.firmware_guidance);
+        e.pandaGuidance.textContent = guideText;
+        e.pandaGuidance.classList.toggle('hidden', !guideText);
+      }
+      if (e.flashPandaBtn) {
+        e.flashPandaBtn.disabled = state.running || !data?.pandas?.length || !state.flashAllowed;
+        e.flashPandaBtn.title = state.flashAllowed
+          ? ''
+          : (state.flashBlockedReason || t('pandaFlashOffroadBody', '当前 onroad，请在 offroad 下刷写。'));
+      }
+    } catch (err) {
+      e.pandaStatusDetail.textContent = String(err);
+    }
+  }
+
   async function refresh() {
     try {
       const health = await fetchJson('/api/tsk/health');
@@ -202,6 +262,7 @@ const TskPanel = (() => {
       setDfDetail(df);
       syncActionButtons();
     } catch (_) { /* ignore */ }
+    await refreshPandaStatus();
   }
 
   function logLine(text, cls) {
@@ -572,6 +633,101 @@ const TskPanel = (() => {
     await refresh();
   }
 
+  async function runFlashPanda() {
+    if (state.running) return;
+    if (!state.flashAllowed) {
+      showModal(
+        t('pandaFlashOffroadTitle', '无法刷写'),
+        state.flashBlockedReason || t('pandaFlashOffroadBody', '当前处于 onroad，Panda 刷写仅能在 offroad（停车）下进行。'),
+        [{ label: t('ok', '确定'), kind: 'primary', onClick: hideModal }],
+      );
+      return;
+    }
+    let previewText = t('pandaFlashConfirmBody', '将用当前 openpilot 仓库固件刷写所有已连接 Panda（offroad）。刷机期间 USB 可能被占用。');
+    try {
+      const status = await fetchJson('/api/panda/status');
+      if (status.flash_allowed === false) {
+        showModal(
+          t('pandaFlashOffroadTitle', '无法刷写'),
+          status.flash_blocked_reason || t('pandaFlashOffroadBody', '当前 onroad，请在 offroad 下刷写。'),
+          [{ label: t('ok', '确定'), kind: 'primary', onClick: hideModal }],
+        );
+        return;
+      }
+      previewText = `${formatPandaStatus(status)}\n\n${previewText}`;
+    } catch (_) { /* ignore */ }
+    showModal(
+      t('pandaFlashConfirmTitle', '刷写 Panda 固件？'),
+      previewText,
+      [
+        { label: t('cancel', '取消'), onClick: hideModal },
+        {
+          label: t('pandaFlashBtn', '刷写 Panda 固件'),
+          kind: 'danger',
+          onClick: async () => {
+            hideModal();
+            const e = els();
+            if (e.jobTitle) e.jobTitle.textContent = t('pandaFlashRunning', '刷写 Panda');
+            clearLog();
+            $('tskJobPanel')?.classList.remove('hidden');
+            state.job = 'panda-flash';
+            setRunning(true);
+            logLine(t('pandaFlashStarting', '正在刷写…'), 'dim');
+            try {
+              const { response, result } = await postJson('/api/panda/flash', { confirm: true, all: true });
+              if (response.status === 403 || result.onroad) {
+                logLine(result.error || t('pandaFlashOffroadBody', '当前 onroad'), 'err');
+                showModal(
+                  t('pandaFlashOffroadTitle', '无法刷写'),
+                  result.error || t('pandaFlashOffroadBody', '当前 onroad，请在 offroad 下刷写。'),
+                  [{ label: t('ok', '确定'), onClick: hideModal }],
+                );
+                return;
+              }
+              const results = result.results || [];
+              if (results.length) {
+                results.forEach((r) => {
+                  const line = r.ok
+                    ? `${r.serial}: ${r.skipped ? t('pandaFlashSkipped', '已是最新') : t('pandaFlashOk', '完成')}`
+                    : `${r.serial}: ${r.error || t('pandaFlashFailed', '失败')}`;
+                  logLine(line, r.ok ? 'ok' : 'err');
+                });
+              } else if (result.needs_confirmation) {
+                logLine(result.hint || 'needs confirmation', 'warn');
+              } else if (!response.ok || !result.ok) {
+                logLine(result.error || result.message || t('pandaFlashFailed', '失败'), 'err');
+                showModal(
+                  t('pandaFlashFailedTitle', '刷写失败'),
+                  result.error || t('pandaFlashFailed', '失败'),
+                  [{ label: t('ok', '确定'), onClick: hideModal }],
+                );
+                return;
+              } else if (result.skipped) {
+                logLine(t('pandaFlashSkipped', '固件已是最新，无需刷写'), 'ok');
+              } else {
+                logLine(t('pandaFlashOk', '刷写完成'), 'ok');
+              }
+              showModal(
+                t('pandaFlashDoneTitle', '刷写完成'),
+                result.skipped ? t('pandaFlashSkipped', '固件已是最新') : t('pandaFlashOk', '刷写完成'),
+                [{ label: t('ok', '确定'), kind: 'primary', onClick: hideModal }],
+              );
+            } catch (err) {
+              logLine(String(err), 'err');
+              showModal(t('pandaFlashFailedTitle', '刷写失败'), String(err), [
+                { label: t('ok', '确定'), onClick: hideModal },
+              ]);
+            } finally {
+              state.job = null;
+              setRunning(false);
+              await refresh();
+            }
+          },
+        },
+      ],
+    );
+  }
+
   function bind() {
     els().canBtn?.addEventListener('click', () => runCanCollect());
     els().dfBtn?.addEventListener('click', () => runDataflashDump());
@@ -602,10 +758,11 @@ const TskPanel = (() => {
       runDeviceAction(
         '/api/tsk/restart-pandad',
         `重启 ${proc}？`,
-        `将终止本机 ${proc} 进程（C3 为 pandad_tici，C3X/C4 为 pandad）；若 manager 在运行通常会重新拉起。`,
+        `将终止本机 ${proc} 进程（统一为 pandad）；若 manager 在运行通常会重新拉起。`,
         `重启 ${proc}`,
       );
     });
+    els().flashPandaBtn?.addEventListener('click', () => runFlashPanda());
     $('tskModalClose')?.addEventListener('click', hideModal);
   }
 

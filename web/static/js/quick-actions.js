@@ -93,6 +93,13 @@ const OP_QUICK_ACTIONS = [
     action: 'cabana',
   },
   {
+    icon: '🐼',
+    titleKey: 'qaPandaFlash',
+    descKey: 'qaPandaFlashDesc',
+    workflow: 'panda_flash',
+    promptKey: 'qaPandaFlashPrompt',
+  },
+  {
     icon: '📈',
     titleKey: 'qaCompareRoutes',
     descKey: 'qaCompareRoutesDesc',

@@ -28,10 +28,15 @@ SP_EXTENSION_TOOL_META: dict[str, dict[str, Any]] = {
   "get_backup_manager_status": {"label": "备份进程状态", "group": "read", "default_enabled": True, "driving": True},
   "list_f4_pandas": {"label": "F4 Panda 列表", "group": "read", "default_enabled": True, "driving": True},
   "list_all_pandas": {"label": "全部 Panda 列表", "group": "read", "default_enabled": True, "driving": True},
+  "panda_firmware_status": {"label": "Panda 固件签名", "group": "read", "default_enabled": True, "driving": True},
   "recover_dos_panda": {"label": "刷 DOS/黑熊固件", "group": "write", "default_enabled": True, "driving": False},
-  "rebuild_pandad_tici": {"label": "重编 pandad_tici", "group": "write", "default_enabled": True, "driving": False},
+  "flash_panda_firmware": {"label": "刷 Panda 固件", "group": "write", "default_enabled": True, "driving": False},
+  "rebuild_pandad": {"label": "重编 pandad", "group": "write", "default_enabled": True, "driving": False},
+  "rebuild_pandad_tici": {"label": "重编 pandad（旧名）", "group": "write", "default_enabled": True, "driving": False},
   "panda_recovery_hint": {"label": "Panda 恢复建议", "group": "read", "default_enabled": True, "driving": True},
   "build_panda_firmware": {"label": "编译 panda 固件", "group": "write", "default_enabled": True, "driving": False, "pc_only": False},
+  "build_panda_h7_firmware": {"label": "编译 H7 固件", "group": "write", "default_enabled": True, "driving": False, "pc_only": False},
+  "build_panda_tici_firmware": {"label": "编译 H7 固件（旧名）", "group": "write", "default_enabled": True, "driving": False, "pc_only": False},
   "github_runner_status": {"label": "GitHub Runner 状态", "group": "read", "default_enabled": True, "driving": True},
   "github_runner_recovery_hint": {"label": "Runner 排查建议", "group": "read", "default_enabled": True, "driving": True},
   "install_github_runner": {"label": "安装 GitHub Runner", "group": "write", "default_enabled": True, "driving": False},
@@ -68,10 +73,15 @@ SP_EXTENSION_SCHEMAS: list[dict[str, Any]] = [
   {"type": "function", "function": {"name": "get_backup_manager_status", "description": "backupManagerSP progress and pending backup/restore flags.", "parameters": {"type": "object", "properties": {}, "required": []}}},
   {"type": "function", "function": {"name": "list_f4_pandas", "description": "List USB pandas; highlight F4 (black/DOS) and internal vs external. Read-only.", "parameters": {"type": "object", "properties": {}, "required": []}}},
   {"type": "function", "function": {"name": "list_all_pandas", "description": "List all USB pandas with hw_type/MCU, multi-panda scenario (e.g. F4+H7), and pandad process snapshot. Read-only.", "parameters": {"type": "object", "properties": {}, "required": []}}},
+  {"type": "function", "function": {"name": "panda_firmware_status", "description": "List pandas with firmware signature match vs repo build (read-only). Use before/after flash_panda_firmware.", "parameters": {"type": "object", "properties": {}, "required": []}}},
   {"type": "function", "function": {"name": "panda_recovery_hint", "description": "When sidebar NO PANDA or pandaStates empty: recommended tool sequence and doc links.", "parameters": {"type": "object", "properties": {}, "required": []}}},
-  {"type": "function", "function": {"name": "build_panda_firmware", "description": "Offroad: scons panda/board to produce panda.bin.signed (F4 firmware, not panda_tici).", "parameters": {"type": "object", "properties": {"jobs": {"type": "integer"}}, "required": []}}},
-  {"type": "function", "function": {"name": "recover_dos_panda", "description": "Offroad: flash F4 panda (C3 DOS internal or aux black panda) with panda/ firmware. Inline in ai — does NOT require tools/recover_dos_panda.py. NEVER use panda_tici firmware for F4. confirm=true required.", "parameters": {"type": "object", "properties": {"confirm": {"type": "boolean"}, "serial": {"type": "string"}, "external": {"type": "boolean", "description": "Flash first external F4 (aux black panda)"}, "internal": {"type": "boolean", "description": "Flash internal F4 (C3 DOS)"}, "build_firmware": {"type": "boolean", "description": "Run scons first if firmware missing"}}, "required": []}}},
-  {"type": "function", "function": {"name": "rebuild_pandad_tici", "description": "Offroad: run tools/rebuild_pandad_tici.sh after git reset deleted pandad binary. confirm=true required.", "parameters": {"type": "object", "properties": {"confirm": {"type": "boolean"}}, "required": []}}},
+  {"type": "function", "function": {"name": "build_panda_firmware", "description": "Offroad: scons panda/board firmware. target=auto picks F4 and/or H7 from connected pandas; single internal F4 C3 DOS → F4 only.", "parameters": {"type": "object", "properties": {"jobs": {"type": "integer"}, "target": {"type": "string", "enum": ["auto", "f4", "h7", "all"], "description": "auto=from USB layout; f4/h7/all → panda/board (same scons)"}}, "required": []}}},
+  {"type": "function", "function": {"name": "build_panda_h7_firmware", "description": "Offroad: scons panda/board → panda_h7.bin.signed (external red panda / H7).", "parameters": {"type": "object", "properties": {"jobs": {"type": "integer"}}, "required": []}}},
+  {"type": "function", "function": {"name": "build_panda_tici_firmware", "description": "Deprecated alias for build_panda_h7_firmware.", "parameters": {"type": "object", "properties": {"jobs": {"type": "integer"}}, "required": []}}},
+  {"type": "function", "function": {"name": "recover_dos_panda", "description": "Offroad: flash F4 panda (C3 DOS internal or aux black panda) with panda.bin.signed. confirm=true required.", "parameters": {"type": "object", "properties": {"confirm": {"type": "boolean"}, "serial": {"type": "string"}, "external": {"type": "boolean", "description": "Flash first external F4 (aux black panda)"}, "internal": {"type": "boolean", "description": "Flash internal F4 (C3 DOS)"}, "build_firmware": {"type": "boolean", "description": "Run scons first if firmware missing"}}, "required": []}}},
+  {"type": "function", "function": {"name": "flash_panda_firmware", "description": "Offroad: flash all connected pandas with repo firmware (H7/red panda via pandad, F4/DOS/black via panda/). Prefer this over recover_dos_panda when user asks to flash panda generally. confirm=true required.", "parameters": {"type": "object", "properties": {"confirm": {"type": "boolean"}, "serial": {"type": "string", "description": "Flash one serial only"}, "all_pandas": {"type": "boolean", "description": "Flash every connected panda (default true)"}, "external": {"type": "boolean"}, "internal": {"type": "boolean"}, "build_firmware": {"type": "boolean"}}, "required": []}}},
+  {"type": "function", "function": {"name": "rebuild_pandad", "description": "Offroad: run tools/rebuild_pandad.sh after git reset deleted pandad binary. confirm=true required.", "parameters": {"type": "object", "properties": {"confirm": {"type": "boolean"}}, "required": []}}},
+  {"type": "function", "function": {"name": "rebuild_pandad_tici", "description": "Deprecated alias for rebuild_pandad.", "parameters": {"type": "object", "properties": {"confirm": {"type": "boolean"}}, "required": []}}},
   {"type": "function", "function": {"name": "github_runner_status", "description": "Read C3 GitHub Actions self-hosted runner: install paths, EnableGithubRunner gates, systemd service name/state. See ai/docs/GITHUB_RUNNER.md.", "parameters": {"type": "object", "properties": {}, "required": []}}},
   {"type": "function", "function": {"name": "github_runner_recovery_hint", "description": "When CI build is Pending or runner offline: recommended steps (params, systemd, install).", "parameters": {"type": "object", "properties": {}, "required": []}}},
   {"type": "function", "function": {"name": "install_github_runner", "description": "Offroad: run release/ci/install_github_runner.sh on C3. User provides GitHub Actions registration token (Settings→Actions→Runners→New self-hosted runner — NOT a PAT). When user pastes token and asks to install, call with token=... and confirm=true after they approve. Token never logged or returned.", "parameters": {"type": "object", "properties": {"token": {"type": "string", "description": "One-time runner registration token from GitHub"}, "repo_url": {"type": "string"}, "restore": {"type": "boolean", "description": "Restore existing .credentials/.service with new token"}, "start_at_boot": {"type": "boolean"}, "confirm": {"type": "boolean"}}, "required": []}}},
@@ -170,6 +180,10 @@ def make_sp_extension_handlers(
     from ai.tools.panda_flash_tools import list_all_pandas
     return list_all_pandas()
 
+  def h_panda_firmware_status(_a):
+    from ai.tools.panda_flash_tools import panda_firmware_status
+    return panda_firmware_status()
+
   def h_panda_recovery_hint(_a):
     from ai.tools.panda_flash_tools import panda_recovery_hint
     return panda_recovery_hint(get_state_reader=get_state_reader)
@@ -179,7 +193,22 @@ def make_sp_extension_handlers(
     if err:
       return err
     from ai.tools.panda_flash_tools import build_panda_firmware
-    return build_panda_firmware(jobs=int(args.get("jobs", 4) or 4))
+    target = str(args.get("target") or "auto")
+    return build_panda_firmware(jobs=int(args.get("jobs", 4) or 4), target=target)
+
+  def h_build_panda_h7_firmware(args):
+    err = stationary_check("run_shell")
+    if err:
+      return err
+    from ai.tools.panda_flash_tools import build_panda_h7_firmware
+    return build_panda_h7_firmware(jobs=int(args.get("jobs", 4) or 4))
+
+  def h_build_panda_tici_firmware(args):
+    err = stationary_check("run_shell")
+    if err:
+      return err
+    from ai.tools.panda_flash_tools import build_panda_tici_firmware
+    return build_panda_tici_firmware(jobs=int(args.get("jobs", 4) or 4))
 
   def h_recover_dos_panda(args):
     err = stationary_check("run_shell")
@@ -193,6 +222,30 @@ def make_sp_extension_handlers(
       internal=bool(args.get("internal")),
       build_firmware=bool(args.get("build_firmware")),
     )
+
+  def h_flash_panda_firmware(args):
+    err = stationary_check("run_shell")
+    if err:
+      return err
+    from ai.tools.panda_flash_tools import flash_panda_firmware
+    all_pandas = args.get("all_pandas")
+    if all_pandas is None:
+      all_pandas = not bool(args.get("serial") or args.get("external") or args.get("internal"))
+    return flash_panda_firmware(
+      confirm=bool(args.get("confirm")),
+      serial=str(args.get("serial", "") or ""),
+      all_pandas=bool(all_pandas),
+      external=bool(args.get("external")),
+      internal=bool(args.get("internal")),
+      build_firmware=bool(args.get("build_firmware")),
+    )
+
+  def h_rebuild_pandad(args):
+    err = stationary_check("run_shell")
+    if err:
+      return err
+    from ai.tools.panda_flash_tools import rebuild_pandad
+    return rebuild_pandad(confirm=bool(args.get("confirm")))
 
   def h_rebuild_pandad_tici(args):
     err = stationary_check("run_shell")
@@ -393,9 +446,14 @@ def make_sp_extension_handlers(
     "get_backup_manager_status": h_get_backup_manager_status,
     "list_f4_pandas": h_list_f4_pandas,
     "list_all_pandas": h_list_all_pandas,
+    "panda_firmware_status": h_panda_firmware_status,
     "panda_recovery_hint": h_panda_recovery_hint,
     "build_panda_firmware": h_build_panda_firmware,
+    "build_panda_h7_firmware": h_build_panda_h7_firmware,
+    "build_panda_tici_firmware": h_build_panda_tici_firmware,
     "recover_dos_panda": h_recover_dos_panda,
+    "flash_panda_firmware": h_flash_panda_firmware,
+    "rebuild_pandad": h_rebuild_pandad,
     "rebuild_pandad_tici": h_rebuild_pandad_tici,
     "github_runner_status": h_github_runner_status,
     "github_runner_recovery_hint": h_github_runner_recovery_hint,

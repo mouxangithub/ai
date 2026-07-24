@@ -788,6 +788,12 @@
           <summary class="settings-accordion-summary" data-i18n="tskDeviceTitle">设备与服务</summary>
           <div class="settings-accordion-body tsk-device-actions">
             <p class="tsk-section-hint" data-i18n="tskDeviceHint">黑屏或提取结束后，可单独重启服务或整机。</p>
+            <div class="tsk-panda-status" id="tskPandaStatus">
+              <div class="tsk-panda-status-title" data-i18n="pandaStatusTitle">Panda 固件</div>
+              <pre class="tsk-panda-status-detail" id="tskPandaStatusDetail" data-i18n="pandaStatusLoading">正在读取…</pre>
+              <p class="tsk-panda-guidance hidden" id="tskPandaGuidance" aria-live="polite"></p>
+            </div>
+            <button type="button" class="btn block primary" id="tskFlashPandaBtn" data-i18n="pandaFlashBtn">刷写 Panda 固件</button>
             <button type="button" class="btn block danger" id="tskRebootDeviceBtn" data-i18n="tskRebootDeviceBtn">重启设备</button>
             <button type="button" class="btn block" id="tskRestartManagerBtn" data-i18n="tskRestartManagerBtn">重启 manager</button>
             <button type="button" class="btn block" id="tskRestartPandadBtn" data-i18n="tskRestartPandadBtn">重启 pandad</button>
@@ -900,7 +906,7 @@
   <script src="/static/js/model-combobox.js?v=20260722j"></script>
   <script src="/static/js/local-prefs.js?v=20260722k"></script>
   <script src="/static/js/quick-actions.js?v=20260715h"></script>
-  <script src="/static/js/tsk-panel.js?v=20260723g"></script>
+  <script src="/static/js/tsk-panel.js?v=20260724b"></script>
   <script src="/static/js/web-chat-jobs.js?v=20260723f"></script>
   <script src="/static/js/web-api.js?v=20260722h"></script>
   <script src="/static/js/web-config.js?v=20260722h"></script>

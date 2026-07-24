@@ -119,9 +119,8 @@ def panda_status(get_state_reader=None) -> dict[str, Any]:
     out["device_type"] = info.get("device_type")
     out["panda_backend"] = info.get("panda_backend")
     out["pandad_process"] = info.get("pandad_process")
-    out["use_tici_panda_stack"] = info.get("use_tici_panda_stack")
-    if info.get("device_type") == "tici" and info.get("use_tici_panda_stack"):
-      out["dos_note"] = "C3 DOS: F4 firmware is panda/board/obj/panda.bin.signed (not panda_tici)"
+    if info.get("device_type") == "tici" and info.get("tici_dos"):
+      out["dos_note"] = "C3 DOS: F4 firmware is panda/board/obj/panda.bin.signed"
   except Exception:
     pass
 
@@ -140,12 +139,12 @@ def panda_status(get_state_reader=None) -> dict[str, Any]:
     if multi.get("count", 0) >= 2:
       out["hint"] = (
         "USB 可见多 Panda 但 pandaStates 空：查 pandad 是否崩溃循环 "
-        "(USBErrorBusy)；rebuild_pandad_tici(confirm=true) + reboot。"
+        "(USBErrorBusy)；rebuild_pandad(confirm=true) + reboot。"
       )
       if multi.get("heterogeneous_f4_h7"):
         out["hint"] += " 场景：内置 F4 + 外接红熊 H7。"
     elif pandad.get("possible_crash_loop"):
-      out["hint"] = "pandad 可能崩溃循环：grep_log USBErrorBusy → rebuild_pandad_tici(confirm=true)。"
+      out["hint"] = "pandad 可能崩溃循环：grep_log USBErrorBusy → rebuild_pandad(confirm=true)。"
     elif out.get("usb_f4"):
       out["hint"] = "USB F4 seen but pandaStates empty: tsk_restart_pandad(confirm=true) or recover_dos_panda."
 

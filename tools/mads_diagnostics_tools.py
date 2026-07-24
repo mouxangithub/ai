@@ -56,7 +56,6 @@ _FIXES: list[dict[str, Any]] = [
     "title": "恢复 pandad process_mads_heartbeat（active/enabled + carParams）",
     "files": [
       rel_source("selfdrive", "pandad", "pandad.cc"),
-      rel_source("selfdrive", "pandad_tici", "pandad.cc"),
     ],
     "flash_panda": False,
     "rebuild": "scons pandad",
