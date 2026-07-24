@@ -47,6 +47,8 @@ SP_EXTENSION_TOOL_META: dict[str, dict[str, Any]] = {
   "cancel_github_workflow_run": {"label": "取消 Workflow", "group": "write", "default_enabled": True, "driving": False},
   "list_github_runners": {"label": "GitHub Runners 列表", "group": "read", "default_enabled": True, "driving": True},
   "stop_github_runner_service": {"label": "停止 Runner 服务", "group": "write", "default_enabled": True, "driving": False},
+  "translation_status": {"label": "翻译更新可用性", "group": "read", "default_enabled": True, "driving": True},
+  "update_zh_translations": {"label": "更新中文翻译", "group": "write", "default_enabled": True, "driving": False, "pc_only": False},
 }
 
 SP_EXTENSION_SCHEMAS: list[dict[str, Any]] = [
@@ -92,6 +94,8 @@ SP_EXTENSION_SCHEMAS: list[dict[str, Any]] = [
   {"type": "function", "function": {"name": "cancel_github_workflow_run", "description": "Cancel a workflow run on GitHub. confirm=true required. Requires ai_github_actions_pat with actions write.", "parameters": {"type": "object", "properties": {"run_id": {"type": "integer"}, "repo_url": {"type": "string"}, "confirm": {"type": "boolean"}}, "required": ["run_id"]}}},
   {"type": "function", "function": {"name": "list_github_runners", "description": "List self-hosted runners from GitHub API (online/busy/labels) plus local install summary.", "parameters": {"type": "object", "properties": {"repo_url": {"type": "string"}}, "required": []}}},
   {"type": "function", "function": {"name": "stop_github_runner_service", "description": "Offroad: sudo systemctl stop local runner service. Does not uninstall. confirm=true required.", "parameters": {"type": "object", "properties": {"confirm": {"type": "boolean"}}, "required": []}}},
+  {"type": "function", "function": {"name": "translation_status", "description": "Check whether this branch can regenerate UI translation files (SConstruct, source UI files, scripts present). Read-only.", "parameters": {"type": "object", "properties": {}, "required": []}}},
+  {"type": "function", "function": {"name": "update_zh_translations", "description": "Run merge_zh_translations.py then supplement_zh_translations.py to regenerate app_zh-CHS.po and app_zh-CHT.po. Only works on source branches with SConstruct and UI Python sources; fails safely on prebuilt branches. confirm=true required.", "parameters": {"type": "object", "properties": {"confirm": {"type": "boolean"}, "skip_merge": {"type": "boolean", "description": "Skip string extraction and only apply supplement"}, "skip_supplement": {"type": "boolean", "description": "Skip supplement and only run merge"}}, "required": []}}},
 ]
 
 
@@ -357,6 +361,30 @@ def make_sp_extension_handlers(
     err = stationary_check("run_shell")
     if err:
       return err
+
+  def h_translation_status(_a):
+    from ai.tools.translation_tools import translation_status
+    return translation_status()
+
+  def h_update_zh_translations(args):
+    from ai.tools.translation_tools import merge_zh_translations, supplement_zh_translations, can_update_translations
+    status = can_update_translations()
+    if not status["can_update"]:
+      return {"ok": False, "error": "Translation update not available on this branch", "details": status}
+    if not args.get("confirm") and needs_confirm():
+      return {"ok": True, "needs_confirmation": True, "hint": "Set confirm=true to regenerate zh-CHS/zh-CHT po files."}
+    skip_merge = bool(args.get("skip_merge"))
+    skip_supplement = bool(args.get("skip_supplement"))
+    results = {}
+    if not skip_merge:
+      results["merge"] = merge_zh_translations()
+      if not results["merge"]["ok"]:
+        return {"ok": False, "error": "merge_zh_translations failed", "results": results}
+    if not skip_supplement:
+      results["supplement"] = supplement_zh_translations()
+      if not results["supplement"]["ok"]:
+        return {"ok": False, "error": "supplement_zh_translations failed", "results": results}
+    return {"ok": True, "results": results}
     from ai.tools.github_actions_tools import stop_github_runner_service
     return stop_github_runner_service(confirm=bool(args.get("confirm")), params=p)
 
@@ -465,4 +493,6 @@ def make_sp_extension_handlers(
     "cancel_github_workflow_run": h_cancel_github_workflow_run,
     "list_github_runners": h_list_github_runners,
     "stop_github_runner_service": h_stop_github_runner_service,
+    "translation_status": h_translation_status,
+    "update_zh_translations": h_update_zh_translations,
   }
