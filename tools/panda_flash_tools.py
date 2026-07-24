@@ -14,7 +14,7 @@ from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
 from typing import Any
 
-from ai.system.paths import openpilot_root
+from ai.system.paths import openpilot_root, source_path, tools_path
 
 FW_REL = Path("panda", "board", "obj", "panda.bin.signed")
 REBUILD_SCRIPT = Path("tools", "rebuild_pandad_tici.sh")
@@ -23,6 +23,10 @@ RECOVER_SCRIPT = Path("tools", "recover_dos_panda.py")
 
 def _fw_path() -> Path:
   return openpilot_root() / FW_REL
+
+
+def _tool_script(rel: Path) -> Path:
+  return tools_path(*rel.parts)
 
 
 def _python() -> str:
@@ -360,7 +364,7 @@ def execute_recover_dos_panda(
   result = flash_serial(target, fw_path=fw)
   result["log"] = "\n".join(logs) + "\n" + result.get("log", "")
   result["implementation"] = "inline"
-  result["recover_script_present"] = (openpilot_root() / RECOVER_SCRIPT).is_file()
+  result["recover_script_present"] = _tool_script(RECOVER_SCRIPT).is_file()
   return result
 
 
@@ -378,7 +382,7 @@ def list_all_pandas() -> dict[str, Any]:
   multi = _analyze_multi_panda(entries)
   pandad = _pandad_process_snapshot()
   fw = _fw_path()
-  script = openpilot_root() / RECOVER_SCRIPT
+  script = _tool_script(RECOVER_SCRIPT)
   hint = "F4/DOS 固件在 panda/，不要用 panda_tici 固件。刷机用 recover_dos_panda(confirm=true)。"
   if multi.get("heterogeneous_f4_h7"):
     hint += (
@@ -461,8 +465,8 @@ def build_panda_firmware(*, jobs: int = 4) -> dict[str, Any]:
 
 def rebuild_pandad_tici(*, confirm: bool = False) -> dict[str, Any]:
   """Re-link pandad_tici binary after git reset (offroad). Script optional on some forks."""
-  script = openpilot_root() / REBUILD_SCRIPT
-  pandad_dir = openpilot_root() / "selfdrive" / "pandad_tici"
+  script = _tool_script(REBUILD_SCRIPT)
+  pandad_dir = source_path("selfdrive", "pandad_tici")
   if not script.is_file() and not pandad_dir.is_dir():
     return {
       "ok": False,
@@ -516,7 +520,7 @@ def recover_dos_panda(
   """
   listing = list_f4_pandas()
   fw = _fw_path()
-  script = openpilot_root() / RECOVER_SCRIPT
+  script = _tool_script(RECOVER_SCRIPT)
   preview = {
     "firmware_path": str(fw),
     "firmware_exists": fw.is_file(),

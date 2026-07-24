@@ -9,13 +9,13 @@ import sys
 from pathlib import Path
 from typing import Any
 
-from ai.tools.op_run import OPENPILOT_ROOT
+from ai.system.paths import openpilot_root, source_path
 
 
 def _git_field(*args: str) -> str:
   try:
     return subprocess.check_output(
-      ["git", "-C", str(OPENPILOT_ROOT)] + list(args),
+      ["git", "-C", str(openpilot_root())] + list(args),
       text=True,
       stderr=subprocess.DEVNULL,
       timeout=5,
@@ -25,9 +25,10 @@ def _git_field(*args: str) -> str:
 
 
 def get_build_info() -> dict[str, Any]:
+  root = openpilot_root()
   info: dict[str, Any] = {
     "ok": True,
-    "openpilot_root": str(OPENPILOT_ROOT),
+    "openpilot_root": str(root),
     "platform": platform.platform(),
     "python": sys.version.split()[0],
     "git": {
@@ -62,7 +63,7 @@ def get_build_info() -> dict[str, Any]:
   except Exception as e:
     info["params_warning"] = str(e)
 
-  models_dir = OPENPILOT_ROOT / "selfdrive" / "modeld" / "models"
+  models_dir = source_path("selfdrive", "modeld", "models")
   if models_dir.is_dir():
     info["model_files"] = [f.name for f in list(models_dir.glob("*.onnx"))[:12]]
 

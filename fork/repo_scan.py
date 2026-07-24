@@ -22,6 +22,7 @@ STANDARD_TOP_DIRS = frozenset({
   "panda",
   "rednose_repo",
   "release",
+  "openpilot",
   "selfdrive",
   "site_scons",
   "system",

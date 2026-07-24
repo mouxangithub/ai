@@ -7,7 +7,7 @@ from typing import Any
 
 from openpilot.common.params import Params
 
-from ai.tools.comma_docs_rag import COMMA_DOCS_RAG
+from ai.system.paths import rel_source
 from ai.tools.secoc_rag import SECOC_RAG
 from ai.tools.wiki_rag import WIKI_RAG
 from ai.tools.rag_store import (
@@ -63,8 +63,8 @@ Dragonpilot：用户在 Dashy Developer → SecOCKey Install 自行填入 32 位
 工具：diagnose_mads_lateral → get_mads_settings → read_onroad_events / trip_review → grep_log mads|lateral|LKAS
 
 两种报错勿混：
-- controlsMismatchLateral：Python mads.data_sample vs Panda controlsAllowedLateral。修 sunnypilot/mads/mads.py（禁 data_sample）+ pandad process_mads_heartbeat。不必刷 Panda。
-- steerTempUnavailable / steerUnavailable（UI: LKAS故障）：丰田 EPS LKA_STATE；MADS active 但 Panda 拦截 STEERING_LKA。修 opendbc mads.h mads_acc_main_lateral_latch（MAIN 电平保持，学 dp ALKA）并刷 Panda：python selfdrive/pandad/pandad.py
+- controlsMismatchLateral：Python mads.data_sample vs Panda controlsAllowedLateral。修 """ + rel_source("sunnypilot", "mads", "mads.py") + """（禁 data_sample）+ pandad process_mads_heartbeat。不必刷 Panda。
+- steerTempUnavailable / steerUnavailable（UI: LKAS故障）：丰田 EPS LKA_STATE；MADS active 但 Panda 拦截 STEERING_LKA。修 opendbc mads.h mads_acc_main_lateral_latch（MAIN 电平保持，学 dp ALKA）并刷 Panda：python """ + rel_source("selfdrive", "pandad", "pandad.py") + """
 
 故障链：MAIN 上升沿放行横向 → heartbeat 滞后撤权 → MAIN 仍亮无法再次请求 → 软件仍发 LKA → EPS 故障。
 

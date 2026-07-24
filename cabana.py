@@ -468,19 +468,10 @@ LIVE_CAN = LiveCanBroadcaster()
 # -----------------------------------------------------------------------------
 
 def _get_routes_dir() -> Path | None:
-  candidates = [
-    Path("/data/media/0/realdata"),
-    Path("/data/realdata"),
-  ]
-  try:
-    from openpilot.common.basedir import BASEDIR
-    candidates.append(Path(BASEDIR) / "data" / "media" / "0" / "realdata")
-    candidates.append(Path(BASEDIR) / "data" / "realdata")
-  except Exception:
-    pass
-  for p in candidates:
-    if p.exists():
-      return p
+  from ai.system.paths import routes_dir
+  rd = Path(routes_dir())
+  if rd.is_dir():
+    return rd
   return None
 
 

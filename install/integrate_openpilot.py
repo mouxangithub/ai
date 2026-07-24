@@ -210,17 +210,23 @@ def patch_launch_script(path: Path, *, dry_run: bool = False) -> dict[str, Any]:
   call_block = START_OP_ASSISTANT_CALL.rstrip() + "\n"
 
   new_content = content
-  if re.search(r"cd\s+system/manager", content):
-    if "cd system/manager" in content and fn_block.strip() not in content:
-      new_content = content.replace("  cd system/manager", fn_block + "\n  cd system/manager", 1)
+  manager_cd = None
+  if "cd openpilot/system/manager" in content:
+    manager_cd = "cd openpilot/system/manager"
+  elif re.search(r"cd\s+system/manager", content):
+    manager_cd = "cd system/manager"
+
+  if manager_cd:
+    if manager_cd in content and fn_block.strip() not in content:
+      new_content = content.replace(f"  {manager_cd}", fn_block + f"\n  {manager_cd}", 1)
     if "./manager.py" in new_content and call_block.strip() not in new_content:
       new_content = new_content.replace("  ./manager.py", call_block + "\n  ./manager.py", 1)
-    elif "cd system/manager" in new_content and call_block.strip() not in new_content:
-      pattern = r"(cd system/manager\n(?:  if \[ ! -f \$DIR/prebuilt \]; then\n    \./build\.py\n  fi\n)?)"
+    elif manager_cd in new_content and call_block.strip() not in new_content:
+      pattern = rf"({re.escape(manager_cd)}\n(?:  if \[ ! -f \$DIR/prebuilt \]; then\n    \./build\.py\n  fi\n)?)"
       repl = r"\1\n" + call_block
       new_content, n = re.subn(pattern, repl, new_content, count=1)
       if n == 0:
-        new_content = new_content.replace("  cd system/manager\n", "  cd system/manager\n\n" + call_block, 1)
+        new_content = new_content.replace(f"  {manager_cd}\n", f"  {manager_cd}\n\n" + call_block, 1)
   else:
     idx = new_content.rfind("\n}")
     if idx < 0:
@@ -267,7 +273,10 @@ def compile_params_pyx(root: Path, *, force: bool = False) -> dict[str, Any]:
   existing = find_params_pyx_so(root)
   prebuilt = (root / "prebuilt").is_file()
   sconstruct = (root / "SConstruct").is_file()
-  common_sconscript = (root / "common" / "SConscript").is_file()
+  common_sconscript = (
+    (root / "common" / "SConscript").is_file()
+    or (root / "openpilot" / "common" / "SConscript").is_file()
+  )
 
   if existing and not force:
     return {
@@ -291,6 +300,8 @@ def compile_params_pyx(root: Path, *, force: bool = False) -> dict[str, Any]:
           return {"ok": True, "method": "existing after partial build", "so_path": str(so), "attempts": attempts}
 
   build_py = root / "system" / "manager" / "build.py"
+  if not build_py.is_file():
+    build_py = root / "openpilot" / "system" / "manager" / "build.py"
   if build_py.is_file() and not prebuilt:
     result = _run([sys.executable, str(build_py)], cwd=build_py.parent, timeout=1800)
     attempts.append(result)

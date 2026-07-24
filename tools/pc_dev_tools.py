@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Any
 
 from ai.system.host_env import get_host_environment, is_pc_dev
-from ai.system.paths import openpilot_root as _OPENPILOT_ROOT
+from ai.system.paths import openpilot_root as _OPENPILOT_ROOT, tools_path
 from ai.system.pc_tool_sessions import (
   capture_route_context,
   create_session,
@@ -130,7 +130,7 @@ def pc_launch_plotjuggler(
   err = _require_pc()
   if err:
     return err
-  script = _OPENPILOT_ROOT / "tools" / "plotjuggler" / "juggle.py"
+  script = tools_path("plotjuggler", "juggle.py")
   if not script.is_file():
     return {"ok": False, "error": f"Missing {script}"}
 
@@ -183,7 +183,7 @@ def pc_launch_replay(
   err = _require_pc()
   if err:
     return err
-  binary = _OPENPILOT_ROOT / "tools" / "replay" / "replay"
+  binary = tools_path("replay", "replay")
   if not binary.is_file():
     return {
       "ok": False,
@@ -234,7 +234,7 @@ def pc_launch_cabana(
   err = _require_pc()
   if err:
     return err
-  binary = _OPENPILOT_ROOT / "tools" / "cabana" / "cabana"
+  binary = tools_path("cabana", "cabana")
   if not binary.is_file():
     return {
       "ok": False,
@@ -274,7 +274,7 @@ def pc_launch_sim_bridge(*, joystick: bool = False, capture_data: bool = False) 
   err = _require_pc()
   if err:
     return err
-  script = _OPENPILOT_ROOT / "tools" / "sim" / "run_bridge.py"
+  script = tools_path("sim", "run_bridge.py")
   if not script.is_file():
     return {"ok": False, "error": f"Missing {script}"}
   cmd = [sys.executable, str(script)]
@@ -299,7 +299,7 @@ def pc_auth_login_hint() -> dict[str, Any]:
   err = _require_pc()
   if err:
     return err
-  script = _OPENPILOT_ROOT / "tools" / "lib" / "auth.py"
+  script = tools_path("lib", "auth.py")
   return {
     "ok": True,
     "script": str(script),
@@ -320,7 +320,7 @@ def pc_launch_jotpluggler(
   err = _require_pc()
   if err:
     return err
-  binary = _OPENPILOT_ROOT / "tools" / "jotpluggler" / "jotpluggler"
+  binary = tools_path("jotpluggler", "jotpluggler")
   if not binary.is_file():
     return {
       "ok": False,
@@ -378,7 +378,7 @@ def pc_launch_replay_stream(
   err = _require_pc()
   if err:
     return err
-  binary = _OPENPILOT_ROOT / "tools" / "replay" / "replay"
+  binary = tools_path("replay", "replay")
   if not binary.is_file():
     return {
       "ok": False,
@@ -430,7 +430,7 @@ def pc_launch_plotjuggler_stream(*, layout: str | None = None) -> dict[str, Any]
   err = _require_pc()
   if err:
     return err
-  script = _OPENPILOT_ROOT / "tools" / "plotjuggler" / "juggle.py"
+  script = tools_path("plotjuggler", "juggle.py")
   if not script.is_file():
     return {"ok": False, "error": f"Missing {script}"}
 
@@ -465,7 +465,7 @@ def pc_launch_jotpluggler_stream(
   err = _require_pc()
   if err:
     return err
-  binary = _OPENPILOT_ROOT / "tools" / "jotpluggler" / "jotpluggler"
+  binary = tools_path("jotpluggler", "jotpluggler")
   if not binary.is_file():
     return {
       "ok": False,
@@ -569,7 +569,7 @@ def pc_launch_replay_ui(*, address: str = "127.0.0.1") -> dict[str, Any]:
   err = _require_pc()
   if err:
     return err
-  script = _OPENPILOT_ROOT / "tools" / "replay" / "ui.py"
+  script = tools_path("replay", "ui.py")
   if not script.is_file():
     return {"ok": False, "error": f"Missing {script}"}
 
@@ -605,7 +605,7 @@ def pc_launch_camerastream(
   if not addr:
     return {"ok": False, "error": "device_addr required (comma device IP)"}
 
-  script = _OPENPILOT_ROOT / "tools" / "camerastream" / "compressed_vipc.py"
+  script = tools_path("camerastream", "compressed_vipc.py")
   if not script.is_file():
     return {"ok": False, "error": f"Missing {script}"}
 

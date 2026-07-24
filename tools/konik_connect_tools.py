@@ -10,7 +10,7 @@ import subprocess
 from pathlib import Path
 from typing import Any, Callable
 
-from ai.system.paths import is_comma_device, openpilot_root
+from ai.system.paths import is_comma_device, openpilot_root, rel_source, source_path
 
 KONIK_PAIR_URL = "https://stable.konik.ai"
 KONIK_API_HOST = "https://api.konik.ai"
@@ -453,8 +453,8 @@ def konik_reset_dongle_id(
 
 
 def _run_registration(*, device_ip: str = "") -> dict[str, Any]:
-  reg_script = openpilot_root() / "system" / "athena" / "registration.py"
-  remote_script = "/data/openpilot/system/athena/registration.py"
+  reg_script = source_path("system", "athena", "registration.py")
+  remote_script = "/data/openpilot/" + rel_source("system", "athena", "registration.py")
   env = _konik_python_env()
 
   if is_comma_device():

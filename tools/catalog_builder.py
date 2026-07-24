@@ -8,15 +8,16 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
+from ai.common.sp_param_aliases import DP_TO_SP_PARAM_ALIASES
+from ai.system.paths import find_repo_file, source_path
+
 _OP_ROOT = Path(__file__).resolve().parents[2]
 _STATIC = Path(__file__).resolve().parent.parent / "skills" / "params_catalog.json"
 _SP_UI_ROOTS = (
-  _OP_ROOT / "selfdrive" / "ui" / "sunnypilot",
-  _OP_ROOT / "system" / "ui" / "sunnypilot",
+  source_path("selfdrive", "ui", "sunnypilot"),
+  source_path("system", "ui", "sunnypilot"),
 )
-_PARAMS_KEYS_H = _OP_ROOT / "common" / "params_keys.h"
-
-from ai.common.sp_param_aliases import DP_TO_SP_PARAM_ALIASES
+_PARAMS_KEYS_H = find_repo_file("openpilot/common/params_keys.h", "common/params_keys.h") or source_path("common", "params_keys.h")
 
 _FORBIDDEN_KEYS = frozenset({
   "AdbEnabled", "SshEnabled", "SecOCKey", "AlphaLongitudinalEnabled",

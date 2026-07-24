@@ -23,11 +23,14 @@ OPENPILOT_MERGE_HEAD_PREFIXES = ("ai/",)
 OPENPILOT_MERGE_PATH_ALLOW = ("ai/", "docs/", ".github/")
 OPENPILOT_MERGE_PATH_BLOCK = (
   "selfdrive/",
+  "openpilot/selfdrive/",
   "panda/",
   "opendbc/safety/",
   "opendbc/car/",
+  "opendbc_repo/",
   "cereal/",
   "common/params_keys.h",
+  "openpilot/common/params_keys.h",
 )
 
 # standalone ai repo: broader allow

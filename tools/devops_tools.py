@@ -9,8 +9,7 @@ import sys
 from typing import Any
 
 from ai.system.host_env import get_host_environment, is_pc_dev
-from ai.system.paths import openpilot_root
-from ai.tools.op_run import OPENPILOT_ROOT
+from ai.system.paths import openpilot_root, rel_source, rel_tools, tools_path
 
 _IP_RE = re.compile(r"^[\w.\-]+$")
 
@@ -63,7 +62,7 @@ def get_webcam_dev_setup() -> dict[str, Any]:
       "scons -u build",
     ],
     "commands": [
-      "USE_WEBCAM=1 system/manager/manager.py",
+      "USE_WEBCAM=1 " + rel_source("system", "manager", "manager.py"),
       "Optional: ROAD_CAM=0 DRIVER_CAM=1 WIDE_CAM=2",
     ],
     "script": "tools/webcam/README.md",
@@ -72,7 +71,7 @@ def get_webcam_dev_setup() -> dict[str, Any]:
 
 
 def get_devsync_hint(*, device_ip: str | None = None) -> dict[str, Any]:
-  script = OPENPILOT_ROOT / "tools" / "scripts" / "devsync.py"
+  script = tools_path("scripts", "devsync.py")
   tools = _local_devsync_tools()
   cmd = f"python {script}"
   if device_ip:
@@ -120,7 +119,7 @@ def pc_devsync_status(
 
   issues: list[str] = []
   root = openpilot_root()
-  script = root / "tools" / "scripts" / "devsync.py"
+  script = tools_path("scripts", "devsync.py")
   tools = _local_devsync_tools()
   tools["python"] = bool(sys.executable)
 
@@ -246,7 +245,7 @@ def pc_devsync_run(
     }
 
   root = openpilot_root()
-  script = root / "tools" / "scripts" / "devsync.py"
+  script = tools_path("scripts", "devsync.py")
   if not script.is_file():
     return {"ok": False, "error": f"devsync script missing: {script}"}
 

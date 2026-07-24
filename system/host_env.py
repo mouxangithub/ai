@@ -8,7 +8,7 @@ import sys
 from pathlib import Path
 from typing import Any
 
-from ai.system.paths import is_comma_device, openpilot_root, path_summary, routes_dir
+from ai.system.paths import is_comma_device, openpilot_root, path_summary, routes_dir, tools_path
 
 _OPENPILOT_ROOT = openpilot_root()
 
@@ -30,7 +30,7 @@ def _routes_dir() -> str:
 
 
 def _resolve_tool_path(*parts: str) -> Path:
-  return _OPENPILOT_ROOT.joinpath(*parts)
+  return tools_path(*parts)
 
 
 def pc_tool_inventory() -> dict[str, Any]:

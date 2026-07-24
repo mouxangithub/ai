@@ -3,13 +3,30 @@
 from __future__ import annotations
 
 import json
-import os
 from typing import Any
 
-from openpilot.common.basedir import BASEDIR
 from openpilot.common.params import Params
 
-CAR_LIST_JSON = os.path.join(BASEDIR, "sunnypilot", "selfdrive", "car", "car_list.json")
+from ai.system.paths import find_repo_file, source_path
+
+_CAR_LIST_CANDIDATES = (
+  lambda: source_path("sunnypilot", "selfdrive", "car", "car_list.json"),
+  lambda: find_repo_file(
+    "openpilot/sunnypilot/selfdrive/car/car_list.json",
+    "sunnypilot/selfdrive/car/car_list.json",
+  ),
+)
+
+
+def _car_list_json_path() -> str:
+  for candidate in _CAR_LIST_CANDIDATES:
+    path = candidate()
+    if path is not None and path.is_file():
+      return str(path)
+  return str(source_path("sunnypilot", "selfdrive", "car", "car_list.json"))
+
+
+CAR_LIST_JSON = _car_list_json_path()
 
 _car_list_cache: dict[str, Any] | None = None
 

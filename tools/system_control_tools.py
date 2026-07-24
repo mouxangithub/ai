@@ -7,7 +7,9 @@ import subprocess
 import time
 from typing import Any
 
-from ai.system.paths import is_comma_device, openpilot_root
+from ai.system.paths import is_comma_device, openpilot_root, rel_source, source_path
+
+_MANAGER_PATTERN = "manager/manager.py"
 
 
 def reboot_device(*, delay_sec: int = 3) -> dict[str, Any]:
@@ -57,7 +59,7 @@ def shutdown_device(*, delay_sec: int = 5) -> dict[str, Any]:
 def _manager_running() -> bool:
   try:
     r = subprocess.run(
-      ["pgrep", "-f", "system/manager/manager.py"],
+      ["pgrep", "-f", _MANAGER_PATTERN],
       capture_output=True,
       text=True,
       timeout=5,
@@ -76,7 +78,7 @@ def manager_control(
 ) -> dict[str, Any]:
   action = (action or "").strip().lower()
   root = openpilot_root()
-  manager_py = root / "system" / "manager" / "manager.py"
+  manager_py = source_path("system", "manager", "manager.py")
   timeout = max(30, min(int(timeout), 1800))
 
   if action == "status":
@@ -88,12 +90,12 @@ def manager_control(
     }
 
   if action == "stop":
-    subprocess.run(["pkill", "-f", "system/manager/manager.py"], check=False)
+    subprocess.run(["pkill", "-f", _MANAGER_PATTERN], check=False)
     time.sleep(0.5)
     return {"ok": True, "message": "Sent stop to manager", "running": _manager_running()}
 
   if action == "restart":
-    subprocess.run(["pkill", "-f", "system/manager/manager.py"], check=False)
+    subprocess.run(["pkill", "-f", _MANAGER_PATTERN], check=False)
     time.sleep(1.0)
     action = "start"
 

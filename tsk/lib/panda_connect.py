@@ -33,7 +33,8 @@ _COMMA_PRODUCTS: dict[str, dict[str, str]] = {
 
 
 def _openpilot_root() -> Path:
-  return Path(__file__).resolve().parents[3]
+  from ai.system.paths import openpilot_root
+  return openpilot_root()
 
 
 def _import_spec_available(name: str) -> bool:
@@ -54,7 +55,8 @@ def has_pandad_tici() -> bool:
   """Whether ``selfdrive.pandad_tici.pandad`` exists (built / shipped in this fork)."""
   if _import_spec_available(PANDAD_TICI_MODULE):
     return True
-  return (_openpilot_root() / "selfdrive" / "pandad_tici" / "pandad.py").is_file()
+  from ai.system.paths import source_path
+  return source_path("selfdrive", "pandad_tici", "pandad.py").is_file()
 
 
 def use_tici_panda_stack() -> bool:

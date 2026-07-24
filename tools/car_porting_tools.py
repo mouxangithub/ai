@@ -14,11 +14,11 @@ import sys
 from collections import defaultdict
 from typing import Any
 
-from ai.tools.op_run import OPENPILOT_ROOT, ROUTES_DIR, run_subprocess, validate_route_ref
+from ai.tools.op_run import ROUTES_DIR, run_subprocess, validate_route_ref
 from ai.tools.op_run import resolve_route_ref as resolve_car_porting_route
+from ai.system.paths import rel_source, source_path, tools_path
 
 _ROUTES_DIR = ROUTES_DIR
-_OPENPILOT_ROOT = OPENPILOT_ROOT
 _MAX_OUTPUT_CHARS = 48_000
 _TEST_TIMEOUT_SEC = 360
 
@@ -130,7 +130,7 @@ def car_porting_test_route(route: str, car_model: str | None = None) -> dict[str
     return {"ok": False, "error": err}
 
   route_arg = resolve_car_porting_route(route)
-  script = _OPENPILOT_ROOT / "tools" / "car_porting" / "test_car_model.py"
+  script = tools_path("car_porting", "test_car_model.py")
   if not script.is_file():
     return {"ok": False, "error": f"Script not found: {script}"}
 
@@ -153,14 +153,14 @@ def car_porting_test_route(route: str, car_model: str | None = None) -> dict[str
     "stderr": stderr,
     "error": res.get("error"),
     "failures_hint": failures if not passed else 0,
-    "script": "tools/car_porting/test_car_model.py",
+    "script": rel_tools("car_porting", "test_car_model.py"),
     "hint": "Fix DBC/CarState/CarController on dev machine; re-run after port changes.",
   }
 
 
 def car_porting_test_interfaces(brand: str | None = None) -> dict[str, Any]:
   """Run pytest selfdrive/car/tests/test_car_interfaces.py (optionally -k brand)."""
-  test_file = _OPENPILOT_ROOT / "selfdrive" / "car" / "tests" / "test_car_interfaces.py"
+  test_file = source_path("selfdrive", "car", "tests", "test_car_interfaces.py")
   if not test_file.is_file():
     return {"ok": False, "error": f"Test file not found: {test_file}"}
 
@@ -174,7 +174,7 @@ def car_porting_test_interfaces(brand: str | None = None) -> dict[str, Any]:
   return {
     **res,
     "brand_filter": filt or None,
-    "script": "selfdrive/car/tests/test_car_interfaces.py",
+    "script": rel_source("selfdrive", "car", "tests", "test_car_interfaces.py"),
     "hint": "Fix interface.py / values.py on dev machine before in-car testing.",
   }
 

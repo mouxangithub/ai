@@ -6,7 +6,7 @@ import json
 from pathlib import Path
 from typing import Any
 
-from ai.tools.op_run import OPENPILOT_ROOT
+from ai.system.paths import rel_tools, tools_path
 
 
 def _list_layout_files(directory: Path, extensions: tuple[str, ...]) -> list[dict[str, Any]]:
@@ -24,13 +24,14 @@ def _list_layout_files(directory: Path, extensions: tuple[str, ...]) -> list[dic
 
 
 def list_plotjuggler_layouts() -> dict[str, Any]:
-  layout_dir = OPENPILOT_ROOT / "tools" / "plotjuggler" / "layouts"
+  layout_dir = tools_path("plotjuggler", "layouts")
   layouts = _list_layout_files(layout_dir, (".xml",))
+  script = rel_tools("plotjuggler", "juggle.py")
   return {
     "ok": True,
     "count": len(layouts),
     "layouts": layouts,
-    "script": "tools/plotjuggler/juggle.py",
+    "script": script,
     "hint": "Use layout name with pc_launch_plotjuggler(layout='tuning') → layouts/tuning.xml",
     "common": ["tuning", "gps_vs_llk", "controls_mismatch_debug", "system_lag_debug"],
   }
@@ -62,8 +63,8 @@ def plotjuggler_apply_layout(
     "ok": True,
     "layout": name,
     "path": match.get("path"),
-    "script": "tools/plotjuggler/juggle.py",
-    "pc_command": f"tools/plotjuggler/juggle.py --layout {name}" + (f" {route}" if route else ""),
+    "script": rel_tools("plotjuggler", "juggle.py"),
+    "pc_command": f"{rel_tools('plotjuggler', 'juggle.py')} --layout {name}" + (f" {route}" if route else ""),
     "hint": "PC: pc_launch_plotjuggler(route=..., layout=...); device: plotjuggler_data_summary.",
   }
   if route:
@@ -72,7 +73,7 @@ def plotjuggler_apply_layout(
 
 
 def list_jotpluggler_layouts() -> dict[str, Any]:
-  layout_dir = OPENPILOT_ROOT / "tools" / "jotpluggler" / "layouts"
+  layout_dir = tools_path("jotpluggler", "layouts")
   layouts = _list_layout_files(layout_dir, (".json",))
   # include layout metadata title if present
   enriched = []
@@ -89,7 +90,7 @@ def list_jotpluggler_layouts() -> dict[str, Any]:
     "ok": True,
     "count": len(enriched),
     "layouts": enriched,
-    "script": "tools/jotpluggler/jotpluggler",
+    "script": rel_tools("jotpluggler", "jotpluggler"),
     "hint": "Use layout stem with pc_launch_jotpluggler(layout='gps')",
     "common": ["gps", "ublox-debug", "cameras-and-map"],
   }

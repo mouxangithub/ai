@@ -15,6 +15,7 @@ from ai.client import AIConfig, load_config_from_params
 from ai.common.storage import read_param, read_param_bool, write_param, write_param_bool
 from ai.selfdrive.state import StateReader
 from ai.system.admin import is_admin_mode
+from ai.system.paths import openpilot_root
 from ai.tools.agent_tools import filter_tools as filter_agent_tools, make_handlers
 
 _PARAMS = Params()
@@ -27,10 +28,6 @@ DEFAULT_PORT = 5090
 
 def params() -> Params:
   return _PARAMS
-
-
-def openpilot_root() -> Path:
-  return Path(__file__).resolve().parent.parent.parent
 
 
 def get_state_reader() -> StateReader:

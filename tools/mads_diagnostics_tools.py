@@ -9,6 +9,7 @@ from typing import Any, Callable
 from openpilot.common.params import Params
 
 from ai.tools.mads_tools import get_mads_settings
+from ai.system.paths import openpilot_root, rel_source, source_path
 
 # Symptom → structured playbook (matches master-c3 fixes, 2026-07).
 _EVENT_SYMPTOMS: dict[str, dict[str, str]] = {
@@ -44,16 +45,19 @@ _FIXES: list[dict[str, Any]] = [
     "id": "disable_data_sample",
     "applies_to": ["controlsMismatchLateral"],
     "title": "禁用 mads.data_sample()",
-    "files": ["sunnypilot/mads/mads.py"],
+    "files": [rel_source("sunnypilot", "mads", "mads.py")],
     "flash_panda": False,
     "rebuild": "scons selfdrived",
-    "verify": "grep -n data_sample sunnypilot/mads/mads.py 应看到 early return 或注释调用",
+    "verify": "grep -n data_sample " + rel_source("sunnypilot", "mads", "mads.py") + " 应看到 early return 或注释调用",
   },
   {
     "id": "pandad_mads_heartbeat",
     "applies_to": ["controlsMismatchLateral", "steerTempUnavailable", "steerUnavailable"],
     "title": "恢复 pandad process_mads_heartbeat（active/enabled + carParams）",
-    "files": ["selfdrive/pandad/pandad.cc", "selfdrive/pandad_tici/pandad.cc"],
+    "files": [
+      rel_source("selfdrive", "pandad", "pandad.cc"),
+      rel_source("selfdrive", "pandad_tici", "pandad.cc"),
+    ],
     "flash_panda": False,
     "rebuild": "scons pandad",
     "verify": "process_mads_heartbeat 含 alternativeExperience 与 getActive/getEnabled",
@@ -64,7 +68,7 @@ _FIXES: list[dict[str, Any]] = [
     "title": "opendbc mads.h MAIN 电平保持（mads_acc_main_lateral_latch）",
     "files": ["opendbc_repo/opendbc/safety/sunnypilot/mads.h"],
     "flash_panda": True,
-    "rebuild": "scons && python selfdrive/pandad/pandad.py",
+    "rebuild": "scons && python " + rel_source("selfdrive", "pandad", "pandad.py"),
     "verify": "mads.h 含 mads_acc_main_lateral_latch 与 MAIN held 注释",
   },
 ]
@@ -84,7 +88,6 @@ def _read_onroad_event_names(get_state_reader: Callable | None) -> list[str]:
 def _dev_tree_has_main_latch() -> bool | None:
   """Return True if mads.h contains latch helper (dev checkout only)."""
   try:
-    from ai.system.paths import openpilot_root
     path = openpilot_root() / "opendbc_repo" / "opendbc" / "safety" / "sunnypilot" / "mads.h"
     if not path.is_file():
       return None
@@ -96,8 +99,7 @@ def _dev_tree_has_main_latch() -> bool | None:
 
 def _dev_tree_data_sample_disabled() -> bool | None:
   try:
-    from ai.system.paths import openpilot_root
-    path = openpilot_root() / "sunnypilot" / "mads" / "mads.py"
+    path = source_path("sunnypilot", "mads", "mads.py")
     if not path.is_file():
       return None
     text = path.read_text(encoding="utf-8", errors="replace")
@@ -189,7 +191,7 @@ def diagnose_mads_lateral(
     checklist.append("代码：mads.h MAIN latch 已合入 ✓（仍须刷 Panda 才上车生效）")
 
   if any(f["flash_panda"] for f in ranked_fixes[:2]):
-    checklist.append("固件：改 mads.h 后必须 python selfdrive/pandad/pandad.py 刷 Panda")
+    checklist.append("固件：改 mads.h 后必须 python " + rel_source("selfdrive", "pandad", "pandad.py") + " 刷 Panda")
 
   recommendations: list[str] = []
   if "controlsMismatchLateral" in event_names:
