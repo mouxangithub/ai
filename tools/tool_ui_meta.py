@@ -135,7 +135,7 @@ TOOL_DESCRIPTIONS: dict[str, str] = {
   "panda_recovery_hint": "NO PANDA 时推荐恢复步骤",
   "recover_dos_panda": "刷 F4 固件（panda.bin.signed）",
   "rebuild_pandad": "重编 pandad 二进制",
-  "rebuild_pandad_tici": "重编 pandad（旧工具名）",
+  "build_panda_h7_firmware": "scons 编译 panda_h7.bin.signed",
   "build_panda_firmware": "scons 编译 panda/board 固件",
   "github_runner_status": "GitHub Runner 安装路径、Param 门控与 systemd 状态",
   "github_runner_recovery_hint": "CI Pending / Runner 离线排查步骤",

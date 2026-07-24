@@ -9,10 +9,10 @@
 3. `panda_recovery_hint` — 含 USBErrorBusy / 崩溃循环建议
 4. `grep_log` — `pandad|panda|xhci|USBErrorBusy|DOS internal`
 5. offroad：`tsk_restart_pandad(confirm=true)`
-6. 双 Panda 崩溃 → `rebuild_pandad_tici(confirm=true)` + `reboot_device`
+6. 双 Panda 崩溃 → `rebuild_pandad(confirm=true)` + `reboot_device`
 7. 仍失败且为 F4 → 技能 **`c3-dos-panda`**：`list_f4_pandas`（外接黑熊）→ `recover_dos_panda(confirm=true, internal=true)` 或 `external=true`
 
-**禁忌**：F4 不要用 `panda_tici` 固件；见 `ai/docs/PANDA_FLASH.md`。
+**禁忌**：F4 不要用 H7 固件；见 `ai/docs/PANDA_FLASH.md`。
 
 ## Lite C3（无功放）
 

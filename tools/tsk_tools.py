@@ -67,6 +67,7 @@ def get_tsk_manager_status() -> dict[str, Any]:
       for k in (
         "device_type", "product_label", "product_name",
         "panda_tici_available", "pandad_tici_available", "use_tici_panda_stack",
+        "stack_kind", "panda_backend_h7",
         "tici_hw", "tici_dos", "tici_tres",
         "panda_backend", "pandad_process", "pandad_module", "panda_mcu_cache",
       )

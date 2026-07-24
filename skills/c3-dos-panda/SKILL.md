@@ -2,7 +2,7 @@
 
 适用于 **comma three（C3 / `tici`）** 内置 **DOS（F4）**、外接 **黑熊（F4, aux）** 或 **红熊（H7, aux）** 的多 Panda 场景。
 
-> 事实来源：`ai/docs/PANDA_FLASH.md`、`ai/docs/COMMA_DEVICES.md`。CLI 脚本 `tools/recover_dos_panda.py` **可选**（部分 fork 无此文件）；op 助手 **内联刷机**，不依赖该脚本。
+> 事实来源：`ai/docs/PANDA_FLASH.md`、`ai/docs/COMMA_DEVICES.md`。CLI 脚本 `ai/scripts/recover_dos_panda.py` **可选**（部分 fork 无此文件）；op 助手 **内联刷机**，不依赖该脚本。
 
 ## 何时触发
 
@@ -48,7 +48,7 @@
 ```bash
 cd /data/openpilot
 PATH=/usr/local/venv/bin:/usr/bin:/bin PYTHONPATH=/data/openpilot \
-  python3 tools/recover_dos_panda.py --internal   # 或 --external / --serial（仅 F4）
+  python3 ai/scripts/recover_dos_panda.py --internal   # 或 --external / --serial（仅 F4）
 bash tools/rebuild_pandad_tici.sh
 pgrep -af pandad
 sudo reboot

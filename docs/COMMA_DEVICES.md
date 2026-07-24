@@ -26,7 +26,7 @@
 | 外接黑熊 (F4) | 同上 | 否 | `recover_dos_panda(external=true)` |
 | 外接红熊 (H7) | `panda_tici/board/obj/panda*.bin.signed` | 是（`pandad_tici`） | 一般不需手动 |
 
-CLI：`tools/recover_dos_panda.py`；op 助手技能：`c3-dos-panda`。
+CLI：`ai/scripts/recover_dos_panda.py`；op 助手技能：`c3-dos-panda`。
 
 ## 检测顺序
 

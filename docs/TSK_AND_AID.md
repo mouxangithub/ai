@@ -115,7 +115,7 @@ python3 -m ai.aid
 | `ai/tsk/service.py` | 状态、作业 API、offroad 告警 |
 | `ai/tsk/lib/*` | CAN/DataFlash/匹配/panda 底层 |
 | `ai/tools/panda_flash_tools.py` | `recover_dos_panda` / `list_all_pandas` / `list_f4_pandas` 工具实现 |
-| `tools/recover_dos_panda.py` | CLI 刷 F4 固件 |
+| `ai/scripts/recover_dos_panda.py` | CLI 刷 F4 固件 |
 | `ai/web/static/js/tsk-panel.js` | 设置侧边栏 SecOC UI |
 | `launch_chffrplus.sh` | build 后启动 aid + 看门狗 |
 | `ai/scripts/start_aid.sh` | 手动启动 aid（调试用） |

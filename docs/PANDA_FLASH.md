@@ -23,7 +23,7 @@
 
 | 入口 | 用途 |
 |------|------|
-| `tools/recover_dos_panda.py` | 可选 CLI（部分 fork 有）；**op 助手不依赖此文件** |
+| `ai/scripts/recover_dos_panda.py` | 可选 CLI（部分 fork 有）；**op 助手不依赖此文件** |
 | op助手 `recover_dos_panda` | 内联实现于 `ai/tools/panda_flash_tools.py`，需 `confirm=true` |
 | `tools/rebuild_pandad_tici.sh` | `updated` git reset 后重链 `pandad` 二进制 |
 | op助手 `build_panda_firmware` | `scons` 编译 `panda/board` |
@@ -37,7 +37,7 @@ cd /data/openpilot/panda/board && scons -j$(nproc)
 
 # 2. 刷机（离路，仅 F4）
 cd /data/openpilot
-PYTHONPATH=/data/openpilot python3 tools/recover_dos_panda.py --internal
+PYTHONPATH=/data/openpilot python3 ai/scripts/recover_dos_panda.py --internal
 
 # 3. 重编 pandad（若被 updated 删掉或改了 pandad_tici 源码）
 bash tools/rebuild_pandad_tici.sh

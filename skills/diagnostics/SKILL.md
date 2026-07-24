@@ -13,10 +13,10 @@
 3. `panda_recovery_hint` — 双 Panda、USBErrorBusy 崩溃循环建议
 4. `list_f4_pandas` — 仅 F4（内置 vs 外接黑熊）
 5. offroad 刷 **F4**：`recover_dos_panda(confirm=true)` — 技能 **`c3-dos-panda`**
-6. 双 USB 崩溃 → `rebuild_pandad_tici(confirm=true)` — `updated` 或 pandad_tici 源码变更后
+6. 双 USB 崩溃 → `rebuild_pandad(confirm=true)` — `updated` 或 pandad 源码变更后
 7. 文档：`ai/docs/PANDA_FLASH.md`
 
-**F4 固件**：`panda/board/obj/panda.bin.signed`（非 `panda_tici`）。
+**F4 固件**：`panda/board/obj/panda.bin.signed`。**H7 固件**：`panda/board/obj/panda_h7.bin.signed`。
 
 ## GitHub Runner / prebuilt CI
 

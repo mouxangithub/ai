@@ -59,13 +59,13 @@ sunnypilot/master
 
 ### openpilot
 
-- `panda_tici/`、`release/ci`、tici prebuilt、`sunnypilot/*` C3 层
+- `release/ci`、tici prebuilt、`sunnypilot/*` C3 层、统一或拆分 pandad（以本 fork 为准）
 - 子模块：`mouxangithub/opendbc`、`mouxangithub/panda` @ `master-c3` / `master-c3-new`
 
 ### opendbc
 
 - `opendbc/sunnypilot/**`
-- `opendbc/safety/**`；若改 `can.h`，需同步 **panda_tici** CAN hash pin
+- `opendbc/safety/**`；若改 `can.h`，需同步 **openpilot 侧**固件树 CAN hash pin（`panda/` 和/或 `panda_tici/`，见目标 fork）
 
 ### panda
 

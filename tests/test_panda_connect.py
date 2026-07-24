@@ -50,11 +50,16 @@ class TestPandaConnect(unittest.TestCase):
         self.assertTrue(pc.is_tici_dos())
         self.assertEqual(pc.panda_backend(), "panda")
 
-  def test_legacy_tici_stack_aliases_disabled(self):
-    self.assertFalse(pc.has_panda_tici())
-    self.assertFalse(pc.has_pandad_tici())
-    self.assertFalse(pc.use_tici_panda_stack())
-    self.assertEqual(pc.pandad_module(), pc.PANDAD_MODULE)
+  def test_pandad_module_matches_stack(self):
+    self.assertIn("pandad", pc.pandad_module())
+    self.assertIn(pc.pandad_process_name(), ("pandad", "pandad_tici"))
+
+  def test_has_panda_tici_reflects_tree(self):
+    from ai.system import panda_stack as ps
+    with mock.patch.object(ps, "has_panda_tici_tree", return_value=True):
+      self.assertTrue(pc.has_panda_tici())
+    with mock.patch.object(ps, "has_panda_tici_tree", return_value=False):
+      self.assertFalse(pc.has_panda_tici())
 
   def test_probe_pc_panda_f4(self):
     class FakePanda:
@@ -76,10 +81,11 @@ class TestPandaConnect(unittest.TestCase):
     self.assertEqual(probe["panda_backend"], "panda")
 
   def test_stop_pandad_uses_module_pattern(self):
-    with mock.patch.object(pc.subprocess, "run") as run:
-      pc.stop_pandad()
-      run.assert_called_once()
-      self.assertEqual(run.call_args.args[0], ["pkill", "-9", "-f", pc.PANDAD_MODULE])
+    with mock.patch.object(pc, "pandad_module", return_value="selfdrive.pandad.pandad"):
+      with mock.patch.object(pc.subprocess, "run") as run:
+        pc.stop_pandad()
+        run.assert_called_once()
+        self.assertEqual(run.call_args.args[0], ["pkill", "-9", "-f", "selfdrive.pandad.pandad"])
 
 
 if __name__ == "__main__":

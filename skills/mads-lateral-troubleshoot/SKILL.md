@@ -33,7 +33,7 @@ MAIN 上升沿 → Panda 短暂放行 controls_allowed_lateral
 | 层 | 文件 | 作用 | 是否刷 Panda |
 |----|------|------|-------------|
 | 误报 | `sunnypilot/mads/mads.py` | `data_sample()` 禁用 | 否 |
-| heartbeat | `selfdrive/pandad/pandad.cc` + `pandad_tici` | 按刹车模式 `active`/`enabled` + 读 `carParams` | 否 |
+| heartbeat | `selfdrive/pandad/pandad.cc` | 按刹车模式 `active`/`enabled` + 读 `carParams` | 否 |
 | 固件 | `opendbc/safety/sunnypilot/mads.h` | `mads_acc_main_lateral_latch()` MAIN 保持横向 | **是** |
 
 固件关键逻辑：`mads_acc_main_lateral_latch()` — 无 MADS 物理键时 MAIN 亮则持续请求横向；heartbeat 短暂不同步不立刻撤权。

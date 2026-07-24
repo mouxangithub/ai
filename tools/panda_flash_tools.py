@@ -1,6 +1,6 @@
 """F4 (black/DOS) panda firmware helpers for op助手.
 
-Self-contained: does **not** require ``tools/recover_dos_panda.py`` (optional CLI wrapper on some forks).
+Self-contained: does **not** require ``ai/scripts/recover_dos_panda.py`` (optional CLI wrapper on some forks).
 """
 
 from __future__ import annotations
@@ -18,8 +18,8 @@ from ai.system.paths import is_comma_device, openpilot_root, source_path, tools_
 
 FW_REL = Path("panda", "board", "obj", "panda.bin.signed")
 TICI_FW_REL = Path("panda", "board", "obj", "panda_h7.bin.signed")
-REBUILD_SCRIPT = Path("tools", "rebuild_pandad.sh")
-RECOVER_SCRIPT = Path("tools", "recover_dos_panda.py")
+REBUILD_SCRIPT = Path("ai", "scripts", "rebuild_pandad.sh")
+RECOVER_SCRIPT = Path("ai", "scripts", "recover_dos_panda.py")
 
 OFFROAD_FLASH_ERROR = (
   "当前处于 onroad，Panda 刷写仅能在 offroad（停车）下进行。"
@@ -205,7 +205,7 @@ def _firmware_scenario_guidance(multi: dict[str, Any] | None) -> dict[str, Any]:
 
 
 def _tool_script(rel: Path) -> Path:
-  return tools_path(*rel.parts)
+  return openpilot_root().joinpath(*rel.parts)
 
 
 def _python() -> str:
@@ -730,7 +730,7 @@ def rebuild_pandad(*, confirm: bool = False) -> dict[str, Any]:
     return {
       "ok": False,
       "error": "pandad not found in this tree",
-      "hint": "tools/rebuild_pandad.sh or full scons selfdrive/pandad",
+      "hint": "ai/scripts/rebuild_pandad.sh or full scons selfdrive/pandad",
     }
   if not confirm:
     return {
@@ -782,7 +782,7 @@ def recover_dos_panda(
 ) -> dict[str, Any]:
   """
   Flash F4 panda with panda/ firmware.
-  Requires confirm=true. Offroad required. Works without tools/recover_dos_panda.py.
+  Requires confirm=true. Offroad required. Works without ai/scripts/recover_dos_panda.py.
   """
   listing = list_f4_pandas()
   fw = _fw_path()
@@ -895,7 +895,7 @@ def panda_recovery_hint(get_state_reader=None) -> dict[str, Any]:
       "若仍 NO PANDA：list_f4_pandas → recover_dos_panda(confirm=true)（仅 F4）",
       "C3 内置：recover_dos_panda(internal=true)；外接 aux 黑熊：external=true",
       "外接红熊 (H7) 勿用 recover_dos_panda；由 pandad 自动刷 panda_h7.bin.signed",
-      "无需 tools/recover_dos_panda.py，op 助手内联刷机",
+      "无需 ai/scripts/recover_dos_panda.py，op 助手内联刷机",
     ])
     if usb_count >= 2:
       steps.append("验证：pgrep -af pandad 应含两个 serial（内置+外接）")

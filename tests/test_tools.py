@@ -647,8 +647,8 @@ class TestExtensionTools(unittest.TestCase):
     from ai.tools.sp_tool_extensions import SP_EXTENSION_TOOL_META, SP_EXTENSION_SCHEMAS
     for name in (
       "list_f4_pandas", "list_all_pandas", "recover_dos_panda", "flash_panda_firmware",
-      "rebuild_pandad", "rebuild_pandad_tici",
-      "panda_recovery_hint", "build_panda_firmware", "build_panda_h7_firmware", "build_panda_tici_firmware",
+      "rebuild_pandad",
+      "panda_recovery_hint", "build_panda_firmware", "build_panda_h7_firmware",
       "github_runner_status", "github_runner_recovery_hint", "install_github_runner",
       "github_actions_auth_status", "set_github_actions_pat", "list_github_workflow_runs",
       "get_github_workflow_run", "cancel_github_workflow_run", "list_github_runners",

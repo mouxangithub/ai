@@ -8,7 +8,7 @@
 - 仅 F4（DOS/黑熊）：`list_f4_pandas`
 - 编译 F4 固件：`build_panda_firmware` 或 `scons` in `panda/board`
 - 刷机文档：`ai/docs/PANDA_FLASH.md`；技能 `c3-dos-panda`
-- 车机刷机：`pc_devsync_run` 同步代码后 SSH 跑 `tools/recover_dos_panda.py`（仅 F4）
+- 车机刷机：`pc_devsync_run` 同步代码后 SSH 跑 `ai/scripts/recover_dos_panda.py`（仅 F4）
 - 异构双 Panda（内置 F4 + 外接红熊）：车机侧重编 `rebuild_pandad_tici`，见 `PANDA_FLASH.md`
 
 ## GitHub Runner / prebuilt
