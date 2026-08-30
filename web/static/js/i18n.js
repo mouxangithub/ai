@@ -1860,6 +1860,7 @@
       cabanaThExplain: '功能',
       cabanaExplainBtn: 'AI 解释',
       cabanaExplainFail: '失败',
+      cabanaSendToChat: '发送到聊天',
       cabanaSendSegment: '片段→聊天',
       cabanaFilterPlain: '搜索报文名或信号…',
       cabanaDbcSearch: '模糊搜索 DBC 或车型…',
