@@ -2,7 +2,17 @@
 
 from __future__ import annotations
 
+import asyncio
+import functools
 from typing import Any, Callable
+
+
+def _to_thread(fn, *args, **kwargs):
+  """Run a synchronous callable off the event loop."""
+  loop = asyncio.get_running_loop()
+  if kwargs:
+    return loop.run_in_executor(None, functools.partial(fn, *args, **kwargs))
+  return loop.run_in_executor(None, fn, *args)
 
 
 async def execute_scheduler_action(
@@ -16,7 +26,7 @@ async def execute_scheduler_action(
 ) -> str:
   if action == "check_runner_health_offroad":
     from ai.tools.domains.devops.github_actions_tools import check_github_runner_health
-    res = check_github_runner_health(notify=bool(payload.get("notify", True)))
+    res = await _to_thread(check_github_runner_health, notify=bool(payload.get("notify", True)))
     if not res.get("healthy"):
       issues = ", ".join(res.get("issues") or [])
       return f"issues: {issues}"
@@ -24,7 +34,7 @@ async def execute_scheduler_action(
 
   if action == "check_device_health_offroad":
     from ai.tools.domains.platform.device_health_tools import device_health
-    h = device_health()
+    h = await _to_thread(device_health)
     issues = []
     disk = h.get("disk") or {}
     if disk.get("free_gb") is not None and float(disk["free_gb"]) < 3:
@@ -38,7 +48,7 @@ async def execute_scheduler_action(
 
   if action == "check_github_ci_failed":
     from ai.tools.domains.devops.github_actions_tools import check_github_runner_health
-    res = check_github_runner_health(notify=False)
+    res = await _to_thread(check_github_runner_health, notify=False)
     fails = res.get("recent_failures") or []
     if fails:
       rid = fails[0].get("id")
@@ -48,7 +58,7 @@ async def execute_scheduler_action(
 
   if action == "ota_preflight_offroad":
     from ai.tools.domains.devops.branch_tools import ota_preflight_checklist
-    res = ota_preflight_checklist(params)
+    res = await _to_thread(ota_preflight_checklist, params)
     if not res.get("ready"):
       blockers = ", ".join(res.get("blockers") or [])
       await notify_push("OTA 预检未通过", blockers, level="warn")

@@ -1079,7 +1079,8 @@ html, body {
 .md-content .md-table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 0.85rem;
+  font-size: var(--chat-content-font-size-secondary, 0.85rem);
+  table-layout: auto;
 }
 .md-content .md-table th,
 .md-content .md-table td {
@@ -1094,28 +1095,49 @@ html, body {
   font-weight: 600;
   white-space: nowrap;
 }
-.md-content .md-table:not(.md-kv-table) th {
-  width: 1%;
-}
 .md-content .md-table td:last-child {
   width: auto;
 }
 .md-content .md-table tr:nth-child(even) td {
   background: rgba(255, 255, 255, 0.02);
 }
+.md-content .md-table.md-kv-table {
+  table-layout: fixed;
+}
 .md-content .md-table.md-kv-table th:first-child,
 .md-content .md-table.md-kv-table td:first-child {
-  width: auto;
+  width: 34%;
   min-width: 7rem;
-  max-width: 38%;
-  white-space: nowrap;
+  max-width: 11rem;
+  white-space: normal;
   font-weight: 500;
   color: var(--text-secondary, rgba(255, 255, 255, 0.72));
 }
 .md-content .md-table.md-kv-table th:last-child,
 .md-content .md-table.md-kv-table td:last-child {
-  width: auto;
+  width: 66%;
   white-space: normal;
+}
+
+/* Wide-table breakout (inspired by dsh md-table-wide).  The .md-table-wrap
+   is normally constrained to the message column; when the renderer marks it
+   md-table-wide we let it span the full thread width while keeping the
+   table body aligned with the message text. */
+.md-content .md-table-wrap.md-table-wide,
+.markdown-table.md-table-wide {
+  --table-spare: max(0px, calc((100cqw - min(100%, var(--thread-max))) / 2));
+  --table-lead: calc(var(--table-spare) - 100% + min(100%, var(--thread-max)));
+  width: calc(100% + var(--table-lead) + var(--table-spare));
+  max-width: none;
+  margin-left: calc(-1 * var(--table-lead));
+  padding-left: var(--table-lead);
+}
+@container (max-width: 640px) {
+  .md-content .md-table-wrap.md-table-wide,
+  .markdown-table.md-table-wide {
+    --table-spare: 0px;
+    --table-lead: 0px;
+  }
 }
 .md-content .md-h3 {
   margin: 0.85rem 0 0.35rem;
@@ -1125,10 +1147,19 @@ html, body {
 }
 .md-content a { color: var(--accent); }
 
-/* OpenClaw-inspired chat text (tables, code, spacing) */
+/* OpenClaw-inspired chat text (tables, code, spacing).
+   Font-size axis lets the whole message column scale together. */
+.chat-text,
+.md-content {
+  --chat-content-font-size: 0.95rem;
+  --chat-content-font-delta: 0px;
+  --chat-content-line-height: calc(1.5 + var(--chat-content-font-delta) / 16 * 0.05);
+  --chat-content-font-size-secondary: 0.82rem;
+  font-size: var(--chat-content-font-size);
+  line-height: var(--chat-content-line-height);
+}
+
 .chat-text {
-  font-size: 0.95rem;
-  line-height: 1.5;
   overflow-wrap: anywhere;
   word-break: break-word;
 }

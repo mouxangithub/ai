@@ -2,6 +2,18 @@
 
 from ai.server.handlers._api_common import *  # noqa: F403
 
+
+def _session_log_path(session_id: str) -> str | None:
+  if not session_id:
+    return None
+  try:
+    from ai.system.paths import workspace_path
+    path = workspace_path("ai_session_logs", mkdir=True) / f"{session_id}.jsonl"
+    return str(path)
+  except Exception:
+    return None
+
+
 async def _parse_chat_body(request: web.Request) -> tuple[dict[str, Any] | None, AIConfig | None, web.Response | None]:
   config = _read_ai_config()
   if not config.is_configured:
@@ -129,6 +141,7 @@ async def api_chat(request: web.Request) -> web.Response:
       async def emit(event: dict[str, Any]) -> None:
         await response.write(_sse(event))
 
+      session_id = str(body.get("sessionId") or body.get("session_id") or "").strip()
       try:
         await run_chat_with_agents(
           run_body,
@@ -138,6 +151,7 @@ async def api_chat(request: web.Request) -> web.Response:
           get_tool_handlers=_get_tool_handlers,
           tools=prep["tools"],
           max_tool_rounds=prep["max_tool_rounds"],
+          session_log_path=_session_log_path(session_id),
         )
       except ChatCancelled:
         pass
@@ -184,6 +198,7 @@ async def api_chat_jobs(request: web.Request) -> web.Response:
         tools=prep["tools"],
         max_tool_rounds=prep["max_tool_rounds"],
         config=config,
+        session_log_path=_session_log_path(session_id),
       )
 
     submit = await submit_chat_request(

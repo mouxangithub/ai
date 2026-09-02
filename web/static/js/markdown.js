@@ -26,26 +26,23 @@
 
   function isDashSepLine(line) {
     const parts = String(line || '').trim().split(/\s+/).filter(Boolean);
-    return parts.length >= 2 && parts.every((p) => /^-{3,}:?$/.test(p));
+    return parts.length >= 2 && parts.every((p) => /^[-:]{3,}$/.test(p));
   }
 
   function parseTwoColHeader(line) {
     const t = String(line || '').trim();
     if (!t || t.includes('|')) return null;
-    const m = t.match(/^(\S+)\s+(\S+)$/);
-    if (m) return [m[1], m[2]];
-    const parts = t.split(/\s{2,}/);
+    // Require at least two spaces or a tab between columns; reject runs of
+    // CJK characters that have no delimiter (e.g. "项目当前值说明").
+    const m = t.match(/^(\S+)\s{2,}(\S+)$/);
+    if (m) return [m[1].trim(), m[2].trim()];
+    const parts = t.split(/\t+|\s{2,}/).map((p) => p.trim()).filter(Boolean);
     if (parts.length >= 2) return [parts[0], parts.slice(1).join(' ')];
     return null;
   }
 
   function repairDashSeparatedTables(markdown) {
-    let s = String(markdown);
-    s = s.replace(
-      /(项目|字段|项|属性)\s+(状态|值|说明|内容)\s+((?:-{3,}\s*)+)\s*/g,
-      '\n| $1 | $2 |\n| --- | --- |\n',
-    );
-    const lines = s.split('\n');
+    const lines = String(markdown).split('\n');
     const out = [];
     let i = 0;
     while (i < lines.length) {
@@ -167,7 +164,11 @@
   }
 
   function looksLikeMarkdownTable(text) {
-    return /\|[^|\n]+\|/.test(text) || /^\s*[^|\n]+\s+\|/m.test(text);
+    const t = String(text || '');
+    // Require an explicit pipe table with at least one separator line
+    // (---|---|---) or a header row plus a separator row.  This avoids
+    // treating stray "|" characters or plain two-column text as tables.
+    return /^\s*\|[^\n]+\|\s*$/m.test(t) && /(^|\n)\s*\|[\s\-:|]+\|\s*($|\n)/.test(t);
   }
 
   function isKvValueHeader(text) {
@@ -310,13 +311,21 @@
     return rows.length > 0 && rows.every((row) => (row.match(/<t[hd][^>]*>/gi) || []).length === 2);
   }
 
+  function countTableCols(inner) {
+    const firstRow = String(inner || '').match(/<tr[^>]*>([\s\S]*?)<\/tr>/i);
+    if (!firstRow) return 0;
+    return (firstRow[1].match(/<t[hd][^>]*>/gi) || []).length;
+  }
+
   function wrapMarkdownTables(html) {
+    const WIDE_COL_THRESHOLD = 4;
     let s = String(html);
     s = s.replace(
       /<div class="md-table-wrap">\s*<table class="md-table([^"]*)">([\s\S]*?)<\/table>\s*<\/div>/gi,
       (_, cls, inner) => {
         const kv = cls.includes('md-kv-table') || isKvTableHtml(inner) ? ' md-kv-table' : '';
-        return `<div class="markdown-table${kv}"><div class="markdown-table__viewport"><table class="md-table${cls}${kv ? ' md-kv-table' : ''}">${inner}</table></div></div>`;
+        const wide = countTableCols(inner) >= WIDE_COL_THRESHOLD ? ' md-table-wide' : '';
+        return `<div class="markdown-table${kv}${wide}"><div class="markdown-table__viewport"><table class="md-table${cls}${kv ? ' md-kv-table' : ''}">${inner}</table></div></div>`;
       },
     );
     // Bare tables from markdown-it without custom wrapper
@@ -324,7 +333,8 @@
       /<table(?![^>]*class="[^"]*md-table)([^>]*)>([\s\S]*?)<\/table>/gi,
       (_, attrs, inner) => {
         const kv = isKvTableHtml(inner) ? ' md-kv-table' : '';
-        return `<div class="markdown-table${kv}"><div class="markdown-table__viewport"><table class="md-table${kv}"${attrs}>${inner}</table></div></div>`;
+        const wide = countTableCols(inner) >= WIDE_COL_THRESHOLD ? ' md-table-wide' : '';
+        return `<div class="markdown-table${kv}${wide}"><div class="markdown-table__viewport"><table class="md-table${kv}"${attrs}>${inner}</table></div></div>`;
       },
     );
     return s;
@@ -459,7 +469,7 @@
         if (cells.length >= 2) rows.push(cells);
         j += 1;
       }
-      if (rows.length >= 1) {
+      if (rows.length >= 2) {
         const cols = Math.max(...rows.map((r) => r.length));
         const headers = cols === 2
           ? ['项目', '返回值']
@@ -832,7 +842,7 @@
     findStableStreamingMarkdownBoundary,
     formatReasoningMarkdown,
     bindCopyButtons,
-    VERSION: '20260820d',
+    VERSION: '20260902a',
   };
 
   if (typeof document !== 'undefined') {

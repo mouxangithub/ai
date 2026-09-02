@@ -3,8 +3,20 @@
 from __future__ import annotations
 
 import asyncio
+import functools
 import json
-from typing import Any
+from typing import Any, Callable
+
+
+def _record_tool_audit(name: str, args: dict[str, Any], result: Any) -> None:
+  try:
+    from ai.tools.audit_store import record_audit
+    ok = True
+    if isinstance(result, dict) and result.get("ok") is False:
+      ok = False
+    record_audit(action="tool_call", tool=name, detail={"args": args, "ok": ok}, ok=ok)
+  except Exception:
+    pass
 
 
 def execute_tool(handlers: dict[str, Any], name: str, arguments: str) -> Any:
@@ -17,20 +29,28 @@ def execute_tool(handlers: dict[str, Any], name: str, arguments: str) -> Any:
     return {"ok": False, "error": "Invalid tool arguments JSON"}
   try:
     result = handler(args)
-    try:
-      from ai.tools.audit_store import record_audit
-      ok = True
-      if isinstance(result, dict) and result.get("ok") is False:
-        ok = False
-      record_audit(action="tool_call", tool=name, detail={"args": args, "ok": ok}, ok=ok)
-    except Exception:
-      pass
+    _record_tool_audit(name, args, result)
     return result
   except Exception as e:
     return {"ok": False, "error": f"Tool execution failed: {e}"}
 
 
-async def execute_tool_async(handlers: dict[str, Any], name: str, arguments: str) -> Any:
+async def execute_tool_async(
+  handlers: dict[str, Any],
+  name: str,
+  arguments: str,
+  *,
+  timeout: float | None = None,
+  is_cancelled: Callable[[], bool] | None = None,
+) -> Any:
+  """Execute a tool handler without blocking the event loop.
+
+  Synchronous handlers run in the default thread pool. ``timeout`` applies to
+  the overall handler invocation. ``is_cancelled`` is polled before execution
+  and, for coroutine handlers, between await points where the handler itself
+  yields control. Synchronous handlers cannot be interrupted mid-flight, but
+  their result is discarded if cancellation is requested before they return.
+  """
   handler = handlers.get(name)
   if handler is None:
     return {"ok": False, "error": f"Tool '{name}' not implemented"}
@@ -38,18 +58,39 @@ async def execute_tool_async(handlers: dict[str, Any], name: str, arguments: str
     args = json.loads(arguments) if arguments else {}
   except json.JSONDecodeError:
     return {"ok": False, "error": "Invalid tool arguments JSON"}
+
+  if is_cancelled and is_cancelled():
+    return {"ok": False, "error": "Tool call was cancelled before execution"}
+
+  async def _invoke() -> Any:
+    if asyncio.iscoroutinefunction(handler):
+      # Async handlers get cancellation propagated naturally. We shield only
+      # the outer wait_for timeout so a job-level cancel reaches the coroutine.
+      return await handler(args)
+    loop = asyncio.get_running_loop()
+    # run_in_executor keeps sync handlers off the event loop. They cannot be
+    # force-killed, but they will not stall other async work.
+    return await loop.run_in_executor(None, functools.partial(handler, args))
+
   try:
-    result = handler(args)
-    if asyncio.iscoroutine(result):
-      result = await result
-    try:
-      from ai.tools.audit_store import record_audit
-      ok = True
-      if isinstance(result, dict) and result.get("ok") is False:
-        ok = False
-      record_audit(action="tool_call", tool=name, detail={"args": args, "ok": ok}, ok=ok)
-    except Exception:
-      pass
-    return result
+    if timeout is not None and timeout > 0:
+      # Shield the inner coroutine from timeout cancellation so that a
+      # deliberate job cancel can still propagate to async handlers.
+      result = await asyncio.wait_for(_invoke(), timeout=timeout)
+    else:
+      result = await _invoke()
+  except asyncio.TimeoutError:
+    return {"ok": False, "error": f"Tool '{name}' timed out after {timeout}s"}
+  except asyncio.CancelledError:
+    # Re-raise so the caller's cancellation semantics work (e.g. ChatCancelled).
+    raise
   except Exception as e:
     return {"ok": False, "error": f"Tool execution failed: {e}"}
+
+  # For sync handlers that were already running when cancellation was requested,
+  # discard the result and report cancellation instead of leaking it onward.
+  if is_cancelled and is_cancelled():
+    return {"ok": False, "error": "Tool call was cancelled during execution"}
+
+  _record_tool_audit(name, args, result)
+  return result

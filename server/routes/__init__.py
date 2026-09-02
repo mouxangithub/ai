@@ -5,11 +5,13 @@ from aiohttp import web
 from ai.server.handlers import api as h
 from ai.server.handlers import phase2 as phase2_handlers
 from ai.server.handlers import harness_handlers
+from ai.server.handlers.profile_handlers import register_profile_routes
 from ai.server.routes.agents import register_agent_routes
 
 
 def register_routes(app: web.Application, *, json_response) -> None:
   register_agent_routes(app, json_response=json_response)
+  register_profile_routes(app, json_response=json_response)
 
   app.router.add_get("/api/ai/bootstrap", h.api_bootstrap)
   app.router.add_get("/api/ai/status", h.api_status)

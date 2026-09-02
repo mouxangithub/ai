@@ -5,9 +5,11 @@ Only commands that cannot modify vehicle state are allowed. Each command runs
 with a short timeout and has strict argument validation.
 """
 
+from __future__ import annotations
+
+import asyncio
 import re
 import shlex
-import subprocess
 from dataclasses import dataclass
 from typing import Any
 
@@ -104,7 +106,7 @@ def assert_shell_safe(command: str) -> str | None:
   return None
 
 
-def run_command(command_name: str) -> dict[str, Any]:
+async def run_command(command_name: str) -> dict[str, Any]:
   """Run a whitelisted command and return its output."""
   allowed = ALLOWED_COMMANDS.get(command_name)
   if allowed is None:
@@ -121,22 +123,31 @@ def run_command(command_name: str) -> dict[str, Any]:
     # Pipe through tail for dmesg_tail is not a real single command; handle
     # that special case with shell=True but only using our fixed args.
     if allowed.name == "dmesg_tail":
-      proc = subprocess.run(
+      proc = await asyncio.create_subprocess_shell(
         " ".join(shlex.quote(a) for a in cmd_args),
-        shell=True,
-        capture_output=True,
-        text=True,
-        timeout=allowed.timeout,
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.PIPE,
       )
     else:
-      proc = subprocess.run(
-        cmd_args,
-        capture_output=True,
-        text=True,
-        timeout=allowed.timeout,
+      proc = await asyncio.create_subprocess_exec(
+        *cmd_args,
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.PIPE,
       )
 
-    stdout_lines = proc.stdout.splitlines()
+    try:
+      stdout_bytes, stderr_bytes = await asyncio.wait_for(
+        proc.communicate(), timeout=allowed.timeout
+      )
+    except asyncio.TimeoutError:
+      proc.kill()
+      await proc.wait()
+      return {"ok": False, "error": "Command timed out.", "stdout": "", "stderr": ""}
+
+    stdout = stdout_bytes.decode("utf-8", errors="replace") if stdout_bytes else ""
+    stderr = stderr_bytes.decode("utf-8", errors="replace") if stderr_bytes else ""
+
+    stdout_lines = stdout.splitlines()
     if len(stdout_lines) > allowed.max_output_lines:
       stdout_lines = stdout_lines[:allowed.max_output_lines]
       stdout_lines.append("... (truncated)")
@@ -145,15 +156,13 @@ def run_command(command_name: str) -> dict[str, Any]:
       "ok": proc.returncode == 0,
       "returncode": proc.returncode,
       "stdout": "\n".join(stdout_lines),
-      "stderr": proc.stderr.strip(),
+      "stderr": stderr.strip(),
     }
-  except subprocess.TimeoutExpired:
-    return {"ok": False, "error": "Command timed out.", "stdout": "", "stderr": ""}
   except Exception as e:
     return {"ok": False, "error": str(e), "stdout": "", "stderr": ""}
 
 
-def run_shell_command(
+async def run_shell_command(
   command: str,
   *,
   timeout: int = 60,
@@ -171,29 +180,34 @@ def run_shell_command(
 
   workdir = cwd or str(openpilot_root())
   try:
-    proc = subprocess.run(
+    proc = await asyncio.create_subprocess_shell(
       command,
-      shell=True,
-      capture_output=True,
-      text=True,
-      timeout=timeout,
+      stdout=asyncio.subprocess.PIPE,
+      stderr=asyncio.subprocess.PIPE,
       cwd=workdir,
     )
-    stdout_lines = (proc.stdout or "").splitlines()
+    try:
+      stdout_bytes, stderr_bytes = await asyncio.wait_for(
+        proc.communicate(), timeout=timeout
+      )
+    except asyncio.TimeoutError:
+      proc.kill()
+      await proc.wait()
+      return {"ok": False, "error": f"Command timed out after {timeout}s", "stdout": "", "stderr": ""}
+
+    stdout = stdout_bytes.decode("utf-8", errors="replace") if stdout_bytes else ""
+    stderr = stderr_bytes.decode("utf-8", errors="replace") if stderr_bytes else ""
+
+    stdout_lines = stdout.splitlines()
     if len(stdout_lines) > max_output_lines:
       stdout_lines = stdout_lines[:max_output_lines]
       stdout_lines.append("... (truncated)")
-    stderr = (proc.stderr or "").strip()
-    if len(stderr) > 8000:
-      stderr = stderr[:8000] + "\n... (truncated)"
+
     return {
       "ok": proc.returncode == 0,
       "returncode": proc.returncode,
       "stdout": "\n".join(stdout_lines),
-      "stderr": stderr,
-      "cwd": workdir,
+      "stderr": stderr.strip(),
     }
-  except subprocess.TimeoutExpired:
-    return {"ok": False, "error": "Command timed out.", "stdout": "", "stderr": ""}
   except Exception as e:
     return {"ok": False, "error": str(e), "stdout": "", "stderr": ""}

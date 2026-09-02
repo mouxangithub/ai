@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import asyncio
+import functools
 from typing import Any, Callable
 
 from ai.plugins.loader import collect_plugin_schemas, collect_plugin_tool_meta, make_plugin_handlers
@@ -15,6 +17,14 @@ from ai.tools.platform_extensions import (
   PLATFORM_TOOL_META,
   make_platform_handlers,
 )
+
+
+def _to_thread(fn, *args, **kwargs):
+  """Run a synchronous callable off the event loop."""
+  loop = asyncio.get_running_loop()
+  if kwargs:
+    return loop.run_in_executor(None, functools.partial(fn, *args, **kwargs))
+  return loop.run_in_executor(None, fn, *args)
 
 EXTENSION_TOOL_META: dict[str, dict[str, Any]] = {
   "reboot_device": {"label": "重启设备", "group": "shell", "default_enabled": True, "driving": True},
@@ -169,27 +179,27 @@ def make_extension_handlers(
     "needs_confirm": needs_confirm,
   }
 
-  def h_reboot_device(args):
+  async def h_reboot_device(args):
     err = stationary_check("reboot_now")
     if err:
       return err
     from ai.tools.system_control_tools import reboot_device
     from ai.tools.audit_store import record_audit
-    res = reboot_device(delay_sec=int(args.get("delay_sec", 3) or 3))
+    res = await reboot_device(delay_sec=int(args.get("delay_sec", 3) or 3))
     record_audit(action="reboot_device", tool="reboot_device", detail=res, ok=res.get("ok", False))
     return res
 
-  def h_shutdown_device(args):
+  async def h_shutdown_device(args):
     err = stationary_check("shutdown_now")
     if err:
       return err
     from ai.tools.system_control_tools import shutdown_device
     from ai.tools.audit_store import record_audit
-    res = shutdown_device(delay_sec=int(args.get("delay_sec", 5) or 5))
+    res = await shutdown_device(delay_sec=int(args.get("delay_sec", 5) or 5))
     record_audit(action="shutdown_device", tool="shutdown_device", detail=res, ok=res.get("ok", False))
     return res
 
-  def h_manager_control(args):
+  async def h_manager_control(args):
     from ai.tools.system_control_tools import manager_control
     from ai.tools.audit_store import record_audit
     action = str(args.get("action", "status"))
@@ -197,7 +207,7 @@ def make_extension_handlers(
       err = stationary_check("restart_service")
       if err:
         return err
-    res = manager_control(
+    res = await manager_control(
       action,
       use_webcam=bool(args.get("use_webcam")),
       rebuild=bool(args.get("rebuild")),
@@ -578,7 +588,7 @@ def make_extension_handlers(
   async def h_search_memory_semantic(args):
     from ai.tools.memory_vectors import search_memory_semantic
     from ai.core.llm.embedding import load_embedding_config
-    embed_cfg = load_embedding_config(params)
+    embed_cfg = await _to_thread(load_embedding_config, params)
     return await search_memory_semantic(
       params,
       str(args.get("query", "")),

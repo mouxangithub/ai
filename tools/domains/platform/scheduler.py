@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import asyncio
+import inspect
 import json
 import time
 import uuid
@@ -250,12 +252,19 @@ def _should_run_interval(task: dict[str, Any], now: int) -> bool:
   return now - last >= interval
 
 
+async def _to_bool(fn: Callable[[], bool | Awaitable[bool]]) -> bool:
+  value = fn()
+  if inspect.isawaitable(value):
+    value = await value
+  return bool(value)
+
+
 async def run_due_tasks(
   params: Params,
   *,
-  is_driving: Callable[[], bool],
-  is_ignition: Callable[[], bool],
-  is_wifi: Callable[[], bool],
+  is_driving: Callable[[], bool | Awaitable[bool]],
+  is_ignition: Callable[[], bool | Awaitable[bool]],
+  is_wifi: Callable[[], bool | Awaitable[bool]],
   execute_action: Callable[[str, dict[str, Any]], Awaitable[str]],
 ) -> list[dict[str, Any]]:
   now = int(time.time())
@@ -264,9 +273,9 @@ async def run_due_tasks(
   changed = False
 
   prev = _load_state(params)
-  driving = is_driving()
-  ignition = is_ignition()
-  wifi = is_wifi()
+  driving = await _to_bool(is_driving)
+  ignition = await _to_bool(is_ignition)
+  wifi = await _to_bool(is_wifi)
 
   for task in tasks:
     if not task.get("enabled"):

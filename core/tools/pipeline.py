@@ -1,0 +1,243 @@
+"""Tool execution pipeline with pre/guard/around/post/result stages.
+
+A minimal Python port of dsh-tools: registered tools pass through
+pre-execute policy, guards, execution, post-execute policy, and result
+materialization. The pipeline is intentionally synchronous-friendly while
+still supporting async tool bodies.
+"""
+
+from __future__ import annotations
+
+import asyncio
+import functools
+import json
+import time
+from collections.abc import Callable, Coroutine
+from dataclasses import dataclass, field
+from typing import Any
+
+
+class ToolError(Exception):
+  def __init__(self, message: str, code: str = "TOOL_ERROR") -> None:
+    super().__init__(message)
+    self.code = code
+
+
+class ToolNotFoundError(ToolError):
+  def __init__(self, name: str) -> None:
+    super().__init__(f"Tool '{name}' not implemented", "UNKNOWN_TOOL")
+    self.name = name
+
+
+@dataclass
+class ToolDefinition:
+  name: str
+  description: str
+  parameters: dict[str, Any]
+  handler: Callable[[dict[str, Any]], Any]
+  guard: Callable[[dict[str, Any]], str | None] | None = None
+  timeout_ms: int | None = None
+  is_async: bool = False
+
+  def schema(self) -> dict[str, Any]:
+    return {
+      "type": "function",
+      "function": {
+        "name": self.name,
+        "description": self.description,
+        "parameters": self.parameters,
+      },
+    }
+
+
+PreDecisionKind = str
+PostDecisionKind = str
+
+
+@dataclass
+class PreToolDecision:
+  kind: PreDecisionKind  # allow | deny | ask
+  reason: str = ""
+
+
+@dataclass
+class PostToolDecision:
+  kind: PostDecisionKind  # accept | block
+  result: dict[str, Any] | None = None
+  feedback: str = ""
+
+
+@dataclass
+class ToolExecution:
+  call_id: str
+  name: str
+  arguments: dict[str, Any]
+  cancelled: bool = False
+  extra: dict[str, Any] = field(default_factory=dict)
+
+
+PreExecuteHook = Callable[[ToolExecution], PreToolDecision | Coroutine[Any, Any, PreToolDecision]]
+PostExecuteHook = Callable[[ToolExecution, dict[str, Any]], PostToolDecision | Coroutine[Any, Any, PostToolDecision]]
+
+
+class ToolPipeline:
+  """Runs tools through policy + guard + body + post-policy."""
+
+  def __init__(self, handlers: dict[str, Any] | None = None) -> None:
+    self._tools: dict[str, ToolDefinition] = {}
+    self._pre_hooks: list[PreExecuteHook] = []
+    self._post_hooks: list[PostExecuteHook] = []
+    if handlers:
+      for name, handler in handlers.items():
+        self.register_primitive(name, handler)
+
+  def register(self, tool: ToolDefinition) -> None:
+    self._tools[tool.name] = tool
+
+  def register_primitive(self, name: str, handler: Callable[[dict[str, Any]], Any]) -> None:
+    self._tools[name] = ToolDefinition(
+      name=name,
+      description="",
+      parameters={"type": "object", "properties": {}},
+      handler=handler,
+    )
+
+  def add_pre_hook(self, hook: PreExecuteHook) -> Callable[[], None]:
+    self._pre_hooks.append(hook)
+
+    def remove() -> None:
+      try:
+        self._pre_hooks.remove(hook)
+      except ValueError:
+        pass
+    return remove
+
+  def add_post_hook(self, hook: PostExecuteHook) -> Callable[[], None]:
+    self._post_hooks.append(hook)
+
+    def remove() -> None:
+      try:
+        self._post_hooks.remove(hook)
+      except ValueError:
+        pass
+    return remove
+
+  def schemas(self) -> list[dict[str, Any]]:
+    return [t.schema() for t in self._tools.values()]
+
+  def get(self, name: str) -> ToolDefinition | None:
+    return self._tools.get(name)
+
+  async def execute(
+    self,
+    call_id: str,
+    name: str,
+    raw_arguments: str,
+    *,
+    is_cancelled: Callable[[], bool] | None = None,
+    timeout_seconds: float | None = None,
+    extra: dict[str, Any] | None = None,
+  ) -> dict[str, Any]:
+    tool = self._tools.get(name)
+    if tool is None:
+      return {"ok": False, "error": f"Tool '{name}' not implemented"}
+
+    try:
+      args = json.loads(raw_arguments) if raw_arguments else {}
+      if not isinstance(args, dict):
+        args = {"value": args}
+    except json.JSONDecodeError as e:
+      return {"ok": False, "error": f"Invalid tool arguments JSON: {e}"}
+
+    exec_ctx = ToolExecution(call_id=call_id, name=name, arguments=args, extra=extra or {})
+    guard_ctx = getattr(self, "_guard_context", None)
+    if guard_ctx is not None:
+      exec_ctx.extra["_guard_ctx"] = guard_ctx
+
+    # Pre-execute hooks
+    for hook in self._pre_hooks:
+      decision = hook(exec_ctx)
+      if asyncio.iscoroutine(decision):
+        decision = await decision
+      if decision.kind != "allow":
+        return {"ok": False, "error": decision.reason or f"Tool '{name}' blocked by pre-execute policy"}
+
+    # Guard
+    if tool.guard is not None:
+      reason = tool.guard(args)
+      if reason:
+        return {"ok": False, "error": reason}
+
+    if is_cancelled and is_cancelled():
+      exec_ctx.cancelled = True
+      return {"ok": False, "error": "Tool call was cancelled before execution"}
+
+    # Execute
+    effective_timeout = timeout_seconds
+    if effective_timeout is None and tool.timeout_ms:
+      effective_timeout = tool.timeout_ms / 1000.0
+
+    body_invoked = True
+    try:
+      if asyncio.iscoroutinefunction(tool.handler) or getattr(tool, "is_async", False):
+        if effective_timeout is not None and effective_timeout > 0:
+          result = await asyncio.wait_for(tool.handler(args), timeout=effective_timeout)
+        else:
+          result = await tool.handler(args)
+      else:
+        loop = asyncio.get_running_loop()
+        if effective_timeout is not None and effective_timeout > 0:
+          result = await asyncio.wait_for(
+            loop.run_in_executor(None, functools.partial(tool.handler, args)),
+            timeout=effective_timeout,
+          )
+        else:
+          result = await loop.run_in_executor(None, functools.partial(tool.handler, args))
+    except TimeoutError:
+      body_invoked = False
+      result = {"ok": False, "error": f"Tool '{name}' timed out after {effective_timeout}s"}
+    except asyncio.CancelledError:
+      raise
+    except Exception as e:
+      result = {"ok": False, "error": f"Tool execution failed: {e}"}
+
+    if is_cancelled and is_cancelled():
+      if body_invoked:
+        return {"ok": False, "error": "Tool call was cancelled during execution"}
+      return {"ok": False, "error": "Tool call was cancelled before execution"}
+
+    if not isinstance(result, dict):
+      result = {"ok": True, "value": result}
+
+    # Post-execute hooks
+    for hook in self._post_hooks:
+      decision = hook(exec_ctx, result)
+      if asyncio.iscoroutine(decision):
+        decision = await decision
+      if decision.kind == "block":
+        return {"ok": False, "error": decision.feedback or "Tool result blocked by post-execute policy"}
+      if decision.kind == "accept" and decision.result is not None:
+        result = decision.result
+
+    return result
+
+  def wrap_executor(self) -> Callable[..., Coroutine[Any, Any, Any]]:
+    """Return a callable matching the old execute_tool_async signature."""
+    async def _run(
+      handlers: dict[str, Any],
+      name: str,
+      arguments: str,
+      *,
+      timeout_seconds: float | None = None,
+      is_cancelled: Callable[[], bool] | None = None,
+    ) -> Any:
+      # Rebuild pipeline from handlers for compatibility.
+      pipeline = ToolPipeline(handlers)
+      return await pipeline.execute(
+        call_id=f"{name}:{int(time.monotonic() * 1000)}",
+        name=name,
+        raw_arguments=arguments,
+        is_cancelled=is_cancelled,
+        timeout_seconds=timeout_seconds,
+      )
+    return _run

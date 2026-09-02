@@ -9,7 +9,6 @@ from __future__ import annotations
 import asyncio
 import json
 import os
-import subprocess
 from datetime import datetime
 from typing import Any, Callable
 
@@ -1571,18 +1570,18 @@ def make_handlers(
         result["pattern_analysis"] = pattern
     return result
 
-  def h_run_shell(args):
+  async def h_run_shell(args):
     err = _stationary_check("shell")
     if err:
       return err
-    return run_command(args.get("command", ""))
+    return await run_command(args.get("command", ""))
 
-  def h_run_shell_command(args):
+  async def h_run_shell_command(args):
     err = _stationary_check("shell")
     if err:
       return err
     timeout = int(args.get("timeout", 60) or 60)
-    return run_shell_command(str(args.get("command", "")), timeout=min(timeout, 300))
+    return await run_shell_command(str(args.get("command", "")), timeout=min(timeout, 300))
 
   def h_read_file(args):
     from ai.tools.fs_tools import read_file
@@ -1599,7 +1598,7 @@ def make_handlers(
     from ai.tools.fs_tools import list_directory
     return list_directory(str(args.get("path", ".") or "."))
 
-  def h_restart_service(args):
+  async def h_restart_service(args):
     err = _stationary_check("restart_service")
     if err:
       return err
@@ -1608,14 +1607,16 @@ def make_handlers(
       return {"ok": False, "error": "name required"}
     if not admin and name not in _RESTARTABLE_SERVICES:
       return {"ok": False, "error": f"Service '{name}' not whitelisted."}
-    subprocess.run(["pkill", "-f", name], check=False)
+    proc = await asyncio.create_subprocess_exec("pkill", "-f", name)
+    await proc.wait()
     return {"ok": True, "message": f"Sent restart to {name}"}
 
-  def h_restart_ui(_a):
+  async def h_restart_ui(_a):
     err = _stationary_check("restart_ui")
     if err:
       return err
-    subprocess.run(["pkill", "-f", "selfdrive/ui"], check=False)
+    proc = await asyncio.create_subprocess_exec("pkill", "-f", "selfdrive/ui")
+    await proc.wait()
     return {"ok": True, "message": "UI restart signal sent"}
 
   handlers = {

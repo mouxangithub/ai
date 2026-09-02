@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import os
 from typing import Any, Callable
 
 from openpilot.common.params import Params
@@ -86,6 +87,7 @@ async def run_chat_with_agents(
   tools: list[dict[str, Any]] | None,
   max_tool_rounds: int = 64,
   is_cancelled: Callable[[], bool] | None = None,
+  session_log_path: str | None = None,
 ) -> dict[str, Any]:
   plan = body.get("_orchestration_plan")
   if not plan or not isinstance(plan, list) or len(plan) < 2:
@@ -98,6 +100,7 @@ async def run_chat_with_agents(
       tools=tools,
       max_tool_rounds=max_tool_rounds,
       is_cancelled=is_cancelled,
+      session_log_path=session_log_path,
     )
 
   session_id = str(body.get("sessionId") or body.get("session_id") or "").strip()
@@ -150,6 +153,11 @@ async def run_chat_with_agents(
       "_agent_route": route_dict,
       "_orchestration_phase": "specialist",
     }
+    specialist_log_path = session_log_path
+    if specialist_log_path:
+      aid = route_dict.get("agent_id") or route_dict.get("agentId") or "specialist"
+      base, ext = os.path.splitext(specialist_log_path)
+      specialist_log_path = f"{base}_{aid}{ext or '.jsonl'}"
     result = await run_chat_loop(
       sub_body,
       params,
@@ -159,6 +167,7 @@ async def run_chat_with_agents(
       tools=sub_tools,
       max_tool_rounds=min(24, max_tool_rounds),
       is_cancelled=is_cancelled,
+      session_log_path=specialist_log_path,
     )
     if not result.get("ok"):
       raise RuntimeError(result.get("error") or "specialist failed")
@@ -169,15 +178,33 @@ async def run_chat_with_agents(
       "content": "".join(collected).strip(),
     }
 
-  results = await asyncio.gather(
-    *[_run_specialist(route_dict) for route_dict in plan],
-    return_exceptions=True,
-  )
+  tasks = [asyncio.create_task(_run_specialist(route_dict)) for route_dict in plan]
+  results: list[Any] = [None] * len(tasks)
+  try:
+    pending = set(tasks)
+    while pending:
+      done, pending = await asyncio.wait(pending, return_when=asyncio.FIRST_COMPLETED)
+      for t in done:
+        idx = tasks.index(t)
+        exc = t.exception()
+        if exc is not None:
+          results[idx] = exc
+          # Cancel remaining specialists as soon as one fails or is cancelled.
+          for pt in pending:
+            if not pt.done():
+              pt.cancel()
+          await asyncio.gather(*pending, return_exceptions=True)
+          if isinstance(exc, (ChatCancelled, asyncio.CancelledError)):
+            raise ChatCancelled()
+          return {"ok": False, "error": str(exc)}
+        results[idx] = t.result()
+  finally:
+    for t in tasks:
+      if not t.done():
+        t.cancel()
+    await asyncio.gather(*tasks, return_exceptions=True)
+
   for item in results:
-    if isinstance(item, Exception):
-      if isinstance(item, ChatCancelled):
-        raise item
-      return {"ok": False, "error": str(item)}
     summaries.append(item)
     await emit({"type": "agent_summary", **item})
 
@@ -212,6 +239,10 @@ async def run_chat_with_agents(
   }
   await emit({"type": "orchestration_synthesis", "agentId": orchestrator_id()})
 
+  synthesis_log_path = session_log_path
+  if synthesis_log_path:
+    base, ext = os.path.splitext(synthesis_log_path)
+    synthesis_log_path = f"{base}_synthesis{ext or '.jsonl'}"
   return await run_chat_loop(
     synth_body,
     params,
@@ -221,4 +252,5 @@ async def run_chat_with_agents(
     tools=None,
     max_tool_rounds=min(12, max_tool_rounds),
     is_cancelled=is_cancelled,
+    session_log_path=synthesis_log_path,
   )

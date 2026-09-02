@@ -76,11 +76,11 @@ async def api_tsk_clear_cache(_request: web.Request) -> web.Response:
 
 
 async def api_tsk_reboot_device(_request: web.Request) -> web.Response:
-  return _json(await _run_sync(tsk_service.run_reboot_device))
+  return _json(await tsk_service.run_reboot_device())
 
 
 async def api_tsk_restart_manager(_request: web.Request) -> web.Response:
-  return _json(await _run_sync(tsk_service.run_restart_manager))
+  return _json(await tsk_service.run_restart_manager())
 
 
 async def api_tsk_restart_pandad(_request: web.Request) -> web.Response:

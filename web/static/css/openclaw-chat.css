@@ -92,11 +92,20 @@
 }
 
 .chat-text {
-  font-size: 0.95rem;
-  line-height: 1.5;
   overflow-wrap: anywhere;
   word-break: break-word;
   padding: 0.1rem 0 0.35rem;
+}
+
+/* Font-size axis (inspired by dsh content font axis) */
+.chat-text,
+.md-content {
+  --chat-content-font-size: 0.95rem;
+  --chat-content-font-delta: 0px;
+  --chat-content-line-height: calc(1.5 + var(--chat-content-font-delta) / 16 * 0.05);
+  --chat-content-font-size-secondary: 0.82rem;
+  font-size: var(--chat-content-font-size);
+  line-height: var(--chat-content-line-height);
 }
 
 .chat-bubble .assistant-loading {
@@ -132,9 +141,42 @@
   gap: 0.4rem;
   padding: 0.28rem 0;
   cursor: pointer;
-  font-size: 0.76rem;
+  font-size: var(--chat-content-font-size-secondary, 0.76rem);
+  line-height: calc(1.4 + var(--chat-content-font-delta, 0px) / 16 * 0.05);
   color: var(--text-muted);
   user-select: none;
+  position: relative;
+  overflow: hidden;
+}
+
+/* Running reasoning row sweep (inspired by dsh ReasoningRow). */
+.chat-thinking-collapse.is-activity-waiting > summary::after,
+.chat-thinking-collapse[data-state="running"] > summary::after {
+  content: '';
+  position: absolute;
+  inset-block: 0;
+  left: 0;
+  width: 180px;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    color-mix(in srgb, var(--bg) 55%, transparent) 55%,
+    transparent 100%
+  );
+  animation: reasoning-row-sweep 2.4s ease-out infinite;
+  pointer-events: none;
+}
+
+@keyframes reasoning-row-sweep {
+  0% { left: -180px; }
+  90%, 100% { left: 100%; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chat-thinking-collapse.is-activity-waiting > summary::after,
+  .chat-thinking-collapse[data-state="running"] > summary::after {
+    animation: none;
+  }
 }
 
 .chat-thinking-collapse > summary::-webkit-details-marker,
@@ -162,6 +204,27 @@
 .chat-trace-collapse[open] > summary::before,
 .chat-tool-msg-collapse[open] > summary::before {
   transform: rotate(90deg);
+}
+
+.chat-thinking-collapse .thinking-label {
+  flex-shrink: 0;
+}
+
+.chat-thinking-collapse .thinking-summary {
+  min-width: 0;
+  flex: 1 1 auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-muted);
+  opacity: 0.85;
+  margin-left: 0.15rem;
+}
+
+.chat-thinking-collapse[open] .thinking-summary,
+.chat-thinking-collapse.is-activity-waiting .thinking-summary {
+  opacity: 0;
+  flex: 0;
 }
 
 .chat-bubble > :not(.hidden) + .chat-text {
@@ -206,8 +269,8 @@
   margin: 0.25rem 0 0.35rem;
   padding: 0.35rem 0 0.35rem 0.65rem;
   border-left: 2px dashed color-mix(in srgb, var(--border) 85%, transparent);
-  font-size: 0.82rem;
-  line-height: 1.5;
+  font-size: var(--chat-content-font-size-secondary, 0.82rem);
+  line-height: calc(1.5 + var(--chat-content-font-delta, 0px) / 16 * 0.05);
   color: var(--text-muted);
   max-height: min(240px, 42vh);
   overflow: auto;
@@ -347,6 +410,7 @@
 .md-content .md-table.md-kv-table th:first-child,
 .md-content .md-table.md-kv-table td:first-child {
   width: 34%;
+  min-width: 7rem;
   max-width: 11rem;
   white-space: normal;
   word-break: break-word;
@@ -380,9 +444,15 @@
 .markdown-table .md-table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 0.85rem;
+  font-size: var(--chat-content-font-size-secondary, 0.85rem);
   margin: 0;
   border: none;
+  table-layout: auto;
+}
+
+.markdown-table.md-kv-table table,
+.markdown-table.md-kv-table .md-table {
+  table-layout: fixed;
 }
 
 .markdown-table th,
@@ -408,6 +478,25 @@
 .markdown-table.md-kv-table th:first-child,
 .markdown-table.md-kv-table td:first-child {
   white-space: normal;
+}
+
+/* Wide-table breakout (inspired by dsh md-table-wide). */
+.markdown-table.md-table-wide,
+.md-content .md-table-wrap.md-table-wide {
+  --table-spare: max(0px, calc((100cqw - min(100%, var(--thread-max))) / 2));
+  --table-lead: calc(var(--table-spare) - 100% + min(100%, var(--thread-max)));
+  width: calc(100% + var(--table-lead) + var(--table-spare));
+  max-width: none;
+  margin-left: calc(-1 * var(--table-lead));
+  padding-left: var(--table-lead);
+}
+
+@container (max-width: 640px) {
+  .markdown-table.md-table-wide,
+  .md-content .md-table-wrap.md-table-wide {
+    --table-spare: 0px;
+    --table-lead: 0px;
+  }
 }
 
 .chat-thread {

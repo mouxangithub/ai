@@ -600,16 +600,16 @@ def run_clear_cache() -> dict[str, Any]:
   return {"ok": True}
 
 
-def run_reboot_device() -> dict[str, Any]:
+async def run_reboot_device() -> dict[str, Any]:
   from ai.tools.system_control_tools import reboot_device
 
-  return reboot_device()
+  return await reboot_device()
 
 
-def run_restart_manager() -> dict[str, Any]:
+async def run_restart_manager() -> dict[str, Any]:
   from ai.tools.system_control_tools import manager_control
 
-  return manager_control("restart")
+  return await manager_control("restart")
 
 
 def run_restart_pandad() -> dict[str, Any]:

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import traceback
 from typing import Any
 
 from aiohttp import web
@@ -44,12 +45,14 @@ async def scheduler_loop(_app: web.Application) -> None:
     await asyncio.sleep(60)
     try:
       state = get_state_reader().update(timeout=0)
+      wifi = await device_wifi_connected()
       await run_due_tasks(
         _PARAMS,
         is_driving=lambda: state.is_driving,
         is_ignition=lambda: state.ignition,
-        is_wifi=device_wifi_connected,
+        is_wifi=lambda: wifi,
         execute_action=scheduler_execute_action,
       )
     except Exception as e:
       cloudlog.error(f"aid: scheduler loop error: {e}")
+      cloudlog.error(f"aid: scheduler loop traceback: {traceback.format_exc()}")

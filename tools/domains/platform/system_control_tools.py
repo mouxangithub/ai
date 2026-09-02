@@ -2,27 +2,26 @@
 
 from __future__ import annotations
 
+import asyncio
 import os
-import subprocess
 import time
-from typing import Any
+from typing import Any, Callable
 
-from ai.system.paths import is_comma_device, openpilot_root, rel_source, source_path
+from ai.system.paths import is_comma_device, openpilot_root, source_path
 
 _MANAGER_PATTERN = "manager/manager.py"
 
 
-def reboot_device(*, delay_sec: int = 3) -> dict[str, Any]:
+async def reboot_device(*, delay_sec: int = 3) -> dict[str, Any]:
   delay_sec = max(0, min(int(delay_sec), 30))
   if not is_comma_device() and os.name == "nt":
     return {"ok": False, "error": "reboot_device is for comma/AGNOS device only"}
   cmd = f"sleep {delay_sec} && sudo reboot"
   try:
-    subprocess.Popen(
+    await asyncio.create_subprocess_shell(
       cmd,
-      shell=True,
-      stdout=subprocess.DEVNULL,
-      stderr=subprocess.DEVNULL,
+      stdout=asyncio.subprocess.DEVNULL,
+      stderr=asyncio.subprocess.DEVNULL,
       start_new_session=True,
     )
   except OSError as e:
@@ -34,17 +33,16 @@ def reboot_device(*, delay_sec: int = 3) -> dict[str, Any]:
   }
 
 
-def shutdown_device(*, delay_sec: int = 5) -> dict[str, Any]:
+async def shutdown_device(*, delay_sec: int = 5) -> dict[str, Any]:
   delay_sec = max(0, min(int(delay_sec), 60))
   if not is_comma_device() and os.name == "nt":
     return {"ok": False, "error": "shutdown_device is for comma/AGNOS device only"}
   cmd = f"sleep {delay_sec} && sudo poweroff"
   try:
-    subprocess.Popen(
+    await asyncio.create_subprocess_shell(
       cmd,
-      shell=True,
-      stdout=subprocess.DEVNULL,
-      stderr=subprocess.DEVNULL,
+      stdout=asyncio.subprocess.DEVNULL,
+      stderr=asyncio.subprocess.DEVNULL,
       start_new_session=True,
     )
   except OSError as e:
@@ -65,12 +63,13 @@ def _manager_running() -> bool:
     return False
 
 
-def manager_control(
+async def manager_control(
   action: str,
   *,
   use_webcam: bool = False,
   rebuild: bool = False,
   timeout: int = 600,
+  is_cancelled: Callable[[], bool] | None = None,
 ) -> dict[str, Any]:
   action = (action or "").strip().lower()
   root = openpilot_root()
@@ -85,27 +84,41 @@ def manager_control(
       "openpilot_root": str(root),
     }
 
+  async def _pkill(pattern: str) -> None:
+    proc = await asyncio.create_subprocess_exec("pkill", "-f", pattern)
+    await proc.wait()
+
   if action == "stop":
-    subprocess.run(["pkill", "-f", _MANAGER_PATTERN], check=False)
-    time.sleep(0.5)
+    await _pkill(_MANAGER_PATTERN)
+    await asyncio.sleep(0.5)
     return {"ok": True, "message": "Sent stop to manager", "running": _manager_running()}
 
   if action == "restart":
-    subprocess.run(["pkill", "-f", _MANAGER_PATTERN], check=False)
-    time.sleep(1.0)
+    await _pkill(_MANAGER_PATTERN)
+    await asyncio.sleep(1.0)
     action = "start"
 
   if action == "rebuild":
+    if is_cancelled and is_cancelled():
+      return {"ok": False, "error": "rebuild cancelled before starting"}
     try:
-      proc = subprocess.run(
-        ["scons", "-u", "-j8"],
+      proc = await asyncio.create_subprocess_exec(
+        "scons", "-u", "-j8",
         cwd=str(root),
-        capture_output=True,
-        text=True,
-        timeout=timeout,
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.PIPE,
       )
-      out = (proc.stdout or "")[-4000:]
-      err = (proc.stderr or "")[-2000:]
+      try:
+        stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=timeout)
+      except asyncio.TimeoutError:
+        try:
+          proc.kill()
+        except ProcessLookupError:
+          pass
+        await proc.wait()
+        return {"ok": False, "error": f"scons timed out after {timeout}s"}
+      out = (stdout.decode("utf-8", errors="replace") or "")[-4000:]
+      err = (stderr.decode("utf-8", errors="replace") or "")[-2000:]
       return {
         "ok": proc.returncode == 0,
         "returncode": proc.returncode,
@@ -113,10 +126,15 @@ def manager_control(
         "stderr_tail": err,
         "hint": "Run manager_control start after successful rebuild.",
       }
-    except subprocess.TimeoutExpired:
-      return {"ok": False, "error": f"scons timed out after {timeout}s"}
     except FileNotFoundError:
       return {"ok": False, "error": "scons not found; install build tools first"}
+    except asyncio.CancelledError:
+      try:
+        proc.kill()
+      except ProcessLookupError:
+        pass
+      await proc.wait()
+      raise
 
   if action == "start":
     if not manager_py.is_file():
@@ -125,24 +143,24 @@ def manager_control(
     if use_webcam:
       env["USE_WEBCAM"] = "1"
     if rebuild:
-      build = manager_control("rebuild", timeout=timeout)
+      build = await manager_control("rebuild", timeout=timeout, is_cancelled=is_cancelled)
       if not build.get("ok"):
         return build
     log_path = root / "ai_manager_launch.log"
     try:
       with log_path.open("a", encoding="utf-8") as logf:
         logf.write(f"\n--- launch {time.strftime('%Y-%m-%d %H:%M:%S')} ---\n")
-        proc = subprocess.Popen(
-          ["python", str(manager_py)],
+        proc = await asyncio.create_subprocess_exec(
+          "python", str(manager_py),
           cwd=str(root),
           env=env,
           stdout=logf,
-          stderr=subprocess.STDOUT,
+          stderr=asyncio.subprocess.STDOUT,
           start_new_session=True,
         )
     except OSError as e:
       return {"ok": False, "error": str(e)}
-    time.sleep(1.5)
+    await asyncio.sleep(1.5)
     return {
       "ok": True,
       "pid": proc.pid,
