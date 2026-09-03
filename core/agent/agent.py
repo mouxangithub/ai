@@ -60,6 +60,7 @@ class Agent:
     is_cancelled: Callable[[], bool] | None = None,
     concurrent_tools: bool = True,
     session_log_path: str | None = None,
+    ai_use_agent_loop: bool = True,
   ) -> None:
     self.session_id = session_id
     self.agent_id = agent_id
@@ -77,10 +78,12 @@ class Agent:
     self.is_cancelled_callback = is_cancelled
     self.concurrent_tools = concurrent_tools
     self.verbose = bool(body.get("verbose"))
+    self.ai_use_agent_loop = ai_use_agent_loop
 
     self.state = AgentState(agent_id, session_id)
     self.log = SessionLog(session_id, persist_path=session_log_path)
     self.pipeline = ToolPipeline(get_tool_handlers())
+    self._install_spill_post_hook()
     try:
       from ai.core.tools.guard import install_hook_guards
       install_hook_guards(
@@ -108,6 +111,41 @@ class Agent:
 
   def cancel(self, kind: CancelCauseKind = CancelCauseKind.USER, reason: str = "") -> None:
     self.state.cancel(CancelCause(kind, reason))
+
+  def _install_spill_post_hook(self) -> None:
+    """Register a post-execute hook that externalizes oversized tool results.
+
+    Mirrors ARCH D4: large dict results spill to disk and the context receives a
+    pointer; read/grep/read_file tools are skipped to avoid loops; non-dict
+    results and failures pass through unchanged.
+    """
+    try:
+      from ai.core.tools.pipeline import PostToolDecision
+
+      def _skip(name: str) -> bool:
+        lowered = (name or "").lower()
+        return lowered in ("read", "read_file", "read_file_text") or "grep" in lowered
+
+      async def _spill(exec_ctx, result: dict[str, Any]) -> Any:
+        name = getattr(exec_ctx, "name", "")
+        if not isinstance(result, dict) or result.get("ok") is False:
+          return PostToolDecision(kind="accept", result=None)
+        if _skip(name):
+          return PostToolDecision(kind="accept", result=None)
+        from ai.tools.result_externalize import externalize_if_needed
+        pointer, _artifact = externalize_if_needed(
+          result,
+          session_id=self.session_id,
+          tool_name=name,
+          params=self.params,
+        )
+        if pointer is not result:
+          return PostToolDecision(kind="accept", result=pointer)
+        return PostToolDecision(kind="accept", result=None)
+
+      self.pipeline.add_post_hook(_spill)
+    except Exception as e:
+      cloudlog.warning(f"aid: spill post hook install failed: {e}")
 
   def _check_cancel(self) -> None:
     if self.is_cancelled:
@@ -575,8 +613,112 @@ class Agent:
     except Exception:
       pass
 
+  async def run_with_loop(self) -> dict[str, Any]:
+    """Drive the session using AgentLoop as the core turn/step engine.
+
+    Keeps Agent's message building, header config, handoff, and post-chat
+    hooks, but delegates the stream + tool-call loop to AgentLoop so the
+    lower-level loop module is exercised by the chat runner.
+    """
+    from ai.core.agent.loop import AgentLoop
+
+    try:
+      self.config, self._chat_messages = await self._build_messages()
+      active_tools = self._active_tools()
+      system_content = None
+      if self._chat_messages and self._chat_messages[0].get("role") == "system":
+        system_content = self._chat_messages[0].get("content")
+      await self._configure_request_header(system_content, active_tools)
+      await self._seed_user_messages()
+      await self._maybe_emit_handoff()
+
+      budget_report = self.body.get("_prompt_budget")
+      if budget_report:
+        await self.emit({"type": "prompt_budget", "budget": budget_report})
+
+      async def _stream_fn(request: dict[str, Any], _params: Any) -> Any:
+        async for chunk, active_cfg in chat_completion_with_failover(
+          self.config,
+          self.params,
+          request.get("messages", []),
+          tools=request.get("tools"),
+          body=self.body,
+        ):
+          self.config = active_cfg
+          yield chunk
+
+      loop = AgentLoop(
+        session_id=self.session_id,
+        agent_id=self.agent_id,
+        params=self.params,
+        emit=self.emit,
+        stream_fn=_stream_fn,
+        tool_pipeline=self.pipeline,
+        max_tool_rounds=self.max_tool_rounds,
+        tool_timeout=self.tool_timeout,
+        stream_timeout=self.stream_timeout,
+      )
+      # Share durable log with the lower-level loop.
+      loop.log.close()
+      loop.log = self.log
+
+      header = self.log.request_header()
+      if header is not None:
+        loop.configure_request(header.provider, header.model, header.system, header.tools)
+
+      # Queue the seeded user messages without starting a background driver.
+      # The loop is driven explicitly below; starting both paths races on the
+      # shared AgentState and can leave the request stuck at "loop did not start".
+      from ai.core.agent.state import AgentMessage, InboxTarget
+      for msg in self._chat_messages:
+        if msg.get("role") == "user":
+          loop.state.send(
+            AgentMessage(role="user", content=str(msg.get("content", "")), source="user"),
+            InboxTarget.NEXT_TURN,
+            wakeup=False,
+          )
+
+      # Drive the initial turn explicitly, then continue only for queued
+      # follow-up work.  There must be exactly one active driver.
+      loop.state.wake_driver()
+      result: dict[str, Any] = await loop._run()
+      while loop.state.inbox.has_pending:
+        self._check_cancel()
+        result = await loop._run()
+
+      if result.get("ok"):
+        self._resolved_model = getattr(self.config, "model", None)
+        await self._run_post_chat()
+        await self.emit({
+          "type": "done",
+          "resolvedModel": self._resolved_model,
+          "agentId": self.agent_id,
+        })
+        return {"ok": True, "resolvedModel": self._resolved_model, "agentId": self.agent_id}
+      return result
+    except ChatCancelled:
+      try:
+        await self.emit({"type": "error", "error": "cancelled"})
+      except Exception:
+        pass
+      return {"ok": False, "error": "cancelled"}
+    except Exception as e:
+      cloudlog.error(f"aid: Agent.run_with_loop error: {e}")
+      try:
+        await self.emit({"type": "error", "error": str(e)})
+      except Exception:
+        pass
+      return {"ok": False, "error": str(e)}
+
   async def run(self) -> dict[str, Any]:
     """Drive the session to completion and return the run result."""
+    if (
+      self.body.get("useAgentLoop")
+      or self.body.get("use_agent_loop")
+      or self.body.get("ai_use_agent_loop")
+      or self.ai_use_agent_loop
+    ):
+      return await self.run_with_loop()
     try:
       self.config, self._chat_messages = await self._build_messages()
       active_tools = self._active_tools()

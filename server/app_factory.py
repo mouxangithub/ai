@@ -14,6 +14,9 @@ from ai.server.deps import WEB_DIR, json_response, params, read_ai_config
 from ai.server.runtime import scheduler_loop, status_watch_loop
 from ai.server.routes import register_routes as register_server_routes
 from ai.core.sync.hub import register_sync_routes
+from ai.lsp.index import SymbolIndex
+from ai.lsp.server_manager import LspServerManager
+from ai.spill.manager import SpillManager
 from ai.tools.rag_store import reindex_all
 from ai.tools.scheduler import ensure_default_scheduler_tasks
 from ai.infra.auth.web import ai_auth_middleware
@@ -228,6 +231,14 @@ def create_app() -> web.Application:
       task = application.get(key)
       if task:
         task.cancel()
+    try:
+      await application["lsp_manager"].stop_all()
+    except Exception as e:
+      cloudlog.warning(f"aid: lsp shutdown skipped: {e}")
+
+  app["spill_manager"] = SpillManager()
+  app["lsp_manager"] = LspServerManager()
+  app["lsp_index"] = SymbolIndex()
 
   app.on_startup.append(_on_startup)
   app.on_cleanup.append(_on_cleanup)

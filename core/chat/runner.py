@@ -118,6 +118,36 @@ async def build_chat_messages(
     labeled_parts.append(("workspace", "\n\n".join(workspace_blocks), 1200, 75))
 
   try:
+    from ai.system.paths import workspace_path
+    from ai.attachment.store import AttachmentStore
+    from ai.attachment.context import attachment_context_prompt
+    import re as _re
+    _store = AttachmentStore(workspace_path("ai_attachments"))
+    ids: list[str] = []
+    explicit = body.get("attachments") or []
+    if isinstance(explicit, list):
+      for aid in explicit:
+        if isinstance(aid, str) and aid:
+          ids.append(aid)
+    for msg in messages:
+      if msg.get("role") == "user":
+        content = msg.get("content", "")
+        if isinstance(content, str):
+          ids += _re.findall(r"attachment://([^\s)\]}]+)", content)
+    dedup: list[str] = []
+    seen: set[str] = set()
+    for aid in ids:
+      if aid not in seen:
+        seen.add(aid)
+        dedup.append(aid)
+    if dedup:
+      attach_block = attachment_context_prompt(_store, dedup)
+      if attach_block:
+        labeled_parts.append(("attachments", attach_block, budget.memory_max, 60))
+  except Exception:
+    pass
+
+  try:
     from ai.tools.daily_memory import build_daily_memory_prompt_block
     daily_block = build_daily_memory_prompt_block()
     if daily_block:

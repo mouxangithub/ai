@@ -215,5 +215,94 @@ class WorkflowCustomTests(unittest.TestCase):
       self.assertIn("Test", prompt)
 
 
+class HarnessToolWiringTests(unittest.TestCase):
+  """P0-2/P0-4/P0-5/P0-6: harness model tools are really wired (no stubs)."""
+
+  def _patch_stores(self, tmp: Path):
+    import ai.tools.harness_tools as ht
+    from ai.goal.store import GoalStore
+    from ai.plan.store import PlanStore
+    from ai.todo.store import TodoStore
+    ht._goal_store = lambda: GoalStore(tmp / "goals")
+    ht._plan_store = lambda: PlanStore(tmp / "plans")
+    ht._todo_store = lambda: TodoStore(tmp / "todos")
+    return ht
+
+  def test_goal_plan_todo_roundtrip(self):
+    import asyncio
+    from ai.tools import harness_tools as ht
+
+    with tempfile.TemporaryDirectory() as td:
+      self._patch_stores(Path(td))
+
+      created = ht._h_goal_create({"objective": "诊断无法启动"})
+      self.assertTrue(created.get("ok"))
+      self.assertTrue(created["goal"]["id"].startswith("goal-"))
+      ref = {"id": created["goal"]["id"], "revision": created["goal"]["revision"]}
+
+      got = ht._h_goal_get({})
+      self.assertTrue(got.get("ok"))
+      self.assertEqual(got["goal"]["objective"], "诊断无法启动")
+
+      todo = ht._h_todo_write({"todos": [{"content": "查日志"}, {"content": "看状态"}]})
+      self.assertTrue(todo.get("ok"))
+      self.assertEqual(todo["counts"]["pending"], 2)
+
+      plan = ht._h_plan_generate({"title": "诊断", "steps": [{"id": "s1", "description": "a"}, {"id": "s2", "description": "b"}]})
+      self.assertTrue(plan.get("ok"))
+      self.assertEqual(plan["plan"]["status"], "draft")
+      self.assertEqual(len(plan["plan"]["steps"]), 2)
+
+      done = ht._h_goal_complete({"ref": ref})
+      self.assertTrue(done.get("ok"))
+      self.assertEqual(done["goal"]["phase"], "complete")
+
+  def test_python_runner_sandbox_blocked(self):
+    import asyncio
+    from ai.tools import harness_tools as ht
+
+    with tempfile.TemporaryDirectory() as td:
+      blocked = asyncio.run(ht._h_run_python_code({"code": "import os; os.system('x')", "timeout_s": 5}))
+      # os.system is blocked; must NOT be ok (no host execution fallback).
+      self.assertFalse(blocked.get("ok"))
+
+  def test_workflow_missing_is_deterministic_error(self):
+    import asyncio
+    from ai.tools import harness_tools as ht
+
+    result = asyncio.run(ht._h_workflow_advance({"workflow_id": "no_such_graph", "action": "step"}))
+    self.assertFalse(result.get("ok"))
+    self.assertIn("not found", result.get("error", ""))
+
+  def test_lsp_no_server_deterministic_error(self):
+    import asyncio
+    from ai.tools import harness_tools as ht
+
+    result = asyncio.run(ht._h_lsp({"action": "hover", "uri": "file:///x.py", "line": 1, "character": 1}))
+    self.assertFalse(result.get("ok"))
+    self.assertIn("no LSP server", result.get("error", ""))
+
+  def test_schemas_exposed(self):
+    from ai.tools.harness_tools import harness_tool_schemas
+
+    schemas = harness_tool_schemas()
+    names = {s["function"]["name"] for s in schemas}
+    for expected in ("goal_create", "goal_complete", "plan_generate", "todo_write",
+                     "subagent_start", "lsp", "run_python_code", "workflow_advance"):
+      self.assertIn(expected, names)
+
+  def test_todo_store_repeated_nobase_call(self):
+    """Regression: get_todo_store() without base_dir must not UnboundLocalError."""
+    from ai.todo import store as todo_store
+
+    with tempfile.TemporaryDirectory() as td:
+      todo_store._store = None
+      with patch.dict("os.environ", {"AI_WORKSPACE": td}):
+        s1 = todo_store.get_todo_store()
+        s2 = todo_store.get_todo_store()
+      self.assertIs(s1, s2)
+      self.assertTrue(todo_store.get_todo_store() is not None)
+
+
 if __name__ == "__main__":
   unittest.main()

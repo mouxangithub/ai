@@ -1,4 +1,8 @@
-"""Tool execution with audit logging."""
+"""Tool execution with audit logging.
+
+Backward-compatible helpers that can delegate to ai.core.tools.pipeline.ToolPipeline
+so older callers get the same guard/hook semantics as the Agent facade.
+"""
 
 from __future__ import annotations
 
@@ -42,8 +46,12 @@ async def execute_tool_async(
   *,
   timeout: float | None = None,
   is_cancelled: Callable[[], bool] | None = None,
+  pipeline: Any | None = None,
 ) -> Any:
   """Execute a tool handler without blocking the event loop.
+
+  If ``pipeline`` is provided it takes precedence over ``handlers`` and runs
+  through the ToolPipeline guard/hook stages.
 
   Synchronous handlers run in the default thread pool. ``timeout`` applies to
   the overall handler invocation. ``is_cancelled`` is polled before execution
@@ -51,6 +59,11 @@ async def execute_tool_async(
   yields control. Synchronous handlers cannot be interrupted mid-flight, but
   their result is discarded if cancellation is requested before they return.
   """
+  if pipeline is not None:
+    return await execute_tool_async_with_pipeline(
+      pipeline, name, arguments, timeout=timeout, is_cancelled=is_cancelled
+    )
+
   handler = handlers.get(name)
   if handler is None:
     return {"ok": False, "error": f"Tool '{name}' not implemented"}
@@ -94,3 +107,42 @@ async def execute_tool_async(
 
   _record_tool_audit(name, args, result)
   return result
+
+
+def execute_tool_with_pipeline(
+  pipeline: Any,
+  name: str,
+  arguments: str,
+  *,
+  call_id: str = "",
+  timeout: float | None = None,
+) -> Any:
+  """Execute via a ToolPipeline (synchronous wrapper for compatibility)."""
+  try:
+    return asyncio.run(pipeline.execute(
+      call_id=call_id or name,
+      name=name,
+      raw_arguments=arguments,
+      timeout_seconds=timeout,
+    ))
+  except Exception as e:
+    return {"ok": False, "error": f"Tool execution failed: {e}"}
+
+
+async def execute_tool_async_with_pipeline(
+  pipeline: Any,
+  name: str,
+  arguments: str,
+  *,
+  call_id: str = "",
+  timeout: float | None = None,
+  is_cancelled: Callable[[], bool] | None = None,
+) -> Any:
+  """Execute via a ToolPipeline with cancellation and timeout support."""
+  return await pipeline.execute(
+    call_id=call_id or name,
+    name=name,
+    raw_arguments=arguments,
+    timeout_seconds=timeout,
+    is_cancelled=is_cancelled,
+  )

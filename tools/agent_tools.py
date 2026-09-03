@@ -348,7 +348,23 @@ def build_tool_schemas() -> list[dict[str, Any]]:
     {"type": "function", "function": {"name": "restart_ui", "description": "Restart openpilot UI (stationary).", "parameters": {"type": "object", "properties": {}, "required": []}}},
   ]
   from ai.tools.extensions import EXTENSION_SCHEMAS
-  return schemas + EXTENSION_SCHEMAS
+  schemas = schemas + EXTENSION_SCHEMAS
+  schemas = schemas + _skill_tool_schemas()
+  from ai.tools.harness_tools import harness_tool_schemas
+  schemas.extend(harness_tool_schemas())
+  return schemas
+
+
+def _skill_tool_schemas() -> list[dict[str, Any]]:
+  """Append dynamic skill schemas from ai.skill registry."""
+  try:
+    from ai.skill.registry import get_skill_registry
+    from ai.skill.builtins import register_builtins
+    registry = get_skill_registry()
+    register_builtins(registry)
+    return registry.build_tool_definitions()
+  except Exception:
+    return []
 
 
 AVAILABLE_TOOLS = build_tool_schemas()
@@ -1581,7 +1597,14 @@ def make_handlers(
     if err:
       return err
     timeout = int(args.get("timeout", 60) or 60)
-    return await run_shell_command(str(args.get("command", "")), timeout=min(timeout, 300))
+    command = str(args.get("command", ""))
+    try:
+      from ai.core.tools.sandbox_hooks import run_shell_via_sandbox, sandbox_shell_enabled
+      if sandbox_shell_enabled(p):
+        return await run_shell_via_sandbox(command, timeout=min(timeout, 300), params=p)
+    except Exception:
+      pass
+    return await run_shell_command(command, timeout=min(timeout, 300))
 
   def h_read_file(args):
     from ai.tools.fs_tools import read_file
@@ -1765,7 +1788,31 @@ def make_handlers(
       needs_confirm=_needs_confirm,
     )
   )
+  _register_skill_handlers(handlers)
+  from ai.tools.harness_tools import register_harness_handlers, register_mcp_handlers
+  register_harness_handlers(handlers, params=p, get_state_reader=get_state_reader)
+  register_mcp_handlers(handlers, params=p)
   return handlers
+
+
+def _register_skill_handlers(handlers: dict[str, Any]) -> None:
+  """Bind dynamic skill IDs to the skill registry invocation."""
+  try:
+    from ai.skill.registry import get_skill_registry
+    from ai.skill.builtins import register_builtins
+    registry = get_skill_registry()
+    register_builtins(registry)
+  except Exception:
+    return
+
+  def _invoke_skill(skill_id: str, args: dict[str, Any]) -> dict[str, Any]:
+    invocation = registry.request_invocation(skill_id, args, auto_confirm=True)
+    return invocation.to_dict()
+
+  for skill in registry.list_skills():
+    if skill.policy == "disabled" or skill.id in handlers:
+      continue
+    handlers[skill.id] = lambda args, sid=skill.id: _invoke_skill(sid, args)
 
 
 from ai.tools.executor import execute_tool, execute_tool_async  # noqa: E402,F401

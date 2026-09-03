@@ -8,6 +8,13 @@ from typing import Any
 
 from ai.system.paths import workspace_path
 from ai.tools.domains.platform.workflows import WORKFLOWS, list_workflows
+from ai.tools.domains.platform.workflow_graph import (
+  execute_graph_workflow,
+  get_graph_workflow,
+  list_graph_workflows,
+  load_graphs,
+  save_graphs,
+)
 
 _CUSTOM_PATH: Path | None = None
 
@@ -57,6 +64,7 @@ def save_custom(workflows: dict[str, dict[str, Any]]) -> dict[str, Any]:
 def list_all_workflows() -> list[dict[str, Any]]:
   builtin = list_workflows()
   custom = load_custom()
+  graphs = list_graph_workflows()
   out = list(builtin)
   for wid, w in custom.items():
     out.append({
@@ -66,6 +74,7 @@ def list_all_workflows() -> list[dict[str, Any]]:
       "steps": w.get("steps", []),
       "custom": True,
     })
+  out.extend(graphs)
   return out
 
 
@@ -73,13 +82,41 @@ def get_merged_workflow(workflow_id: str) -> dict[str, Any] | None:
   custom = load_custom()
   if workflow_id in custom:
     return custom[workflow_id]
+  graph = get_graph_workflow(workflow_id)
+  if graph is not None:
+    return {
+      "name": workflow_id,
+      "mode": "graph",
+      "graph": graph.to_dict(),
+      "custom": True,
+    }
   return WORKFLOWS.get(workflow_id)
+
+
+async def run_workflow(
+  workflow_id: str,
+  inputs: dict[str, Any] | None = None,
+  tool_handlers: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+  """Run a workflow by id. Prompt-based workflows return their prompt; graph workflows execute."""
+  w = get_merged_workflow(workflow_id)
+  if w is None:
+    return {"ok": False, "error": f"workflow '{workflow_id}' not found"}
+  if w.get("mode") == "graph" or "graph" in w:
+    result = await execute_graph_workflow(workflow_id, inputs=inputs, tool_handlers=tool_handlers)
+    return {"ok": result.ok, "output": result.output, "error": result.error}
+  return {"ok": True, "prompt": merged_system_prompt(workflow_id)}
 
 
 def merged_system_prompt(workflow_id: str) -> str:
   w = get_merged_workflow(workflow_id)
   if not w:
     return ""
+  if w.get("mode") == "graph" or "graph" in w:
+    return (
+      f"# Active workflow: {w.get('name', workflow_id)}\n"
+      "This workflow is defined as a node graph. The system will execute it step-by-step.\n"
+    )
   steps = "\n".join(f"{i + 1}. {s}" for i, s in enumerate(w.get("steps", [])))
   return (
     f"# Active workflow: {w.get('name', workflow_id)}\n"

@@ -5,6 +5,11 @@ from aiohttp import web
 from ai.server.handlers import api as h
 from ai.server.handlers import phase2 as phase2_handlers
 from ai.server.handlers import harness_handlers
+from ai.server.handlers import attachment_handlers
+from ai.server.handlers import lsp_handlers
+from ai.server.handlers import spill_handlers
+from ai.server.handlers import skill_handlers
+from ai.server.handlers import sessions_handlers
 from ai.server.handlers.profile_handlers import register_profile_routes
 from ai.server.routes.agents import register_agent_routes
 
@@ -12,6 +17,11 @@ from ai.server.routes.agents import register_agent_routes
 def register_routes(app: web.Application, *, json_response) -> None:
   register_agent_routes(app, json_response=json_response)
   register_profile_routes(app, json_response=json_response)
+
+  app.router.add_get("/api/ai/attachments", attachment_handlers.api_attachments_list)
+  app.router.add_post("/api/ai/attachments", attachment_handlers.api_attachments_upload)
+  app.router.add_get("/api/ai/attachments/{attachment_id}", attachment_handlers.api_attachments_get)
+  app.router.add_delete("/api/ai/attachments/{attachment_id}", attachment_handlers.api_attachments_delete)
 
   app.router.add_get("/api/ai/bootstrap", h.api_bootstrap)
   app.router.add_get("/api/ai/status", h.api_status)
@@ -34,6 +44,9 @@ def register_routes(app: web.Application, *, json_response) -> None:
   app.router.add_get("/api/ai/usage", h.api_usage)
   app.router.add_get("/api/ai/skills", h.api_skills)
   app.router.add_post("/api/ai/skills", h.api_skills)
+  app.router.add_get("/api/ai/skills/registry", skill_handlers.api_skill_registry)
+  app.router.add_post("/api/ai/skills/registry", skill_handlers.api_skill_registry)
+  app.router.add_post("/api/ai/skills/invoke", skill_handlers.api_skill_registry)
   app.router.add_get("/api/ai/tools", h.api_tools_meta)
   app.router.add_get("/api/ai/memory", h.api_memory)
   app.router.add_post("/api/ai/memory", h.api_memory)
@@ -47,6 +60,13 @@ def register_routes(app: web.Application, *, json_response) -> None:
   app.router.add_post("/api/ai/rag", h.api_rag)
   app.router.add_get("/api/ai/sessions", h.api_sessions)
   app.router.add_post("/api/ai/sessions", h.api_sessions)
+  app.router.add_get("/api/ai/sessions/{session_id}/log", h.api_session_log)
+  app.router.add_post("/api/ai/sessions/{session_id}/resume", sessions_handlers.api_session_resume)
+  app.router.add_post("/api/ai/sessions/{session_id}/repair", sessions_handlers.api_session_repair)
+  from ai.server.handlers.bundle_handlers import api_bundle, api_profile_current
+  app.router.add_get("/api/ai/bundle", api_bundle)
+  app.router.add_post("/api/ai/bundle", api_bundle)
+  app.router.add_get("/api/ai/profile/current", api_profile_current)
   app.router.add_get("/api/ai/dev-assets", h.api_dev_assets)
   app.router.add_get("/api/ai/dev-assets/{kind}/{name}", h.api_dev_assets)
   app.router.add_get("/api/ai/files/search", h.api_files_search)
@@ -109,9 +129,29 @@ def register_routes(app: web.Application, *, json_response) -> None:
   app.router.add_get("/api/ai/workflows/custom", harness_handlers.api_workflows_custom)
   app.router.add_put("/api/ai/workflows/custom", harness_handlers.api_workflows_custom)
   app.router.add_post("/api/ai/workflows/custom", harness_handlers.api_workflows_custom)
+  app.router.add_get("/api/ai/goals", harness_handlers.api_goals)
+  app.router.add_post("/api/ai/goals", harness_handlers.api_goals)
+  app.router.add_get("/api/ai/plans", harness_handlers.api_plans)
+  app.router.add_post("/api/ai/plans", harness_handlers.api_plans)
+  app.router.add_get("/api/ai/todos", harness_handlers.api_todos)
+  app.router.add_post("/api/ai/todos", harness_handlers.api_todos)
+  app.router.add_get("/api/ai/subagents", harness_handlers.api_subagents)
+  app.router.add_post("/api/ai/subagents", harness_handlers.api_subagents)
   from ai.server.handlers import consumer as consumer_handlers
   app.router.add_get("/api/ai/consumer/wizards", consumer_handlers.api_consumer_wizards)
   app.router.add_get("/api/ai/consumer/wizards/{wizard_id}/start", consumer_handlers.api_consumer_wizard_start)
   app.router.add_post("/api/ai/consumer/wizards/{wizard_id}/start", consumer_handlers.api_consumer_wizard_start)
   app.router.add_get("/api/ai/consumer/lexicon", consumer_handlers.api_consumer_lexicon)
   app.router.add_post("/api/ai/consumer/preview-params", consumer_handlers.api_consumer_preview_params)
+
+  # Spill long-context management
+  app.router.add_get("/api/ai/spill", spill_handlers.api_spill)
+  app.router.add_post("/api/ai/spill", spill_handlers.api_spill)
+  app.router.add_get("/api/ai/spill/recall", spill_handlers.api_spill_recall)
+
+  # LSP integration
+  app.router.add_get("/api/ai/lsp/servers", lsp_handlers.api_lsp_servers)
+  app.router.add_post("/api/ai/lsp/servers", lsp_handlers.api_lsp_servers)
+  app.router.add_delete("/api/ai/lsp/servers", lsp_handlers.api_lsp_servers_stop)
+  app.router.add_get("/api/ai/lsp/search", lsp_handlers.api_lsp_search)
+  app.router.add_post("/api/ai/lsp/index", lsp_handlers.api_lsp_index)
