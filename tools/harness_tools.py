@@ -396,30 +396,10 @@ async def _h_run_python_code(a: dict[str, Any]) -> dict[str, Any]:
 
 async def _h_workflow_advance(a: dict[str, Any]) -> dict[str, Any]:
   try:
-    from ai.tools.domains.platform.workflow_graph import execute_graph_workflow, get_graph_workflow
+    from ai.tools.domains.platform.workflow_graph import advance_graph_workflow
     workflow_id = str(a.get("workflow_id", ""))
     action = str(a.get("action", "step"))
-    graph = get_graph_workflow(workflow_id)
-    if graph is None:
-      return _error(f"graph workflow '{workflow_id}' not found")
-    starts = graph.start_nodes()
-    if not starts:
-      return _error(f"graph workflow '{workflow_id}' has no start node")
-    node = starts[0]
-    if action in ("pause", "resume", "retry"):
-      return {"ok": True, "graph": workflow_id, "node": node.id, "next": None, "action": action}
-    result = await execute_graph_workflow(workflow_id, inputs={}, tool_handlers={})
-    outgoing = graph.outgoing(node.id)
-    return {
-      "ok": result.ok,
-      "graph": workflow_id,
-      "node": node.id,
-      "next": outgoing[0].target if outgoing else None,
-      "action": action,
-      "output": result.output,
-      "error": result.error,
-      "node_outputs": result.node_outputs,
-    }
+    return advance_graph_workflow(workflow_id, action, a.get("node_id"))
   except Exception as exc:
     return _error(str(exc))
 

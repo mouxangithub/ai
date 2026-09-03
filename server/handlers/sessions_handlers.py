@@ -83,8 +83,18 @@ async def api_session_resume(request: web.Request) -> web.Response:
     from ai.core.session.log import SessionLog
     log = SessionLog(session_id, persist_path=log_path, load_persisted=True)
     replayed = len(log.events)
-    # Reconstruct durable goal/plan/todo refs from the surface/events.
+    # Reconstruct latest durable goal/plan/todo results from tool events.
     reconstructed = {"goal": None, "plan": None, "todo": None}
+    for ev in log.events:
+      data = ev.data if isinstance(ev.data, dict) else {}
+      name = str(data.get("name") or data.get("tool") or data.get("toolName") or "")
+      payload = data.get("result") if isinstance(data.get("result"), dict) else data
+      if name.startswith("goal_") and isinstance(payload, dict) and payload.get("goal") is not None:
+        reconstructed["goal"] = payload["goal"]
+      elif name.startswith("plan_") and isinstance(payload, dict) and payload.get("plan") is not None:
+        reconstructed["plan"] = payload["plan"]
+      elif name.startswith("todo_") and isinstance(payload, dict):
+        reconstructed["todo"] = payload
     interrupted = []
     call_ids: set[str] = set()
     result_ids: set[str] = set()

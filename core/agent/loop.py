@@ -93,6 +93,7 @@ class AgentLoop:
 
     try:
       target = InboxTarget.NEXT_TURN
+      continue_without_message = False
       while True:
         self._check_cancel()
         step = phase.step + 1
@@ -100,8 +101,9 @@ class AgentLoop:
         if step == 1 and not claimed:
           turn_end_reason = {"kind": "completed"}
           break
-        if not claimed:
+        if not claimed and not continue_without_message:
           break
+        continue_without_message = False
 
         self.log.append(EventType.STEP_START, {"turn": turn, "step": step})
         phase.step = step
@@ -114,6 +116,8 @@ class AgentLoop:
 
         step_end = await self._step(turn, step)
         self.log.append(EventType.STEP_END, {"turn": turn, "step": step})
+        if step_end == "tool_calls":
+          continue_without_message = True
 
         if step_end == "max-tokens":
           turn_end_reason = {"kind": "max-tokens"}
@@ -243,7 +247,7 @@ class AgentLoop:
         surface_op=SurfaceOp.APPEND,
       )
 
-    return "completed"
+    return "tool_calls"
 
   async def _stream_with_timeout(self, request: dict[str, Any]) -> Any:
     # stream_fn is expected to return an async iterator.

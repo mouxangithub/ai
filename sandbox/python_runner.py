@@ -119,6 +119,8 @@ except Exception as _exc:
     timeout: int | None = None,  # noqa: ASYNC109
     bindings: dict[str, Any] | None = None,
   ) -> RunResult:
+    if not str(code).strip():
+      return RunResult(ok=False, error="Python code must not be empty", error_kind="invalid_input")
     blocked = self._check_code(code)
     if blocked:
       return RunResult(

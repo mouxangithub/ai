@@ -17,6 +17,25 @@ from ai.system.paths import workspace_path
 
 
 _GRAPH_PATH: Path | None = None
+_STATE_PATH: Path | None = None
+
+
+def _state_path() -> Path:
+  global _STATE_PATH
+  if _STATE_PATH is None:
+    _STATE_PATH = workspace_path("workflows", mkdir=True) / "runtime_state.json"
+  return _STATE_PATH
+
+
+def _load_state() -> dict[str, Any]:
+  try:
+    return json.loads(_state_path().read_text(encoding="utf-8"))
+  except (OSError, json.JSONDecodeError):
+    return {}
+
+
+def _save_state(state: dict[str, Any]) -> None:
+  _state_path().write_text(json.dumps(state, ensure_ascii=False, indent=2), encoding="utf-8")
 
 
 def graph_path() -> Path:
@@ -130,6 +149,30 @@ async def execute_graph_workflow(
   ctx["_tool_handlers"] = tool_handlers or {}
   executor = default_graph_executor(tool_handlers)
   return await executor.run(graph, inputs=ctx)
+
+
+def advance_graph_workflow(workflow_id: str, action: str, node_id: str | None = None) -> dict[str, Any]:
+  graph = get_graph_workflow(workflow_id)
+  if graph is None:
+    return {"ok": False, "error": f"graph workflow '{workflow_id}' not found"}
+  state = _load_state()
+  current = node_id or state.get(workflow_id, {}).get("node") or (graph.start_nodes()[0].id if graph.start_nodes() else "")
+  if current not in graph.nodes:
+    return {"ok": False, "error": f"node '{current}' not found"}
+  if action == "pause":
+    state[workflow_id] = {"node": current, "status": "paused"}
+  elif action == "resume":
+    state[workflow_id] = {"node": current, "status": "running"}
+  elif action == "retry":
+    state[workflow_id] = {"node": current, "status": "retrying"}
+  elif action == "step":
+    outgoing = graph.outgoing(current)
+    nxt = outgoing[0].target if outgoing else None
+    state[workflow_id] = {"node": nxt or current, "status": "completed" if nxt is None else "running"}
+  else:
+    return {"ok": False, "error": f"unsupported action: {action}"}
+  _save_state(state)
+  return {"ok": True, "graph": workflow_id, "node": current, "next": state[workflow_id]["node"], "status": state[workflow_id]["status"], "action": action}
 
 
 def list_graph_workflows() -> list[dict[str, Any]]:
