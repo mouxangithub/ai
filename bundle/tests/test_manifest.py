@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import shutil
 import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -77,6 +78,36 @@ class TestBundleLoader(unittest.TestCase):
       with self.assertRaises(BundleInstallError):
         loader.load(Path(tmp) / "nope.zip")
 
+  def test_install_atomic_rollback_restores_existing(self) -> None:
+    """A failed copy must restore the pre-existing install_dir."""
+    from unittest import mock
+
+    with TemporaryDirectory() as tmp:
+      source = Path(tmp) / "src"
+      source.mkdir()
+      (source / "data.txt").write_text("v1", encoding="utf-8")
+      out = Path(tmp) / "bundle.zip"
+      BundlePacker().pack(source, out)
+
+      loader = BundleLoader()
+      install_dir = Path(tmp) / "installed"
+      loader.install(out, install_dir)
+      (install_dir / "keep.txt").write_text("keep", encoding="utf-8")
+
+      real_copy2 = shutil.copy2
+
+      def _failing_copy2(*args, **kwargs):
+        raise OSError("simulated copy failure")
+
+      with mock.patch.object(shutil, "copy2", side_effect=_failing_copy2):
+        with self.assertRaises(BundleInstallError):
+          loader.install(out, install_dir)
+
+      # Original install_dir must still exist with its content.
+      self.assertTrue(install_dir.is_dir(), "install_dir must be restored")
+      self.assertTrue((install_dir / "data.txt").is_file())
+      self.assertTrue((install_dir / "keep.txt").is_file())
+
   def test_install_acp_packages(self) -> None:
     with TemporaryDirectory() as tmp:
       source = Path(tmp) / "src"
@@ -124,6 +155,54 @@ class TestBundleStore(unittest.TestCase):
 
       self.assertTrue(store.remove_bundle("stored"))
       self.assertEqual(store.list_bundles(), [])
+
+  def test_install_bundle_capability_conflict(self) -> None:
+    """Installing a bundle whose capabilities collide with an existing bundle must fail."""
+    with TemporaryDirectory() as tmp:
+      store = BundleStore(store_dir=tmp)
+      src_a = Path(tmp) / "src-a"
+      src_a.mkdir()
+      (src_a / "a.txt").write_text("a", encoding="utf-8")
+      ma = BundleManifest(
+        id="bundle-a",
+        name="A",
+        version="1.0.0",
+        extra={"capabilities": ["tool:read_params", "mcp:primary"]},
+      )
+      store.save_bundle(src_a, manifest=ma)
+
+      install_dir = Path(tmp) / "installed"
+      # First install succeeds: no other declared capability in the store yet.
+      store.install_bundle("bundle-a", install_dir)
+      self.assertTrue((install_dir / "a.txt").is_file())
+
+      # Now save a conflicting bundle and try to install it.
+      src_b = Path(tmp) / "src-b"
+      src_b.mkdir()
+      (src_b / "b.txt").write_text("b", encoding="utf-8")
+      mb = BundleManifest(
+        id="bundle-b",
+        name="B",
+        version="1.0.0",
+        extra={"capabilities": ["mcp:primary"]},  # collides with bundle-a
+      )
+      store.save_bundle(src_b, manifest=mb)
+
+      with self.assertRaises(BundleInstallError):
+        store.install_bundle("bundle-b", Path(tmp) / "installed-b")
+
+  def test_install_bundle_no_conflict(self) -> None:
+    with TemporaryDirectory() as tmp:
+      store = BundleStore(store_dir=tmp)
+      src = Path(tmp) / "src"
+      src.mkdir()
+      (src / "f.txt").write_text("f", encoding="utf-8")
+      m1 = BundleManifest(id="b1", name="B1", version="1.0.0", extra={"capabilities": ["x"]})
+      m2 = BundleManifest(id="b2", name="B2", version="1.0.0", extra={"capabilities": ["y"]})
+      store.save_bundle(src, manifest=m1)
+      store.save_bundle(src, manifest=m2)
+      store.install_bundle("b1", Path(tmp) / "i1")
+      store.install_bundle("b2", Path(tmp) / "i2")  # no overlap => OK
 
 
 if __name__ == "__main__":

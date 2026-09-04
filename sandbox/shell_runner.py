@@ -7,7 +7,12 @@ import re
 import shlex
 from typing import Any
 
-from ai.sandbox.runtime import RunResult, SandboxPolicy, SandboxRuntime
+from ai.sandbox.runtime import (
+  ConfinedSessionPolicy,
+  RunResult,
+  SandboxPolicy,
+  SandboxRuntime,
+)
 
 
 # Commands that are never allowed, even under "danger-full-access" policy.
@@ -70,6 +75,33 @@ class ShellRunner(SandboxRuntime):
         return "Blocked command: matches vehicle-control or destructive pattern"
     return None
 
+  # State-changing shell prefixes that are rejected under read-only policy.
+  _READONLY_MUTATION = re.compile(
+    r"^\s*(?:(?:rm|mv|cp|mkdir|rmdir|touch|chmod|chown|ln|dd|tee|truncate|"
+    r"install|del|rd|format|mklink|copy|move|set\s+[A-Za-z_])(?:\s|$)"
+    r"|>|>>|:\s*>)",
+    re.IGNORECASE,
+  )
+
+  def readonly_violation(self, command: str) -> str | None:
+    """Return a refusal reason if ``command`` mutates under read-only policy."""
+    if self._READONLY_MUTATION.search(command):
+      return "Read-only sandbox: command would mutate the filesystem"
+    return None
+
+  @staticmethod
+  def _mode_of(policy: Any | None) -> str | None:
+    return getattr(policy, "mode", None) if policy else None
+
+  @staticmethod
+  def _containment_of(policy: Any | None) -> str | None:
+    if policy is None:
+      return None
+    return (
+      getattr(policy, "containment_root", None)
+      or getattr(policy, "workspace_root", None)
+    )
+
   def _to_shell_string(self, command: str | list[str]) -> str:
     if isinstance(command, list):
       return " ".join(shlex.quote(str(arg)) for arg in command)
@@ -102,7 +134,8 @@ class ShellRunner(SandboxRuntime):
     command: str | list[str],
     *,
     timeout: int | None = None,  # noqa: ASYNC109
-    policy: SandboxPolicy | None = None,
+    policy: SandboxPolicy | ConfinedSessionPolicy | None = None,
+    cwd: str | None = None,
   ) -> RunResult:
     shell = self._to_shell_string(command)
     blocked = self.is_blocked_command(shell)
@@ -114,12 +147,27 @@ class ShellRunner(SandboxRuntime):
         error_kind="blocked",
       )
 
+    mode = self._mode_of(policy)
+    if mode == "read-only":
+      violation = self.readonly_violation(shell)
+      if violation:
+        return RunResult(
+          ok=False,
+          stderr=violation,
+          error=violation,
+          error_kind="blocked",
+        )
+
+    # Session-scoped containment: prefer the explicit per-call cwd, then the
+    # policy containment root, falling back to the process-global workspace.
+    proc_cwd = cwd or self._containment_of(policy) or self.workspace_root
+
     try:
       proc = await asyncio.create_subprocess_shell(
         shell,
         stdout=asyncio.subprocess.PIPE,
         stderr=asyncio.subprocess.PIPE,
-        cwd=self.workspace_root,
+        cwd=proc_cwd,
       )
       try:
         stdout_bytes, stderr_bytes = await asyncio.wait_for(

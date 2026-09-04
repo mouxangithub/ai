@@ -61,6 +61,7 @@ class SubagentPool:
     parent_id: str | None = None,
     depth: int = 0,
     max_depth: int = 3,
+    provider: str = "in-process",
     metadata: dict[str, Any] | None = None,
   ) -> SubagentTask:
     task = SubagentTask(
@@ -74,6 +75,7 @@ class SubagentPool:
       parent_id=parent_id,
       depth=depth,
       max_depth=max_depth,
+      provider=provider,
       metadata=dict(metadata or {}),
     )
     with self._lock:

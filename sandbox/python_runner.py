@@ -118,6 +118,7 @@ except Exception as _exc:
     *,
     timeout: int | None = None,  # noqa: ASYNC109
     bindings: dict[str, Any] | None = None,
+    cwd: str | None = None,
   ) -> RunResult:
     if not str(code).strip():
       return RunResult(ok=False, error="Python code must not be empty", error_kind="invalid_input")
@@ -131,7 +132,8 @@ except Exception as _exc:
       )
 
     script = self._build_script(code, bindings)
-    fd, tmp_path = tempfile.mkstemp(suffix=".py", prefix="dsh_py_", dir=self.workspace_root)
+    proc_cwd = cwd or self.workspace_root
+    fd, tmp_path = tempfile.mkstemp(suffix=".py", prefix="dsh_py_", dir=proc_cwd)
     try:
       os.write(fd, script.encode("utf-8"))
       os.close(fd)
@@ -142,7 +144,7 @@ except Exception as _exc:
         tmp_path,
         stdout=asyncio.subprocess.PIPE,
         stderr=asyncio.subprocess.PIPE,
-        cwd=self.workspace_root,
+        cwd=proc_cwd,
         env={**os.environ, "PYTHONDONTWRITEBYTECODE": "1"},
       )
       try:

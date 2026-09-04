@@ -50,7 +50,27 @@ class SubagentRunner:
     body = self._build_body(task)
     runner = self.run_chat
 
+    # Dispatch through the provider registry ONLY when no custom chat runner was
+    # injected; injected runners (used by tests and callers) keep priority.
+    provider_fn = None
+    if runner is None:
+      provider_name = getattr(task, "provider", "in-process") or "in-process"
+      from ai.subagent.providers import get_provider
+      provider_fn = get_provider(provider_name)
+
     try:
+      if provider_fn is not None:
+        result = await provider_fn(
+          task,
+          params=params,
+          tools=tools,
+          max_tool_rounds=max_tool_rounds,
+          emit=emit,
+          is_cancelled=is_cancelled,
+          session_log_path=session_log_path,
+          runner=runner,
+        )
+        return self._to_result(task, result)
       if runner is None:
         from ai.agents.orchestrator import run_chat_with_agents
         result = await run_chat_with_agents(
@@ -129,6 +149,15 @@ class SubagentRunner:
     if task.output_schema is not None:
       body["output_schema"] = task.output_schema
     return body
+
+  @staticmethod
+  def _to_result(task: SubagentTask, result: Any) -> SubagentResult:
+    """Normalize a provider return (SubagentResult or dict) to SubagentResult."""
+    if isinstance(result, SubagentResult):
+      return result
+    if isinstance(result, dict):
+      return SubagentResult.from_dict({**result, "taskId": result.get("taskId") or task.id})
+    return SubagentResult(task_id=task.id, ok=False, error="provider returned invalid result")
 
   @staticmethod
   def _extract_output(events: list[dict[str, Any]]) -> str:

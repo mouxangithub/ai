@@ -64,9 +64,16 @@ async def api_session_repair(request: web.Request) -> web.Response:
   session_id = request.match_info.get("session_id", "").strip()
   if not session_id:
     return _json_response({"ok": False, "error": "session_id required"}, status=400)
+  log_path = _session_log_path(session_id)
+  if not log_path or not os.path.isfile(log_path):
+    return _json_response({"ok": False, "error": "no persisted log for session"}, status=404)
   try:
-    from ai.tools.domains.platform.transcript_store import recover_partial
-    return _json_response(recover_partial(session_id))
+    from ai.core.session.log import SessionLog
+    from ai.core.session.repair import repair_session_log
+    log = SessionLog(session_id, persist_path=log_path, load_persisted=True)
+    repaired = repair_session_log(log)
+    log.close()
+    return _json_response({"ok": True, "sessionId": session_id, "repaired": [event.to_dict() for event in repaired]})
   except Exception as e:
     return _json_response({"ok": False, "error": str(e)}, status=500)
 
@@ -80,35 +87,49 @@ async def api_session_resume(request: web.Request) -> web.Response:
   if not log_path or not os.path.isfile(log_path):
     return _json_response({"ok": False, "error": "no persisted log for session"}, status=404)
   try:
-    from ai.core.session.log import SessionLog
+    from ai.core.session.log import EventType, SessionLog
     log = SessionLog(session_id, persist_path=log_path, load_persisted=True)
     replayed = len(log.events)
-    # Reconstruct latest durable goal/plan/todo results from tool events.
-    reconstructed = {"goal": None, "plan": None, "todo": None}
-    for ev in log.events:
-      data = ev.data if isinstance(ev.data, dict) else {}
-      name = str(data.get("name") or data.get("tool") or data.get("toolName") or "")
-      payload = data.get("result") if isinstance(data.get("result"), dict) else data
-      if name.startswith("goal_") and isinstance(payload, dict) and payload.get("goal") is not None:
-        reconstructed["goal"] = payload["goal"]
-      elif name.startswith("plan_") and isinstance(payload, dict) and payload.get("plan") is not None:
-        reconstructed["plan"] = payload["plan"]
-      elif name.startswith("todo_") and isinstance(payload, dict):
-        reconstructed["todo"] = payload
+    # Correlate TOOL_CALL name -> TOOL_RESULT content by call id. In the
+    # persisted shape produced by AgentLoop._step the tool name lives on
+    # TOOL_CALL, while the result payload lives on TOOL_RESULT; reconstructing
+    # from every event's own "name" field would always yield None.
+    name_by_call: dict[str, str] = {}
+    result_by_call: dict[str, dict] = {}
     interrupted = []
     call_ids: set[str] = set()
     result_ids: set[str] = set()
     for ev in log.events:
-      data = ev.data or {}
-      if ev.type.value == "tool/call":
-        cid = data.get("callId") if isinstance(data, dict) else None
+      data = ev.data if isinstance(ev.data, dict) else {}
+      if ev.type == EventType.TOOL_CALL:
+        cid = str(data.get("callId") or "")
         if cid:
-          call_ids.add(str(cid))
-      elif ev.type.value == "tool/result":
-        cid = data.get("tool_call_id") if isinstance(data, dict) else None
+          call_ids.add(cid)
+          name_by_call[cid] = str(data.get("name") or "")
+      elif ev.type == EventType.TOOL_RESULT:
+        cid = str(data.get("tool_call_id") or "")
         if cid:
-          result_ids.add(str(cid))
+          result_ids.add(cid)
+          try:
+            payload = json.loads(data.get("content", "{}")) if isinstance(data.get("content"), str) else data.get("result")
+          except (json.JSONDecodeError, TypeError):
+            payload = None
+          if isinstance(payload, dict):
+            result_by_call[cid] = payload
+    reconstructed = {"goal": None, "plan": None, "todo": None}
+    for cid, name in name_by_call.items():
+      payload = result_by_call.get(cid)
+      if payload is None:
+        continue
+      if name.startswith("goal_") and payload.get("goal") is not None:
+        reconstructed["goal"] = payload["goal"]
+      elif name.startswith("plan_") and payload.get("plan") is not None:
+        reconstructed["plan"] = payload["plan"]
+      elif name.startswith("todo_") and isinstance(payload, dict):
+        reconstructed["todo"] = payload
     interrupted = sorted(call_ids - result_ids)
+    from ai.core.session.repair import repair_session_log
+    repaired_events = repair_session_log(log)
     log.close()
     return _json_response({
       "ok": True,
@@ -116,7 +137,7 @@ async def api_session_resume(request: web.Request) -> web.Response:
       "replayedEvents": replayed,
       "reconstructed": reconstructed,
       "interrupted": interrupted,
-      "repaired": [],
+      "repaired": [event.to_dict() for event in repaired_events],
     })
   except Exception as e:
     return _json_response({"ok": False, "error": str(e)}, status=500)

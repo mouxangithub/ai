@@ -63,22 +63,40 @@ class BundleLoader:
     *,
     clean: bool = False,
   ) -> BundleManifest:
-    """Extract a bundle into ``install_dir`` and return its manifest."""
+    """Extract a bundle into ``install_dir`` and return its manifest.
+
+    Atomic: if anything fails mid-copy, the pre-existing ``install_dir`` is
+    restored from a backup so the target never ends up half-installed.
+    """
     manifest, extract_dir = self.load(bundle_path)
     install_dir = Path(install_dir)
+    backup_dir: Path | None = None
 
-    if clean and install_dir.exists():
-      shutil.rmtree(install_dir)
-    install_dir.mkdir(parents=True, exist_ok=True)
+    if install_dir.exists():
+      backup_dir = install_dir.with_name(install_dir.name + ".bak-atomic")
+      if backup_dir.exists():
+        shutil.rmtree(backup_dir)
+      shutil.move(str(install_dir), str(backup_dir))
 
-    for src in extract_dir.rglob("*"):
-      if not src.is_file():
-        continue
-      rel = src.relative_to(extract_dir)
-      dst = install_dir / rel
-      dst.parent.mkdir(parents=True, exist_ok=True)
-      shutil.copy2(src, dst)
+    try:
+      install_dir.mkdir(parents=True, exist_ok=True)
+      for src in extract_dir.rglob("*"):
+        if not src.is_file():
+          continue
+        rel = src.relative_to(extract_dir)
+        dst = install_dir / rel
+        dst.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(src, dst)
+    except Exception:
+      # Rollback: restore backup, remove partial install.
+      shutil.rmtree(install_dir, ignore_errors=True)
+      if backup_dir is not None and backup_dir.exists():
+        shutil.move(str(backup_dir), str(install_dir))
+      shutil.rmtree(extract_dir, ignore_errors=True)
+      raise BundleInstallError(f"Bundle install failed and was rolled back: {bundle_path}")
 
+    if backup_dir is not None and backup_dir.exists():
+      shutil.rmtree(backup_dir, ignore_errors=True)
     shutil.rmtree(extract_dir, ignore_errors=True)
     return manifest
 

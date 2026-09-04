@@ -18,8 +18,9 @@ from ai.system.paths import workspace_path
 # Helpers
 # ---------------------------------------------------------------------------
 
-def _error(message: str) -> dict[str, Any]:
-  return {"ok": False, "error": message}
+def _error(message: str, *, code: str = "TOOL_ERROR", retryable: bool = False) -> dict[str, Any]:
+  from ai.core.errors import tool_error
+  return tool_error(message, code=code, retryable=retryable)
 
 
 def _goal_store():
@@ -80,9 +81,11 @@ def harness_tool_schemas(params=None) -> list[dict[str, Any]]:
     _f("todo_write", "写入待办事项", {"todos": {"type": "array", "items": {"type": "object"}}, "allowParallel": {"type": "boolean"}}),
     _f("todo_clear", "清理待办事项", {}),
     _f("todo_get", "读取待办事项", {}),
-    _f("subagent_start", "启动子代理", {"agent_id": {"type": "string"}, "prompt": {"type": "string"}, "workflow": {"type": "string"}, "max_depth": {"type": "integer"}}, ["agent_id", "prompt"]),
+    _f("subagent_start", "启动子代理", {"agent_id": {"type": "string"}, "prompt": {"type": "string"}, "workflow": {"type": "string"}, "max_depth": {"type": "integer"}, "provider": {"type": "string", "enum": ["in-process"]}}, ["agent_id", "prompt"]),
+    _f("subagent_start_many", "并行启动多个子代理（互相独立的批量任务）", {"tasks": {"type": "array", "items": {"type": "object"}}, "max_concurrency": {"type": "integer"}}, ["tasks"]),
     _f("subagent_query", "查询子代理状态", {"task_id": {"type": "string"}}, ["task_id"]),
     _f("subagent_cancel", "取消子代理", {"task_id": {"type": "string"}}, ["task_id"]),
+    _f("subagent_report", "子代理向父会话提交结构化汇报", {"content": {"type": "string"}, "session_id": {"type": "string"}, "call_id": {"type": "string"}}, ["content"]),
     _f("lsp", "执行只读 LSP 查询（坐标 1-based UTF-16）", {
       "action": {"type": "string", "enum": ["goToDefinition", "findReferences", "goToImplementation", "hover"]},
       "uri": {"type": "string"},
@@ -260,9 +263,69 @@ async def _h_subagent_start(a: dict[str, Any]) -> dict[str, Any]:
       prompt=str(a.get("prompt", "")),
       workflow=str(a.get("workflow", "")),
       max_depth=int(a.get("max_depth", 3)),
+      provider=str(a.get("provider", "in-process") or "in-process"),
     )
     result = await pool.run(task, params=None, tools=None, max_tool_rounds=24)
     return {"ok": result.ok, "task": task.to_dict(), "result": result.to_dict()}
+  except Exception as exc:
+    return _error(str(exc))
+
+
+async def _h_subagent_start_many(a: dict[str, Any]) -> dict[str, Any]:
+  """Parallel fan-out of independent subagent tasks via the pool's gather."""
+  try:
+    raw_tasks = a.get("tasks")
+    if not isinstance(raw_tasks, list) or not raw_tasks:
+      return _error("subagent_start_many requires a non-empty tasks array")
+    pool = _subagent_pool()
+    tasks = []
+    for t in raw_tasks:
+      if not isinstance(t, dict):
+        continue
+      tasks.append(pool.create_task(
+        agent_id=str(t.get("agent_id", "")),
+        prompt=str(t.get("prompt", "")),
+        workflow=str(t.get("workflow", "")),
+        max_depth=int(t.get("max_depth", 3)),
+        provider=str(t.get("provider", "in-process") or "in-process"),
+      ))
+    if not tasks:
+      return _error("subagent_start_many: no valid tasks provided")
+    results = await pool.run_many(tasks, params=None, tools=None, max_tool_rounds=24)
+    payloads = [r.to_dict() if hasattr(r, "to_dict") else {"taskId": task.id, "ok": False, "error": str(r)} for r, task in zip(results, tasks)]
+    ok = all(p.get("ok") for p in payloads)
+    return {"ok": ok, "count": len(payloads), "results": payloads}
+  except Exception as exc:
+    return _error(str(exc))
+
+
+def _h_subagent_report(a: dict[str, Any]) -> dict[str, Any]:
+  """child -> parent structured report channel.
+
+  A subagent can use this to return a concise structured result to the
+  parent session (mirrors dsh ``tool-subagent-report``). The report is
+  appended to the current session log as a surface event so the parent can
+  reference it after the child completes.
+  """
+  try:
+    content = a.get("content") or a.get("report") or a.get("summary")
+    if not isinstance(content, str) or not content.strip():
+      return _error("subagent_report requires a non-empty content/summary")
+    session_id = str(a.get("session_id", "")).strip()
+    from ai.core.session.log import EventType, SessionLog, SurfaceOp
+    from ai.system.paths import workspace_path
+    log = SessionLog(session_id, persist_path=workspace_path("ai_session_logs", mkdir=True) / f"{session_id}.jsonl" if session_id else None)
+    log.append(
+      EventType.TOOL_RESULT,
+      {
+        "tool_call_id": str(a.get("call_id", "") or "subagent_report"),
+        "name": "subagent_report",
+        "content": content,
+      },
+      surface_op=SurfaceOp.APPEND,
+    )
+    log.close()
+    return {"ok": True, "reported": content[:500]}
   except Exception as exc:
     return _error(str(exc))
 
@@ -504,8 +567,10 @@ def register_harness_handlers(handlers, *, params=None, get_state_reader=None, t
     "todo_clear": _h_todo_clear,
     "todo_get": _h_todo_get,
     "subagent_start": _h_subagent_start,
+    "subagent_start_many": _h_subagent_start_many,
     "subagent_query": _h_subagent_query,
     "subagent_cancel": _h_subagent_cancel,
+    "subagent_report": _h_subagent_report,
     "lsp": _h_lsp,
     "run_python_code": _h_run_python_code,
     "workflow_advance": _h_workflow_advance,

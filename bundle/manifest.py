@@ -44,6 +44,15 @@ class BundleManifest:
   files: list[str] = field(default_factory=list)
   extra: dict[str, Any] = field(default_factory=dict)
 
+  def capabilities(self) -> set[str]:
+    """Set of capability names this bundle provides/claims (e.g. tools, mcp)."""
+    raw = self.extra.get("capabilities")
+    if isinstance(raw, list):
+      return {str(x).strip() for x in raw if str(x).strip()}
+    if isinstance(raw, str):
+      return {x.strip() for x in raw.split(",") if x.strip()}
+    return set()
+
   def to_dict(self) -> dict[str, Any]:
     return {
       "id": self.id,

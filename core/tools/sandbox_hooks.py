@@ -8,10 +8,12 @@ from __future__ import annotations
 
 from typing import Any
 
+from ai.sandbox.runtime import ConfinedSessionPolicy, SandboxPolicyService
 from ai.system.paths import workspace_path
 
 _shell_runner: Any = None
 _python_runner: Any = None
+_policy_service: SandboxPolicyService | None = None
 
 
 def sandbox_shell_enabled(params: Any = None) -> bool:
@@ -40,18 +42,96 @@ def python_runner() -> Any:
   return _python_runner
 
 
-async def run_shell_via_sandbox(command: str, *, timeout: int = 60, params: Any = None) -> dict[str, Any]:
-  """Run a shell command through the sandbox ShellRunner; fall back to host on error.
+def sandbox_policy(
+  params: Any = None,
+  *,
+  session_id: str = "",
+  cwd: str | None = None,
+) -> ConfinedSessionPolicy:
+  """Resolve a replayable session-scoped policy (read-only by default)."""
+  global _policy_service
+  if _policy_service is None:
+    _policy_service = SandboxPolicyService(workspace_root=str(workspace_path("", mkdir=True)))
+  return _policy_service.resolve(params, session_id=session_id, cwd=cwd)
 
-  Returns a ``{ok, stdout, stderr, returncode, error?}`` dict compatible with
-  the existing system.shell.run_shell_command shape.
+
+def sandbox_host_fallback_enabled(params: Any = None) -> bool:
+  """Host fallback is opt-in for compatibility; sandbox errors stay contained."""
+  try:
+    from ai.common.storage import read_param_bool
+    return read_param_bool(params, "ai_sandbox_host_fallback", False)
+  except Exception:
+    return False
+
+
+def _with_context(result: Any, policy: ConfinedSessionPolicy) -> dict[str, Any]:
+  payload = result.to_dict() if hasattr(result, "to_dict") else dict(result)
+  payload.setdefault("sandbox", policy.to_dict())
+  return payload
+
+
+async def run_shell_via_sandbox(
+  command: str,
+  *,
+  timeout: int = 60,
+  params: Any = None,
+  session_id: str = "",
+  cwd: str | None = None,
+) -> dict[str, Any]:
+  """Run a command in the session containment root with structured context.
+
+  Host execution is only enabled by the explicit ``ai_sandbox_host_fallback``
+  compatibility parameter; normal sandbox failures return a structured error.
   """
+  policy = sandbox_policy(params, session_id=session_id, cwd=cwd)
   try:
     runner = shell_runner()
-    result = await runner.run_shell(command, timeout=timeout)
-    return result.to_dict()
+    result = await runner.run_shell(
+      command,
+      timeout=timeout,
+      policy=policy,
+      cwd=policy.containment_root,
+    )
+    return _with_context(result, policy)
   except Exception as exc:
     from openpilot.common.swaglog import cloudlog
-    cloudlog.error(f"aid: sandbox shell fell back to host: {exc}")
-    from ai.system.shell import run_shell_command
-    return await run_shell_command(command, timeout=timeout)
+    cloudlog.error(
+      f"aid: sandbox shell unavailable session={session_id!r} cwd={policy.containment_root!r}: {exc}"
+    )
+    if sandbox_host_fallback_enabled(params):
+      from ai.system.shell import run_shell_command
+      return await run_shell_command(command, timeout=timeout)
+    return {
+      "ok": False,
+      "error": str(exc),
+      "errorKind": "sandbox-unavailable",
+      "sandbox": policy.to_dict(),
+    }
+
+
+async def run_python_via_sandbox(
+  code: str,
+  *,
+  timeout: int = 30,
+  params: Any = None,
+  session_id: str = "",
+  cwd: str | None = None,
+  bindings: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+  """Run Python under the same session-scoped policy/cwd seam as shell."""
+  policy = sandbox_policy(params, session_id=session_id, cwd=cwd)
+  try:
+    result = await python_runner().run_python(
+      code,
+      timeout=timeout,
+      bindings=bindings,
+      cwd=policy.containment_root,
+    )
+    return _with_context(result, policy)
+  except Exception as exc:
+    return {
+      "ok": False,
+      "error": str(exc),
+      "errorKind": "sandbox-unavailable",
+      "sandbox": policy.to_dict(),
+    }

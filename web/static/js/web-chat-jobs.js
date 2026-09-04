@@ -229,6 +229,9 @@ const ChatJobs = (() => {
     for (const [key, ctx] of [...contexts.entries()]) {
       if (ctx.sessionId !== sessionId) continue;
       ctx.cancelled = true;
+      // Immediately abort the in-flight polling request (true AbortController),
+      // not just flag it for the next tick.
+      ctx.abortController?.abort();
       clearCtxPoll(ctx);
       if (ctx.mdRenderTimer) {
         clearTimeout(ctx.mdRenderTimer);
@@ -573,6 +576,9 @@ const ChatJobs = (() => {
     ctx.lastSeq = Math.max(ctx.lastSeq || 0, ctx.since || 0);
     ctx.since = ctx.lastSeq;
     ctx._pollActive = false;
+    // Real AbortController so a user "stop" immediately cancels any in-flight
+    // polling request instead of waiting for the next tick.
+    ctx.abortController = ctx.abortController || new AbortController();
     registerCtx(jobId, sessionId, ctx);
     poll(jobId, sessionId, ctx);
   }
@@ -580,14 +586,28 @@ const ChatJobs = (() => {
   function poll(jobId, sessionId, ctx) {
     if (ctx._pollActive) return;
     ctx._pollActive = true;
+    ctx._streamFailed = false;
     let since = ctx.since || 0;
     let finished = false;
+
+    const finishWith = async (status, payload) => {
+      finished = true;
+      if (!ctxCancelled(ctx)) {
+        await applyTerminalJobState(jobId, sessionId, ctx, status, payload || {});
+      } else {
+        clearCtxPoll(ctx);
+        contexts.delete(jobId);
+        deps.renderSessionList?.();
+      }
+    };
 
     const tick = async () => {
       if (finished || ctxCancelled(ctx)) return;
 
       try {
-        const { data } = await deps.api('GET', `/api/ai/chat/jobs/${encodeURIComponent(jobId)}?since=${since}`);
+        const { data } = await deps.api('GET', `/api/ai/chat/jobs/${encodeURIComponent(jobId)}?since=${since}`, undefined, {
+          signal: ctx.abortController?.signal,
+        });
         if (!data?.ok) {
           if (deps.SessionStore?.getActiveJobId(sessionId) === jobId) {
             deps.SessionStore?.clearActiveJobId(sessionId);
@@ -605,8 +625,7 @@ const ChatJobs = (() => {
           ctx.lastSeq = since;
           const result = await handleStreamEvent(ev, ctx);
           if (result === 'error') {
-            finished = true;
-            await applyTerminalJobState(jobId, sessionId, ctx, 'error', data);
+            await finishWith('error', data);
             return;
           }
           if (result === 'stop') break;
@@ -617,8 +636,7 @@ const ChatJobs = (() => {
         }
 
         if (['done', 'error', 'cancelled'].includes(data.status)) {
-          finished = true;
-          await applyTerminalJobState(jobId, sessionId, ctx, data.status, data);
+          await finishWith(data.status, data);
           return;
         }
 
@@ -629,6 +647,45 @@ const ChatJobs = (() => {
         }
       }
     };
+
+    // Try the live SSE stream first; fall back to polling on any failure.
+    if (typeof deps.postSseStream === 'function' && !ctx._streamFailed) {
+      const streamPromise = (async () => {
+        try {
+          await deps.postSseStream(
+            `/api/ai/chat/jobs/${encodeURIComponent(jobId)}/stream?since=${since}`,
+            undefined,
+            async (ev) => {
+              if (finished || ctxCancelled(ctx)) return;
+              if (ev.type === 'job_terminal') {
+                await finishWith(ev.status || 'done', { status: ev.status, error: ev.error });
+                return;
+              }
+              since = Math.max(since, ev._seq || since);
+              ctx.since = since;
+              ctx.lastSeq = since;
+              const result = await handleStreamEvent(ev, ctx);
+              if (result === 'error') {
+                await finishWith('error', { status: 'error' });
+              }
+            },
+          );
+          // Stream closed without a job_terminal frame: fall back to one final
+          // polling read so no event is missed before terminal state.
+          if (!finished && !ctxCancelled(ctx)) {
+            ctx._streamFailed = true;
+            tick();
+          }
+        } catch {
+          // Stream unavailable (older backend / network): fall back to polling.
+          ctx._streamFailed = true;
+          if (!finished && !ctxCancelled(ctx)) tick();
+        }
+      })();
+      ctx._streamPromise = streamPromise;
+      streamPromise.catch(() => {});
+      return;
+    }
 
     tick();
   }
@@ -699,7 +756,9 @@ const ChatJobs = (() => {
         compact: compact || undefined,
         verbose: !!debug.verbose,
         trace: !!debug.trace,
-        maxToolRounds: 'infinite',
+        // maxToolRounds intentionally omitted: the backend enforces a hard cap
+        // (server/deps.py resolve_max_tool_rounds -> 64). Sending 'infinite'
+        // here was misleading and could suggest an unbounded loop.
         ...queueExtras,
       };
       if (chatRoute) body.chatRoute = chatRoute;

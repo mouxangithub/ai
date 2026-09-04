@@ -12,7 +12,7 @@ import time
 from dataclasses import dataclass, field
 from enum import StrEnum
 from pathlib import Path
-from typing import Any
+from typing import Any, Iterable
 
 
 
@@ -49,6 +49,72 @@ class CancelCauseKind(StrEnum):
   PARENT = "parent"
   HOOK = "hook"
   DISPOSED = "disposed"
+
+
+# Version of the persisted JSONL format. Bumped only on wire-breaking changes;
+# loaders must keep accepting older versions (see _load_from_disk).
+SESSION_FORMAT_VERSION = (1, 0)
+SESSION_FORMAT_VERSION_STR = ".".join(str(p) for p in SESSION_FORMAT_VERSION)
+SESSION_HEADER_KEY = "formatVersion"
+SESSION_SCHEMA = "session/event-log"
+
+# Events that produce model-visible history and MUST carry a surface marker.
+# (baseline surface.ts eligibility rule).
+SURFACE_REQUIRED_EVENTS = frozenset({
+  EventType.USER_MESSAGE,
+  EventType.ASSISTANT_MESSAGE,
+  EventType.TOOL_RESULT,
+})
+
+
+class SurfaceValidationError(ValueError):
+  """Raised by the strict surface fold when an event violates the session protocol."""
+
+
+@dataclass(frozen=True)
+class SessionHeader:
+  """Session-level metadata recorded in the persisted log header (optional).
+
+  Mirrors the baseline SessionHeader fields. None keeps the field out of the
+  wire format so old logs that never wrote a header remain valid.
+  """
+
+  provider: str = ""
+  model: str = ""
+  cwd: str | None = None
+  parent_session: str | None = None
+  seed_length: int | None = None
+  origin: str | None = None
+  delegation_depth: int | None = None
+  agent_preset: str | None = None
+
+  def to_dict(self) -> dict[str, Any]:
+    out: dict[str, Any] = {"provider": self.provider, "model": self.model}
+    fields = {
+      "cwd": self.cwd,
+      "parentSession": self.parent_session,
+      "seedLength": self.seed_length,
+      "origin": self.origin,
+      "delegationDepth": self.delegation_depth,
+      "agentPreset": self.agent_preset,
+    }
+    for key, value in fields.items():
+      if value is not None:
+        out[key] = value
+    return out
+
+  @staticmethod
+  def from_dict(data: dict[str, Any]) -> SessionHeader:
+    return SessionHeader(
+      provider=str(data.get("provider", "")),
+      model=str(data.get("model", "")),
+      cwd=data.get("cwd"),
+      parent_session=data.get("parentSession"),
+      seed_length=data.get("seedLength"),
+      origin=data.get("origin"),
+      delegation_depth=data.get("delegationDepth"),
+      agent_preset=data.get("agentPreset"),
+    )
 
 
 @dataclass(frozen=True)
@@ -175,20 +241,32 @@ class SessionLog:
     *,
     persist_path: str | Path | None = None,
     load_persisted: bool = False,
+    strict: bool = False,
+    header: SessionHeader | None = None,
   ) -> None:
     self.session_id = session_id
+    self._strict = strict
     self._events: list[SessionEvent] = []
     self._surface: list[SurfaceNode] = []
     self._header: RequestHeader | None = None
     self._context: dict[str, Any] | None = None
     self._persist_path = Path(persist_path) if persist_path else None
     self._persist_file: Any = None
+    self._session_header = header
+    self.version: str | None = None  # parsed from disk header (None => legacy log)
     if load_persisted and self._persist_path is not None and self._persist_path.is_file():
       self._load_from_disk()
     if self._persist_path is not None:
       try:
         self._persist_path.parent.mkdir(parents=True, exist_ok=True)
         self._persist_file = open(self._persist_path, "a", encoding="utf-8")
+        if self._persist_file.tell() == 0:
+          # Fresh file: write the format version header once, before any event.
+          meta = self._session_header.to_dict() if self._session_header is not None else {}
+          self._persist_file.write(_format_header_line(meta) + "\n")
+          self._persist_file.flush()
+          if self.version is None:
+            self.version = SESSION_FORMAT_VERSION_STR
       except Exception:
         self._persist_file = None
     if seed:
@@ -228,6 +306,10 @@ class SessionLog:
       surface_op=surface_op,
       source_seqs=tuple(source_seqs) if source_seqs is not None else None,
     )
+    if self._strict:
+      validate_surface_event(event, next_seq=self.seq)
+      if event.surface_op == SurfaceOp.REPLACE:
+        _validate_replace_target(self._surface, event)
     self._events.append(event)
     if surface_op is not None:
       self._apply_surface(event)
@@ -250,24 +332,43 @@ class SessionLog:
   def _load_from_disk(self) -> None:
     if self._persist_path is None or not self._persist_path.is_file():
       return
-    try:
-      with open(self._persist_path, "r", encoding="utf-8") as f:
-        for line in f:
-          line = line.strip()
-          if not line:
-            continue
+    with open(self._persist_path, "r", encoding="utf-8") as f:
+      for line in f:
+        line = line.strip()
+        if not line:
+          continue
+        try:
           data = json.loads(line)
+        except json.JSONDecodeError as e:
+          if self._strict:
+            raise SurfaceValidationError(f"invalid JSONL line: {e}") from e
+          continue
+        if not isinstance(data, dict):
+          if self._strict:
+            raise SurfaceValidationError("expected a JSON object per line")
+          continue
+        # Version/header line: no "type" key, carries formatVersion.
+        if SESSION_HEADER_KEY in data and "type" not in data:
+          self.version = str(data.get(SESSION_HEADER_KEY))
+          if self._session_header is None:
+            self._session_header = SessionHeader.from_dict(
+              {k: v for k, v in data.items() if k not in (SESSION_HEADER_KEY, "schema")}
+            )
+          continue
+        try:
           ev_type = EventType(data.get("type", ""))
-          surface_op = data.get("surfaceOp")
-          source_seqs = data.get("sourceEventSeqs")
-          self.append(
-            ev_type,
-            data.get("data"),
-            surface_op=SurfaceOp(surface_op) if surface_op else None,
-            source_seqs=tuple(source_seqs) if isinstance(source_seqs, list) else None,
-          )
-    except Exception:
-      pass
+        except ValueError as e:
+          if self._strict:
+            raise SurfaceValidationError(f"unknown event type: {e}") from e
+          continue
+        surface_op = data.get("surfaceOp")
+        source_seqs = data.get("sourceEventSeqs")
+        self.append(
+          ev_type,
+          data.get("data"),
+          surface_op=SurfaceOp(surface_op) if surface_op else None,
+          source_seqs=tuple(source_seqs) if isinstance(source_seqs, list) else None,
+        )
 
   def close(self) -> None:
     if self._persist_file is not None:
@@ -281,16 +382,7 @@ class SessionLog:
     self.close()
 
   def _apply_surface(self, event: SessionEvent) -> None:
-    if event.surface_op == SurfaceOp.APPEND:
-      self._surface.append(SurfaceNode(seq=event.seq, event_type=event.type, data=event.data))
-    elif event.surface_op == SurfaceOp.REPLACE:
-      # Minimal replace support: caller is expected to provide range in data.
-      start = event.data.get("start") if isinstance(event.data, dict) else None
-      end = event.data.get("end") if isinstance(event.data, dict) else None
-      if isinstance(start, int) and isinstance(end, int):
-        self._surface[start:end + 1] = [SurfaceNode(seq=event.seq, event_type=event.type, data=event.data)]
-      else:
-        self._surface.append(SurfaceNode(seq=event.seq, event_type=event.type, data=event.data))
+    _fold_one(self._surface, event)
 
   def _fold_header(self, data: Any) -> None:
     header_data = data.get("header") if isinstance(data, dict) else data
@@ -305,6 +397,9 @@ class SessionLog:
 
   def request_context(self) -> dict[str, Any] | None:
     return copy.deepcopy(self._context) if self._context else None
+
+  def session_header(self) -> SessionHeader | None:
+    return copy.deepcopy(self._session_header)
 
   def derive_messages(self) -> list[dict[str, Any]]:
     """Derive OpenAI-style message history from the surface."""
@@ -352,6 +447,124 @@ def _project_tool_result(data: Any) -> dict[str, Any]:
       "content": data.get("content", ""),
     }
   return {"role": "tool", "tool_call_id": "", "content": str(data)}
+
+
+def _replace_target_indices(surface: list[SurfaceNode], event: SessionEvent) -> list[int]:
+  """Locate the surface slots a REPLACE event shadows.
+
+  Prefers provenance (source_event_seqs); falls back to the legacy start/end
+  data range so pre-existing logs keep replaying unchanged. Returns an empty
+  list when no contiguous target can be resolved.
+  """
+  if event.source_seqs:
+    target = {node.seq for node in surface}
+    wanted = set(event.source_seqs)
+    if wanted <= target:
+      indices = [i for i, node in enumerate(surface) if node.seq in wanted]
+      indices.sort()
+      if indices and indices == list(range(indices[0], indices[-1] + 1)):
+        return indices
+  if isinstance(event.data, dict):
+    start = event.data.get("start")
+    end = event.data.get("end")
+    if isinstance(start, int) and isinstance(end, int) and 0 <= start <= end < len(surface):
+      return list(range(start, end + 1))
+  return []
+
+
+def _validate_replace_target(surface: list[SurfaceNode], event: SessionEvent) -> None:
+  """Strict: a tool/result REPLACE must shadow a node with the same tool_call_id."""
+  indices = _replace_target_indices(surface, event)
+  if not indices:
+    raise SurfaceValidationError(
+      f"REPLACE {event.type.value} resolves no shadowed surface slot"
+    )
+  if event.type == EventType.TOOL_RESULT:
+    new_id = event.data.get("tool_call_id") if isinstance(event.data, dict) else None
+    for i in indices:
+      old_data = surface[i].data if isinstance(surface[i].data, dict) else {}
+      if old_data.get("tool_call_id") != new_id:
+        raise SurfaceValidationError(
+          "tool/result REPLACE may only change content, not the target tool_call_id"
+        )
+
+
+def _fold_one(surface: list[SurfaceNode], event: SessionEvent) -> None:
+  """Apply a single surface event. Legacy behavior: unresolved REPLACE appends."""
+  if event.surface_op == SurfaceOp.APPEND:
+    surface.append(SurfaceNode(seq=event.seq, event_type=event.type, data=event.data))
+    return
+  if event.surface_op == SurfaceOp.REPLACE:
+    indices = _replace_target_indices(surface, event)
+    if indices:
+      surface[indices[0]:indices[-1] + 1] = [
+        SurfaceNode(seq=event.seq, event_type=event.type, data=event.data)
+      ]
+    else:
+      surface.append(SurfaceNode(seq=event.seq, event_type=event.type, data=event.data))
+
+
+def _format_header_line(meta: dict[str, Any] | None = None) -> str:
+  """Serialize the JSONL format-version header line (distinct from event lines)."""
+  row: dict[str, Any] = {
+    SESSION_HEADER_KEY: SESSION_FORMAT_VERSION_STR,
+    "schema": SESSION_SCHEMA,
+  }
+  if meta:
+    row.update(meta)
+  return json.dumps(row, ensure_ascii=False, sort_keys=True)
+
+
+def validate_surface_event(event: SessionEvent, next_seq: int) -> None:
+  """Strict per-event structural surface validation (baseline surface.ts).
+
+  Rules enforced here are surface-independent:
+   - seq must be continuous (== next_seq).
+   - message-producing events must carry an explicit surface marker.
+   - REPLACE must reference shadowed seqs via sourceEventSeqs.
+
+  Replace target-aware checks (tool_call_id stability) are applied by
+  fold_surface via _validate_replace_target, which has the surface context.
+
+  Raises SurfaceValidationError on violation; otherwise returns None.
+  """
+  if event.seq != next_seq:
+    raise SurfaceValidationError(
+      f"surface seq discontinuity: expected {next_seq}, got {event.seq}"
+    )
+  if event.type in SURFACE_REQUIRED_EVENTS and event.surface_op is None:
+    raise SurfaceValidationError(
+      f"{event.type.value} must carry a surface marker (surface_op)"
+    )
+  if event.surface_op == SurfaceOp.REPLACE and not event.source_seqs:
+    raise SurfaceValidationError(
+      f"REPLACE {event.type.value} must reference shadowed seqs via sourceEventSeqs"
+    )
+
+
+def fold_surface(
+  events: Iterable[SessionEvent],
+  *,
+  surface: list[SurfaceNode] | None = None,
+  strict: bool = False,
+) -> list[SurfaceNode]:
+  """Fold events into a surface list.
+
+  strict=True validates every event (continuous seq, surface markers, replace
+  provenance, tool_call_id stability on tool/result REPLACE) and raises on any
+  violation. With strict=False the fold mirrors the legacy append-only behavior
+  so old logs keep loading unchanged.
+  """
+  result: list[SurfaceNode] = list(surface) if surface is not None else []
+  next_seq = 0
+  for event in events:
+    if strict:
+      validate_surface_event(event, next_seq)
+      if event.surface_op == SurfaceOp.REPLACE:
+        _validate_replace_target(result, event)
+    _fold_one(result, event)
+    next_seq += 1
+  return result
 
 
 @dataclass

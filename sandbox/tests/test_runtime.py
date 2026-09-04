@@ -7,6 +7,7 @@ import unittest
 
 from ai.sandbox.e2b_stub import Sandbox
 from ai.sandbox.python_runner import PythonRunner
+from ai.sandbox.runtime import SandboxPolicyService
 from ai.sandbox.shell_runner import ShellRunner
 
 
@@ -62,6 +63,16 @@ class TestShellRunner(unittest.IsolatedAsyncioTestCase):
     result = await self.runner.run_shell("python -c \"import time; time.sleep(10)\"", timeout=1)
     self.assertFalse(result.ok)
     self.assertEqual(result.error_kind, "timeout")
+
+  async def test_session_policy_containment_and_readonly(self) -> None:
+    service = SandboxPolicyService(workspace_root=self.tmp.name)
+    policy = service.resolve(session_id="session-1", cwd="../outside")
+    self.assertEqual(policy.session_id, "session-1")
+    self.assertEqual(policy.containment_root, service.workspace_root)
+    self.assertEqual(policy.mode, "read-only")
+    result = await self.runner.run_shell("echo hi > created.txt", policy=policy)
+    self.assertFalse(result.ok)
+    self.assertEqual(result.error_kind, "blocked")
 
 
 class TestE2BStub(unittest.IsolatedAsyncioTestCase):

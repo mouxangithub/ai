@@ -161,9 +161,13 @@ async def _smoke(params: Any, get_state_reader: Any, get_tool_handlers: Any) -> 
 def main(argv: list[str] | None = None) -> int:
   parser = argparse.ArgumentParser(prog="acp", description="AI ACP stdio server")
   parser.add_argument("--smoke", action="store_true", help="run keyless self-test and exit")
+  parser.add_argument("--pc", action="store_true", help="install openpilot PC mocks (dev boxes without AGNOS)")
   args = parser.parse_args(argv)
 
   try:
+    if args.pc:
+      from ai.dev.run_pc import _install_openpilot_mocks
+      _install_openpilot_mocks()
     from openpilot.common.params import Params
     params = Params()
     from ai.server.deps import get_state_reader, get_tool_handlers

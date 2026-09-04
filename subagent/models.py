@@ -23,6 +23,7 @@ class SubagentTask:
   parent_id: str | None = None
   status: SubagentStatus = "pending"
   result_summary: str = ""
+  provider: str = "in-process"
   metadata: dict[str, Any] = field(default_factory=dict)
 
   def to_dict(self) -> dict[str, Any]:
@@ -38,6 +39,7 @@ class SubagentTask:
       "parentId": self.parent_id,
       "status": self.status,
       "resultSummary": self.result_summary,
+      "provider": self.provider,
       "metadata": dict(self.metadata),
     }
     if self.output_schema is not None:
@@ -59,6 +61,7 @@ class SubagentTask:
       parent_id=data.get("parentId") or data.get("parent_id") or None,
       status=str(data.get("status", "pending")),
       result_summary=str(data.get("resultSummary") or data.get("result_summary", "")),
+      provider=str(data.get("provider", "in-process") or "in-process"),
       metadata=dict(data.get("metadata") or {}),
     )
 

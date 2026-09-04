@@ -28,7 +28,8 @@ async def api_skill_registry(request: web.Request) -> web.Response:
         if hasattr(e, "to_dict"):
           return json_response(e.to_dict(), status=404)
         return json_response({"ok": False, "error": str(e)}, status=404)
-    return json_response({"ok": True, "skills": [s.to_dict() for s in registry.list_skills()]})
+    from ai.skills.unified import list_unified_skills
+    return json_response({"ok": True, "skills": list_unified_skills()})
 
   try:
     body = await request.json()

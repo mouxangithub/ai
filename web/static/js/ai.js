@@ -152,6 +152,7 @@ function initChatJobs() {
     savePartialAssistant,
     renderStoredMessages,
     formatApiError,
+    postSseStream,
     showToast,
     reconcileStreamUi,
     handleAgentStreamEvent,
@@ -1955,6 +1956,17 @@ function updateModelBadgeFromSaved() {
 }
 
 function formatApiError(raw) {
+  // Structured tool/API errors (error_code/retryable/details) keep their
+  // machine-readable classification; plain strings keep previous behavior.
+  if (raw && typeof raw === 'object' && !Array.isArray(raw)) {
+    const code = raw.error_code || raw.code;
+    const msg = String(raw.error || raw.message || '').trim();
+    const retry = raw.retryable ? t('retryableHint', '（可重试）') : '';
+    if (code) {
+      return `${msg}\n[${code}]${retry}`.trim();
+    }
+    return formatApiError(msg);
+  }
   const text = String(raw || '').trim();
   if (!text) return t('chatErrorGeneric', '请求失败，请稍后重试。');
   if (/Server got itself in trouble|500 Internal Server Error/i.test(text)) {

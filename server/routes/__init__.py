@@ -39,6 +39,7 @@ def register_routes(app: web.Application, *, json_response) -> None:
   app.router.add_post("/api/ai/chat/jobs", h.api_chat_jobs)
   app.router.add_get("/api/ai/chat/jobs/{job_id}", h.api_chat_job_detail)
   app.router.add_delete("/api/ai/chat/jobs/{job_id}", h.api_chat_job_detail)
+  app.router.add_get("/api/ai/chat/jobs/{job_id}/stream", h.api_chat_job_stream)
   app.router.add_post("/api/ai/shell", h.api_shell)
   app.router.add_get("/api/ai/state", h.api_state)
   app.router.add_get("/api/ai/usage", h.api_usage)

@@ -162,6 +162,60 @@ async def run_command(command_name: str) -> dict[str, Any]:
     return {"ok": False, "error": str(e), "stdout": "", "stderr": ""}
 
 
+def run_command_sync(command_name: str) -> dict[str, Any]:
+  """Synchronous variant of :func:`run_command` for use inside sync call paths.
+
+  Uses :mod:`subprocess` directly (no running event loop required), so tools
+  that build on top of it (e.g. ``grep_log``) do not accidentally receive a
+  coroutine object from ``async def run_command``.
+  """
+  import subprocess
+
+  allowed = ALLOWED_COMMANDS.get(command_name)
+  if allowed is None:
+    return {
+      "ok": False,
+      "error": f"Command '{command_name}' is not in the allowed whitelist.",
+      "stdout": "",
+      "stderr": "",
+    }
+
+  cmd_args = _resolve_args(command_name, allowed.args)
+
+  try:
+    if allowed.name == "dmesg_tail":
+      completed = subprocess.run(
+        " ".join(shlex.quote(a) for a in cmd_args),
+        capture_output=True,
+        text=True,
+        timeout=allowed.timeout,
+        shell=True,
+      )
+    else:
+      completed = subprocess.run(
+        list(cmd_args),
+        capture_output=True,
+        text=True,
+        timeout=allowed.timeout,
+      )
+
+    stdout_lines = (completed.stdout or "").splitlines()
+    if len(stdout_lines) > allowed.max_output_lines:
+      stdout_lines = stdout_lines[:allowed.max_output_lines]
+      stdout_lines.append("... (truncated)")
+
+    return {
+      "ok": completed.returncode == 0,
+      "returncode": completed.returncode,
+      "stdout": "\n".join(stdout_lines),
+      "stderr": (completed.stderr or "").strip(),
+    }
+  except subprocess.TimeoutExpired:
+    return {"ok": False, "error": "Command timed out.", "stdout": "", "stderr": ""}
+  except Exception as e:
+    return {"ok": False, "error": str(e), "stdout": "", "stderr": ""}
+
+
 async def run_shell_command(
   command: str,
   *,

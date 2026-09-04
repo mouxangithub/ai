@@ -277,4 +277,30 @@ async def run_chat_loop(
     concurrent_tools=True,
     session_log_path=session_log_path,
   )
-  return await agent.run()
+
+  # Unified lifecycle bookkeeping (AgentFactory/Registry alignment).
+  from ai.core.agent.registry import agent_registry
+  job_id = str(body.get("_job_id") or body.get("jobId") or "").strip()
+
+  async def _cancel() -> bool:
+    try:
+      agent.cancel()
+      return True
+    except Exception:
+      return False
+
+  entry = agent_registry.resume(
+    session_id,
+    agent_id,
+    job_id=job_id,
+    meta={"mode": str(body.get("mode") or body.get("chatMode") or "")},
+    cancel_fn=_cancel,
+  )
+  try:
+    return await agent.run()
+  finally:
+    status = "done"
+    if getattr(agent, "state", None) is not None and agent.state.is_cancelled():
+      status = "cancelled"
+    elif entry is not None:
+      agent_registry.mark_done(session_id, status)

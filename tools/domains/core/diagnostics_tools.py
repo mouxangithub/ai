@@ -49,12 +49,12 @@ def _read_device_log(params: Params, *, lines: int = 80) -> tuple[str, str]:
   text = raw.decode(errors="replace") if isinstance(raw, bytes) else str(raw or "")
   if text.strip():
     return text, "dp_dev_last_log"
-  from ai.system.shell import run_command
-  tail = run_command("tail_params_log")
+  from ai.system.shell import run_command_sync
+  tail = run_command_sync("tail_params_log")
   shell_text = (tail.get("stdout") or "").strip()
   if shell_text:
     return shell_text, "/data/log/latest.log"
-  err_tail = run_command("grep_log_errors")
+  err_tail = run_command_sync("grep_log_errors")
   err_text = (err_tail.get("stdout") or "").strip()
   if err_text and err_text != "(no matches)":
     return err_text, "grep_log_errors"

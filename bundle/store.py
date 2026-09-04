@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import shutil
 from pathlib import Path
 from typing import Any
 
@@ -80,11 +81,38 @@ class BundleStore:
     *,
     clean: bool = False,
   ) -> BundleManifest:
-    """Install a stored bundle into ``install_dir``."""
+    """Install a stored bundle into ``install_dir``.
+
+    Validates capability conflicts against other bundles already in the store
+    (capabilities are declared via manifest.extra.capabilities). A conflict
+    raises BundleInstallError before anything is written.
+    """
     path = self._bundle_path(bundle_id)
     if not path.is_file():
       raise BundleInstallError(f"Bundle not found in store: {bundle_id}")
+
+    target, _ = self.loader.load(path)
+    conflicts = self._capability_conflicts(bundle_id, target)
+    if conflicts:
+      shutil.rmtree(Path(path).with_suffix(""), ignore_errors=True)
+      raise BundleInstallError(
+        f"Bundle '{bundle_id}' capability conflict with existing bundle(s): {', '.join(sorted(conflicts))}"
+      )
     return self.loader.install(path, install_dir, clean=clean)
+
+  def _capability_conflicts(self, bundle_id: str, target: BundleManifest) -> set[str]:
+    """Return capability names claimed by both ``target`` and an existing bundle."""
+    target_caps = target.capabilities()
+    if not target_caps:
+      return set()
+    conflicts: set[str] = set()
+    for existing in self.list_bundles():
+      if existing.id == bundle_id:
+        continue
+      overlap = target_caps & existing.capabilities()
+      if overlap:
+        conflicts |= overlap
+    return conflicts
 
   def to_summary(self) -> dict[str, Any]:
     return {

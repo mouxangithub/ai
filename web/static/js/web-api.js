@@ -13,15 +13,32 @@ const WebApi = (() => {
   }
 
   async function api(method, path, body, opts = {}) {
-    const ac = opts.timeoutMs ? new AbortController() : null;
+    // opts.signal: external AbortSignal for immediate cancellation (user Stop).
+    // opts.timeoutMs: internal abort after N ms. Either or both may be given.
+    const internalAc = opts.timeoutMs ? new AbortController() : null;
     let timer;
+    let signal = opts.signal || null;
+    if (internalAc) {
+      if (signal) {
+        const outer = signal;
+        signal = null; // combined below
+        const combined = new AbortController();
+        const onAbort = () => combined.abort();
+        outer.addEventListener('abort', onAbort, { once: true });
+        internalAc.signal.addEventListener('abort', onAbort, { once: true });
+        if (outer.aborted || internalAc.signal.aborted) combined.abort();
+        signal = combined.signal;
+      } else {
+        signal = internalAc.signal;
+      }
+    }
     const fetchOpts = { method, headers: getApiHeaders() };
-    if (ac) fetchOpts.signal = ac.signal;
+    if (signal) fetchOpts.signal = signal;
     if (body) {
       fetchOpts.headers['Content-Type'] = 'application/json';
       fetchOpts.body = JSON.stringify(body);
     }
-    if (ac) timer = setTimeout(() => ac.abort(), opts.timeoutMs);
+    if (internalAc) timer = setTimeout(() => internalAc.abort(), opts.timeoutMs);
     try {
       const res = await fetch(path, fetchOpts);
       const text = await res.text();
@@ -30,7 +47,7 @@ const WebApi = (() => {
       return { status: res.status, data };
     } catch (e) {
       if (e?.name === 'AbortError') {
-        return { status: 0, data: { ok: false, error: 'request timeout' } };
+        return { status: 0, data: { ok: false, error: opts.signal?.aborted ? 'request cancelled' : 'request timeout' } };
       }
       throw e;
     } finally {
