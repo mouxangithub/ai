@@ -85,7 +85,7 @@ class ShellRunner(SandboxRuntime):
 
   def readonly_violation(self, command: str) -> str | None:
     """Return a refusal reason if ``command`` mutates under read-only policy."""
-    if self._READONLY_MUTATION.search(command):
+    if self._READONLY_MUTATION.search(command) or re.search(r"(?:^|\s)(?:>>|>)(?:\s|\S)", command):
       return "Read-only sandbox: command would mutate the filesystem"
     return None
 
